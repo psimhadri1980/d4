@@ -1,0 +1,26 @@
+{
+  "name": "d4",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "infra:up": "docker compose -f deploy/docker-compose.yml up -d",
+    "infra:down": "docker compose -f deploy/docker-compose.yml down",
+    "db:schema": "pnpm --filter @d4/api run db:schema"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "eslint": "^9.9.0",
+    "prettier": "^3.3.3",
+    "turbo": "^2.1.0",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.4.0",
+    "vitest": "^2.0.5"
+  }
+}

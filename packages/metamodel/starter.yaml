@@ -1,0 +1,451 @@
+# D4 starter metamodel. Tenants copy and extend this; it is versioned like code.
+id: d4-starter
+version: 0.1.0
+description: Default enterprise design-to-delivery metamodel.
+
+layers: [Strategy, Organisation, Business, Data, Application, Technology, Governance, Design, Planning, System]
+
+enums:
+  Lifecycle: [IDEA, PROPOSED, DECIDED, PLANNED, IN_DEVELOPMENT, LIVE, DEPRECATED, RETIRED]
+  DataStoreRole: [MASTER, GOLDEN_COPY, APPROVED_DISTRIBUTOR, REPLICA, CONSUMER_CACHE]
+  DataOperation: [CREATE, READ, UPDATE, INACTIVATE, DELETE]
+  DataStoreCategory: [OPERATIONAL, ANALYTICAL, ARCHIVE, STREAMING]
+  DataProductType: [SOURCE_ALIGNED, AGGREGATE, CONSUMER_ALIGNED]
+  Classification: [PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED]
+  PiiType: [NONE, DIRECT, INDIRECT, SENSITIVE]
+  FeedMode: [BATCH, STREAM, API, FILE]
+  Criticality: [LOW, MEDIUM, HIGH, MISSION_CRITICAL]
+  Hosting: [ON_PREM, IAAS, PAAS, SAAS]
+  TimeClass: [TOLERATE, INVEST, MIGRATE, ELIMINATE]
+  ActorKind: [ROLE, PERSON, SYSTEM, EXTERNAL]
+  AutomationLevel: [MANUAL, SEMI_AUTOMATED, AUTOMATED]
+  TeamType: [STREAM_ALIGNED, PLATFORM, ENABLING, COMPLICATED_SUBSYSTEM]
+  EnvironmentType: [DEV, TEST, UAT, PROD, DR]
+  RadarStatus: [ADOPT, TRIAL, ASSESS, HOLD]
+  Severity: [LOW, MEDIUM, HIGH, CRITICAL]
+  Rating: [LOW, MEDIUM, HIGH, VERY_HIGH]
+  DecisionStatus: [PROPOSED, ACCEPTED, REJECTED, SUPERSEDED]
+  MoSCoW: [MUST, SHOULD, COULD, WONT]
+  DeliveryStatus: [NOT_STARTED, IN_PROGRESS, BLOCKED, DONE, CANCELLED]
+  ChangeAction: [INTRODUCE, MODIFY, RETIRE]
+  DependencyType: [FINISH_START, START_START, FINISH_FINISH, START_FINISH]
+  Raci: [RESPONSIBLE, ACCOUNTABLE, CONSULTED, INFORMED]
+  InterfaceStyle: [REST, GRAPHQL, GRPC, EVENT, FILE, DB_LINK, OTHER]
+
+commonAttributes:
+  - { name: name, type: string, required: true }
+  - { name: description, type: text }
+  - { name: lifecycle, type: enum, enum: Lifecycle }
+  - { name: ownerId, type: string }
+  - { name: tags, type: 'string[]' }
+  - { name: validFrom, type: date }
+  - { name: validTo, type: date }
+  - { name: externalKey, type: string, description: Identifier in a source system (CMDB, catalog, Jira) }
+
+nodeTypes:
+  # ── Strategy ──────────────────────────────────────────────────────────
+  - { name: Vision, layer: Strategy, attributes: [{ name: horizon, type: string }] }
+  - { name: Goal, layer: Strategy, attributes: [{ name: targetDate, type: date }] }
+  - { name: Objective, layer: Strategy }
+  - name: KeyResult
+    layer: Strategy
+    attributes:
+      - { name: metric, type: string }
+      - { name: baseline, type: number }
+      - { name: target, type: number }
+  - { name: Driver, layer: Strategy }
+  - { name: Principle, layer: Strategy, attributes: [{ name: rationale, type: text }] }
+  - { name: Outcome, layer: Strategy, attributes: [{ name: valueEstimate, type: number }] }
+  - name: KPI
+    layer: Strategy
+    attributes:
+      - { name: unit, type: string }
+      - { name: formula, type: text }
+      - { name: frequency, type: string }
+  - { name: ValueStream, layer: Strategy }
+  - { name: ValueStreamStage, layer: Strategy, attributes: [{ name: seq, type: integer }] }
+  - { name: Product, layer: Strategy, description: Business product or offering }
+  - { name: BusinessService, layer: Strategy }
+  - { name: CustomerSegment, layer: Strategy }
+  - { name: Market, layer: Strategy, attributes: [{ name: region, type: string }] }
+
+  # ── Organisation ──────────────────────────────────────────────────────
+  - name: LegalEntity
+    layer: Organisation
+    attributes:
+      - { name: jurisdiction, type: string }
+      - { name: lei, type: string }
+  - { name: OrgUnit, layer: Organisation, attributes: [{ name: costCenter, type: string }] }
+  - { name: Division, layer: Organisation, extends: OrgUnit }
+  - { name: BusinessUnit, layer: Organisation, extends: OrgUnit }
+  - { name: Department, layer: Organisation, extends: OrgUnit }
+  - { name: Team, layer: Organisation, attributes: [{ name: teamType, type: enum, enum: TeamType }] }
+  - { name: Actor, layer: Organisation, attributes: [{ name: actorKind, type: enum, enum: ActorKind }] }
+  - { name: Role, layer: Organisation, description: e.g. Data Owner, Data Steward, Process Owner }
+  - { name: Person, layer: Organisation, attributes: [{ name: emailRef, type: string }] }
+  - name: Location
+    layer: Organisation
+    attributes:
+      - { name: country, type: string }
+      - { name: dataResidencyZone, type: string }
+  - name: Vendor
+    layer: Organisation
+    attributes: [{ name: riskTier, type: enum, enum: Rating }]
+  - { name: Partner, layer: Organisation }
+  - name: Contract
+    layer: Organisation
+    attributes:
+      - { name: startDate, type: date }
+      - { name: endDate, type: date }
+      - { name: annualCost, type: number }
+
+  # ── Business ──────────────────────────────────────────────────────────
+  - name: Capability
+    layer: Business
+    attributes:
+      - { name: level, type: integer }
+      - { name: maturity, type: integer }
+      - { name: strategicImportance, type: enum, enum: Rating }
+  - { name: BusinessFunction, layer: Business }
+  - name: BusinessProcess
+    layer: Business
+    attributes:
+      - { name: processLevel, type: integer }
+      - { name: frequency, type: string }
+      - { name: bpmnRef, type: url }
+  - { name: SubProcess, layer: Business, extends: BusinessProcess }
+  - name: ProcessStep
+    layer: Business
+    attributes:
+      - { name: seq, type: integer }
+      - { name: automationLevel, type: enum, enum: AutomationLevel }
+  - { name: BusinessEvent, layer: Business }
+  - { name: BusinessRule, layer: Business, attributes: [{ name: dmnRef, type: url }] }
+  - { name: BusinessObject, layer: Business, description: Conceptual concept such as Customer or Trade }
+  - { name: Channel, layer: Business }
+  - { name: UseCase, layer: Business, attributes: [{ name: persona, type: string }] }
+  - { name: UserJourney, layer: Business, attributes: [{ name: persona, type: string }] }
+
+  # ── Data ──────────────────────────────────────────────────────────────
+  - { name: DataDomain, layer: Data }
+  - { name: SubDomain, layer: Data, extends: DataDomain }
+  - name: DataProduct
+    layer: Data
+    attributes:
+      - { name: productType, type: enum, enum: DataProductType }
+      - { name: sla, type: string }
+      - { name: qualityScore, type: number }
+      - { name: classification, type: enum, enum: Classification }
+  - name: DataContract
+    layer: Data
+    attributes:
+      - { name: schemaRef, type: url }
+      - { name: contractVersion, type: string }
+      - { name: freshness, type: string }
+  - { name: DataSet, layer: Data, attributes: [{ name: format, type: string }, { name: rowCount, type: integer }] }
+  - { name: Table, layer: Data, extends: DataSet }
+  - { name: Topic, layer: Data, extends: DataSet }
+  - { name: File, layer: Data, extends: DataSet }
+  - { name: ApiResource, layer: Data, extends: DataSet }
+  - { name: DataEntity, layer: Data, attributes: [{ name: keyAttributes, type: 'string[]' }] }
+  - name: DataAttribute
+    layer: Data
+    attributes:
+      - { name: dataType, type: string }
+      - { name: piiType, type: enum, enum: PiiType }
+  - { name: CriticalDataElement, layer: Data, extends: DataAttribute }
+  - { name: ReferenceData, layer: Data }
+  - { name: CodeSet, layer: Data, extends: ReferenceData }
+  - name: DataStore
+    layer: Data
+    attributes:
+      - { name: category, type: enum, enum: DataStoreCategory }
+      - { name: technology, type: string }
+  - { name: DataClassification, layer: Data }
+  - { name: DataQualityRule, layer: Data, attributes: [{ name: dimension, type: string }, { name: threshold, type: number }] }
+  - { name: DataQualityMetric, layer: Data, attributes: [{ name: value, type: number }] }
+  - { name: Pipeline, layer: Data, attributes: [{ name: schedule, type: string }, { name: tool, type: string }] }
+  - { name: Report, layer: Data, attributes: [{ name: tool, type: string }, { name: audience, type: string }] }
+  - { name: Dashboard, layer: Data, extends: Report }
+  - { name: MLModel, layer: Data }
+  - { name: GlossaryTerm, layer: Data, attributes: [{ name: definition, type: text }] }
+
+  # ── Application ───────────────────────────────────────────────────────
+  - name: Application
+    layer: Application
+    attributes:
+      - { name: appId, type: string }
+      - { name: criticality, type: enum, enum: Criticality }
+      - { name: hosting, type: enum, enum: Hosting }
+      - { name: timeClass, type: enum, enum: TimeClass }
+  - { name: ApplicationComponent, layer: Application }
+  - { name: Microservice, layer: Application, extends: ApplicationComponent }
+  - { name: ApplicationService, layer: Application }
+  - name: Interface
+    layer: Application
+    attributes:
+      - { name: style, type: enum, enum: InterfaceStyle }
+      - { name: interfaceVersion, type: string }
+  - { name: Api, layer: Application, extends: Interface }
+  - { name: EventType, layer: Application, description: Event or message schema }
+  - { name: Integration, layer: Application, attributes: [{ name: pattern, type: string }] }
+  - name: SoftwareProduct
+    layer: Application
+    attributes:
+      - { name: productVersion, type: string }
+      - { name: eolDate, type: date }
+
+  # ── Technology ────────────────────────────────────────────────────────
+  - { name: Platform, layer: Technology, attributes: [{ name: platformType, type: string }] }
+  - { name: PlatformService, layer: Technology }
+  - name: Environment
+    layer: Technology
+    attributes:
+      - { name: environmentType, type: enum, enum: EnvironmentType }
+      - { name: region, type: string }
+  - { name: InfrastructureNode, layer: Technology, attributes: [{ name: provider, type: string }] }
+  - { name: Cluster, layer: Technology, extends: InfrastructureNode }
+  - { name: Server, layer: Technology, extends: InfrastructureNode }
+  - { name: CloudAccount, layer: Technology, attributes: [{ name: provider, type: string }] }
+  - { name: NetworkZone, layer: Technology }
+  - { name: TechnologyStandard, layer: Technology, attributes: [{ name: radarStatus, type: enum, enum: RadarStatus }] }
+
+  # ── Governance ────────────────────────────────────────────────────────
+  - { name: Policy, layer: Governance, attributes: [{ name: policyVersion, type: string }] }
+  - { name: Standard, layer: Governance, extends: Policy }
+  - { name: Regulation, layer: Governance }
+  - { name: RegulatoryRequirement, layer: Governance }
+  - name: Control
+    layer: Governance
+    attributes:
+      - { name: controlType, type: string }
+      - { name: effectiveness, type: enum, enum: Rating }
+  - name: Risk
+    layer: Governance
+    attributes:
+      - { name: likelihood, type: enum, enum: Rating }
+      - { name: impact, type: enum, enum: Rating }
+  - name: Issue
+    layer: Governance
+    attributes:
+      - { name: severity, type: enum, enum: Severity }
+      - { name: dueDate, type: date }
+  - { name: Finding, layer: Governance, extends: Issue }
+  - { name: Exception, layer: Governance, attributes: [{ name: expiry, type: date }] }
+  - { name: Waiver, layer: Governance, extends: Exception }
+  - name: Decision
+    layer: Governance
+    attributes:
+      - { name: status, type: enum, enum: DecisionStatus }
+      - { name: context, type: text }
+      - { name: consequences, type: text }
+      - { name: decidedOn, type: date }
+  - { name: Assumption, layer: Governance }
+  - { name: Constraint, layer: Governance }
+
+  # ── Design ────────────────────────────────────────────────────────────
+  - { name: DesignElement, layer: Design, attributes: [{ name: designKind, type: string }] }
+  - name: Requirement
+    layer: Design
+    attributes:
+      - { name: priority, type: enum, enum: MoSCoW }
+      - { name: acceptanceCriteria, type: text }
+  - { name: BacklogItem, layer: Design }
+  - { name: Epic, layer: Design, extends: BacklogItem }
+  - { name: Feature, layer: Design, extends: BacklogItem }
+  - { name: UserStory, layer: Design, extends: BacklogItem }
+  - { name: ArchitectureView, layer: Design, attributes: [{ name: queryRef, type: string }] }
+  - { name: Pattern, layer: Design }
+  - { name: ReferenceArchitecture, layer: Design }
+  - { name: Option, layer: Design, description: Alternative evaluated within a Decision }
+
+  # ── Planning ──────────────────────────────────────────────────────────
+  - { name: Portfolio, layer: Planning, attributes: [{ name: budget, type: number }] }
+  - { name: Program, layer: Planning, attributes: [{ name: budget, type: number }] }
+  - name: Initiative
+    layer: Planning
+    attributes:
+      - { name: startDate, type: date }
+      - { name: endDate, type: date }
+      - { name: status, type: enum, enum: DeliveryStatus }
+      - { name: budget, type: number }
+      - { name: sponsor, type: string }
+  - { name: Project, layer: Planning, extends: Initiative }
+  - name: Deliverable
+    layer: Planning
+    attributes:
+      - { name: plannedStart, type: date }
+      - { name: plannedEnd, type: date }
+      - { name: actualEnd, type: date }
+      - { name: status, type: enum, enum: DeliveryStatus }
+      - { name: effortDays, type: number }
+  - { name: WorkPackage, layer: Planning, extends: Deliverable }
+  - { name: Milestone, layer: Planning, attributes: [{ name: date, type: date }] }
+  - { name: Gate, layer: Planning, extends: Milestone }
+  - { name: Release, layer: Planning, attributes: [{ name: date, type: date }] }
+  - { name: Sprint, layer: Planning, extends: Release }
+  - { name: Plateau, layer: Planning, attributes: [{ name: asOf, type: date }] }
+  - { name: Scenario, layer: Planning, attributes: [{ name: baseScenario, type: string }] }
+  - { name: Resource, layer: Planning, attributes: [{ name: fte, type: number }, { name: period, type: string }] }
+  - { name: Cost, layer: Planning, attributes: [{ name: amount, type: number }, { name: currency, type: string }] }
+  - { name: Benefit, layer: Planning, attributes: [{ name: amount, type: number }, { name: currency, type: string }] }
+
+  # ── System (internal) ─────────────────────────────────────────────────
+  - { name: Tag, layer: System, internal: true }
+  - { name: Snapshot, layer: System, internal: true, attributes: [{ name: takenAt, type: datetime }] }
+
+relationshipTypes:
+  # Generic
+  - { name: PART_OF, from: ['*'], to: ['*'], description: Composition / containment }
+  - { name: RELATED_TO, from: ['*'], to: ['*'] }
+  - name: PARENT_OF
+    from: [Capability, OrgUnit, DataDomain, BusinessProcess, BacklogItem, ValueStream, Tag]
+    to: [Capability, OrgUnit, DataDomain, BusinessProcess, BacklogItem, ValueStreamStage, Tag]
+
+  # Strategy
+  - { name: MOTIVATES, from: [Driver], to: [Goal, Objective] }
+  - { name: REALIZED_BY, from: [Vision, Goal, Objective, Outcome], to: [Initiative, Capability, Objective, KeyResult] }
+  - { name: MEASURES, from: [KPI, KeyResult], to: [Goal, Objective, Capability, DataProduct, BusinessProcess] }
+  - { name: CONSTRAINS, from: [Principle, Constraint, Policy, TechnologyStandard], to: ['*'] }
+  - { name: ENABLED_BY, from: [ValueStreamStage, Product, BusinessService], to: [Capability] }
+  - { name: SERVES, from: [Product, BusinessService, Channel], to: [CustomerSegment, Market] }
+
+  # Organisation
+  - { name: HAS_UNIT, from: [LegalEntity], to: [OrgUnit] }
+  - name: OWNS
+    from: [OrgUnit, Team, Person]
+    to: [DataProduct, DataDomain, Application, Platform, BusinessProcess, Capability, DataStore, Initiative]
+  - { name: MEMBER_OF, from: [Person], to: [Team, OrgUnit] }
+  - { name: PLAYS, from: [Person, Team], to: [Role, Actor] }
+  - name: ACCOUNTABLE_FOR
+    from: [Role, Person, Team]
+    to: ['*']
+    attributes: [{ name: raci, type: enum, enum: Raci, required: true }]
+  - { name: LOCATED_AT, from: [OrgUnit, Team, DataStore, InfrastructureNode, Environment], to: [Location] }
+  - { name: SUPPLIES, from: [Vendor, Partner], to: [SoftwareProduct, Platform, Application, PlatformService] }
+  - { name: GOVERNED_BY_CONTRACT, from: [Vendor, Partner, Application, Platform], to: [Contract] }
+
+  # Business
+  - { name: SUPPORTS, from: [BusinessProcess, BusinessFunction], to: [Capability] }
+  - { name: HAS_STEP, from: [BusinessProcess], to: [ProcessStep], attributes: [{ name: seq, type: integer }] }
+  - { name: NEXT, from: [ProcessStep], to: [ProcessStep], attributes: [{ name: condition, type: string }] }
+  - { name: PERFORMED_BY, from: [ProcessStep, BusinessProcess], to: [Actor, Role, Team] }
+  - { name: TRIGGERED_BY, from: [BusinessProcess, ProcessStep], to: [BusinessEvent] }
+  - { name: PRODUCES_EVENT, from: [BusinessProcess, ProcessStep], to: [BusinessEvent] }
+  - { name: APPLIES, from: [ProcessStep], to: [BusinessRule] }
+  - { name: VIA_CHANNEL, from: [ProcessStep, UserJourney], to: [Channel] }
+  - name: ACTS_ON
+    from: [ProcessStep]
+    to: [DataProduct, BusinessObject]
+    attributes: [{ name: op, type: enum, enum: DataOperation, required: true }]
+  - { name: INCLUDES_STEP, from: [UseCase, UserJourney], to: [ProcessStep] }
+
+  # Data
+  - { name: IN_DOMAIN, from: [DataProduct, DataEntity, GlossaryTerm], to: [DataDomain] }
+  - { name: DERIVED_FROM, from: [DataProduct, DataSet], to: [DataProduct, DataSet] }
+  - { name: EXPOSES, from: [DataProduct], to: [DataContract] }
+  - { name: DESCRIBES, from: [DataContract], to: [DataSet] }
+  - { name: REPRESENTS, from: [DataProduct, DataEntity], to: [BusinessObject, DataEntity] }
+  - { name: HAS_ATTRIBUTE, from: [DataEntity, DataSet], to: [DataAttribute] }
+  - { name: CLASSIFIED_AS, from: [DataAttribute, DataProduct, DataSet], to: [DataClassification] }
+  - { name: DEFINES, from: [GlossaryTerm], to: [DataEntity, DataAttribute, BusinessObject] }
+  - { name: USES_REFERENCE, from: [DataAttribute], to: [ReferenceData] }
+  - name: HOLDS
+    from: [DataStore]
+    to: [DataProduct]
+    attributes: [{ name: role, type: enum, enum: DataStoreRole, required: true }]
+  - { name: STORED_IN, from: [DataSet], to: [DataStore] }
+  - name: FEEDS
+    from: [DataStore, Pipeline]
+    to: [DataStore, Pipeline]
+    attributes: [{ name: mode, type: enum, enum: FeedMode }]
+  - { name: READS, from: [Pipeline], to: [DataSet, DataStore] }
+  - { name: WRITES, from: [Pipeline], to: [DataSet, DataStore] }
+  - { name: CONSUMES, from: [Report, MLModel, Application], to: [DataProduct, DataSet] }
+  - { name: CHECKED_BY, from: [DataProduct, DataSet, DataAttribute], to: [DataQualityRule] }
+  - { name: RESULT_OF, from: [DataQualityMetric], to: [DataQualityRule] }
+
+  # Application
+  - { name: REALIZES, from: [Application, ApplicationService, PlatformService], to: [Capability, BusinessService] }
+  - { name: HAS_COMPONENT, from: [Application], to: [ApplicationComponent] }
+  - { name: PROVIDES, from: [Application, ApplicationComponent], to: [ApplicationService, Interface, EventType] }
+  - name: USES
+    from: [Application, ApplicationComponent]
+    to: [DataStore, Interface, PlatformService]
+    attributes: [{ name: op, type: enum, enum: DataOperation }]
+  - name: INTEGRATES_WITH
+    from: [Application]
+    to: [Application]
+    attributes: [{ name: style, type: enum, enum: InterfaceStyle }]
+  - { name: VIA_INTEGRATION, from: [Application], to: [Integration] }
+  - { name: SUPPORTS_STEP, from: [Application], to: [ProcessStep] }
+  - { name: BUILT_ON, from: [Application, Platform], to: [SoftwareProduct] }
+  - { name: PUBLISHES, from: [Application, ApplicationComponent], to: [EventType] }
+  - { name: SUBSCRIBES_TO, from: [Application, ApplicationComponent], to: [EventType] }
+
+  # Technology
+  - { name: RUNS_ON, from: [Application, ApplicationComponent, DataStore, Pipeline], to: [Platform, InfrastructureNode] }
+  - { name: DEPLOYED_IN, from: [Application, ApplicationComponent, DataStore], to: [Environment] }
+  - { name: HOSTED_ON, from: [Environment, Platform], to: [Platform, InfrastructureNode, CloudAccount] }
+  - { name: OFFERS, from: [Platform], to: [PlatformService] }
+  - { name: IN_ZONE, from: [InfrastructureNode, Environment], to: [NetworkZone] }
+  - { name: CONFORMS_TO, from: ['*'], to: [TechnologyStandard, Standard, Pattern, ReferenceArchitecture] }
+
+  # Governance
+  - { name: REQUIRES, from: [Regulation, RegulatoryRequirement, Policy], to: [Control, RegulatoryRequirement] }
+  - { name: IMPLEMENTS_CONTROL, from: ['*'], to: [Control] }
+  - { name: MITIGATES, from: [Control], to: [Risk] }
+  - { name: AFFECTS, from: [Risk, Issue], to: ['*'] }
+  - { name: EXEMPTS, from: [Exception], to: ['*'] }
+  - { name: DECIDES, from: [Decision], to: ['*'] }
+  - { name: SUPERSEDES, from: [Decision], to: [Decision] }
+  - { name: CONSIDERED, from: [Decision], to: [Option] }
+  - { name: CHOSE, from: [Decision], to: [Option] }
+  - { name: ASSUMES, from: [Decision, Initiative, DesignElement], to: [Assumption] }
+
+  # Design
+  - { name: SATISFIED_BY, from: [Requirement], to: ['*'] }
+  - { name: REFINES, from: [Requirement, DesignElement], to: [Requirement, DesignElement] }
+  - { name: IMPLEMENTS, from: [BacklogItem], to: [Deliverable, Requirement, DesignElement] }
+  - { name: SHOWS, from: [ArchitectureView], to: ['*'] }
+
+  # Planning
+  - { name: CONTAINS, from: [Portfolio, Program, Initiative], to: [Program, Initiative, Deliverable] }
+  - { name: PART_OF_MILESTONE, from: [Deliverable], to: [Milestone, Release] }
+  - name: CHANGES
+    from: [Deliverable]
+    to: ['*']
+    attributes:
+      - { name: action, type: enum, enum: ChangeAction, required: true }
+      - { name: targetLifecycle, type: enum, enum: Lifecycle }
+  - name: DEPENDS_ON
+    from: [Deliverable, Milestone]
+    to: [Deliverable, Milestone]
+    attributes:
+      - { name: type, type: enum, enum: DependencyType }
+      - { name: lagDays, type: integer }
+  - { name: INCLUDES, from: [Plateau], to: ['*'] }
+  - name: TRANSITIONS
+    from: [Deliverable]
+    to: [Plateau]
+  - { name: ALLOCATED_TO, from: [Resource], to: [Deliverable, Initiative] }
+  - { name: COSTS, from: [Cost], to: [Initiative, Deliverable, Application, Platform, DataStore] }
+  - { name: DELIVERS_BENEFIT, from: [Benefit], to: [Initiative, Outcome] }
+  - { name: IN_SCENARIO, from: ['*'], to: [Scenario] }
+  - { name: TAGGED, from: ['*'], to: [Tag] }
+
+rules:
+  - id: single-master-per-data-product
+    kind: uniqueValuePerTarget
+    relationship: HOLDS
+    attribute: role
+    values: [MASTER]
+    description: A data product has at most one master store in any validity period.
+  - id: single-golden-copy-per-data-product
+    kind: uniqueValuePerTarget
+    relationship: HOLDS
+    attribute: role
+    values: [GOLDEN_COPY]
+  - { id: no-dependency-cycles, kind: acyclic, relationship: DEPENDS_ON }
+  - { id: no-hierarchy-cycles, kind: acyclic, relationship: PARENT_OF }
+  - { id: no-decision-supersede-cycles, kind: acyclic, relationship: SUPERSEDES }
