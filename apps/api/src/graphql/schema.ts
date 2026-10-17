@@ -1,0 +1,155 @@
+/** GraphQL is read-only (D17): changes go through the REST command endpoints. */
+export const typeDefs = /* GraphQL */ `
+  "Arbitrary JSON (attribute maps, event payloads, enum tables)."
+  scalar JSON
+
+  type Query {
+    me: Me!
+    workspaces: [Workspace!]!
+    workspace(id: ID!): Workspace
+  }
+
+  type Me {
+    subject: String!
+    userId: ID!
+    tenantId: ID!
+    roles: [String!]!
+  }
+
+  type Workspace {
+    id: ID!
+    slug: String!
+    name: String!
+    description: String
+    metamodel: Metamodel!
+    elements(filter: ElementFilter, first: Int, after: String): ElementConnection!
+    element(id: ID!): Element
+    relationship(id: ID!): Relationship
+  }
+
+  type Metamodel {
+    id: String!
+    version: String!
+    layers: [String!]!
+    enums: JSON!
+    nodeTypes: [NodeType!]!
+    relationshipTypes: [RelationshipType!]!
+  }
+
+  type NodeType {
+    name: String!
+    layer: String!
+    description: String
+    extends: String
+    internal: Boolean!
+    "Neo4j labels nodes of this type carry."
+    labels: [String!]!
+    "Effective attributes: common, inherited and own."
+    attributes: [AttributeDef!]!
+  }
+
+  type RelationshipType {
+    name: String!
+    description: String
+    from: [String!]!
+    to: [String!]!
+    attributes: [AttributeDef!]!
+  }
+
+  type AttributeDef {
+    name: String!
+    type: String!
+    enum: String
+    "Allowed values when type is enum."
+    values: [String!]
+    required: Boolean!
+    description: String
+  }
+
+  input ElementFilter {
+    "Element types; supertypes include their subtypes."
+    types: [String!]
+    layer: String
+    lifecycle: [String!]
+    "Full-text search over name and description (ranked, not cursor-paged)."
+    search: String
+  }
+
+  type ElementConnection {
+    nodes: [Element!]!
+    pageInfo: PageInfo!
+  }
+
+  type PageInfo {
+    endCursor: String
+    hasNextPage: Boolean!
+  }
+
+  enum Direction {
+    OUT
+    IN
+    BOTH
+  }
+
+  type Element {
+    id: ID!
+    type: String!
+    name: String
+    lifecycle: String
+    attrs: JSON!
+    version: Int!
+    validFrom: String
+    validTo: String
+    scenarioId: String
+    createdAt: String!
+    createdBy: String!
+    updatedAt: String!
+    updatedBy: String!
+    connections(direction: Direction = BOTH, types: [String!]): [Connection!]!
+    neighbourhood(depth: Int = 1, types: [String!], limit: Int = 500): Subgraph!
+    history: [Event!]!
+  }
+
+  type Relationship {
+    id: ID!
+    type: String!
+    fromId: ID!
+    toId: ID!
+    from: Element
+    to: Element
+    attrs: JSON!
+    version: Int!
+    validFrom: String
+    validTo: String
+    scenarioId: String
+    createdAt: String!
+    createdBy: String!
+    updatedAt: String!
+    updatedBy: String!
+    history: [Event!]!
+  }
+
+  type Connection {
+    relationship: Relationship!
+    other: Element!
+    "Direction of the relationship as seen from the element being queried."
+    direction: Direction!
+  }
+
+  type Subgraph {
+    root: Element!
+    elements: [Element!]!
+    relationships: [Relationship!]!
+    truncated: Boolean!
+  }
+
+  type Event {
+    seq: Float!
+    id: ID!
+    type: String!
+    actor: String!
+    occurredAt: String!
+    version: Int!
+    data: JSON!
+  }
+`;

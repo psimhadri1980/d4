@@ -1,19 +1,40 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
-import { AuthGuard, jwksProvider } from './auth/auth.guard';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { AuthGuard } from './auth/auth.guard';
+import { AuthService } from './auth/auth.service';
+import { jwksProvider } from './auth/identity';
 import { APP_CONFIG, loadConfig } from './config';
-import { ControlPlaneService } from './control-plane.service';
+import { GraphqlService } from './graphql/graphql.service';
 import { HealthController } from './health/health.controller';
-import { TenantGraphService } from './neo4j/tenant-graph.service';
+import { ApiExceptionFilter } from './http/errors';
+import { OpenApiController } from './http/openapi';
+import { Database } from './infra/database.service';
+import { TenantGraphService } from './infra/tenant-graph.service';
+import { ElementsController } from './model/elements.controller';
+import { ModelFactory } from './model/model.factory';
+import { RelationshipsController } from './model/relationships.controller';
+import { WorkspaceAccess } from './model/workspace-access.service';
+import { WorkspacesController } from './model/workspaces.controller';
 
 @Module({
-  controllers: [HealthController],
+  controllers: [
+    HealthController,
+    OpenApiController,
+    WorkspacesController,
+    ElementsController,
+    RelationshipsController,
+  ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
     jwksProvider,
-    ControlPlaneService,
+    Database,
     TenantGraphService,
+    AuthService,
+    WorkspaceAccess,
+    ModelFactory,
+    GraphqlService,
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
   ],
 })
 export class AppModule {}

@@ -3,6 +3,25 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { Metamodel, type AttributeDef } from './schema';
 
+/**
+ * Property names the platform stores on every node and relationship. Metamodel attributes are
+ * stored as sibling properties, so they must not reuse these.
+ */
+export const RESERVED_ATTRIBUTE_NAMES = new Set([
+  'id',
+  'type',
+  'workspaceId',
+  'version',
+  'validFrom',
+  'validTo',
+  'scenarioId',
+  'deleted',
+  'createdAt',
+  'createdBy',
+  'updatedAt',
+  'updatedBy',
+]);
+
 export class MetamodelError extends Error {
   constructor(public readonly issues: string[]) {
     super(`Invalid metamodel:\n - ${issues.join('\n - ')}`);
@@ -37,6 +56,9 @@ export function checkReferences(mm: Metamodel): string[] {
     const seen = new Set<string>();
     for (const a of attrs) {
       if (seen.has(a.name)) issues.push(`${owner}: duplicate attribute '${a.name}'`);
+      if (RESERVED_ATTRIBUTE_NAMES.has(a.name)) {
+        issues.push(`${owner}: attribute '${a.name}' is reserved for system fields`);
+      }
       seen.add(a.name);
       if (a.enum && !mm.enums[a.enum]) issues.push(`${owner}.${a.name}: unknown enum '${a.enum}'`);
     }

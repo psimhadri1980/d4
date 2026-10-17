@@ -48,6 +48,17 @@ describe('starter metamodel', () => {
 });
 
 describe('parseMetamodel', () => {
+  it('rejects attributes that clash with system fields', () => {
+    const doc = `
+id: x
+version: '1'
+layers: [Data]
+nodeTypes:
+  - { name: A, layer: Data, attributes: [{ name: version, type: string }] }
+`;
+    expect(() => parseMetamodel(doc)).toThrow(/'version' is reserved/);
+  });
+
   it('reports broken references', () => {
     const bad = `
 id: x

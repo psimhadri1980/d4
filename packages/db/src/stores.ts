@@ -163,6 +163,14 @@ export class WorkspaceStore {
     return row;
   }
 
+  /** Repoints a workspace at another metamodel version (callers migrate graph data first). */
+  async setMetamodel(tenantId: string, id: string, metamodelId: string): Promise<void> {
+    await this.db
+      .update(workspaces)
+      .set({ metamodelId })
+      .where(and(eq(workspaces.tenantId, tenantId), eq(workspaces.id, id)));
+  }
+
   async bySlug(tenantId: string, slug: string) {
     const [row] = await this.db
       .select()

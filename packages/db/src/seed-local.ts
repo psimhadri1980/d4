@@ -32,14 +32,20 @@ export async function seedLocal(db: Db): Promise<{ workspaceId: string; metamode
     await mmStore.activate(LOCAL_TENANT, metamodelId);
 
     const wsStore = new WorkspaceStore(tx);
-    const ws =
-      (await wsStore.bySlug(LOCAL_TENANT, LOCAL_WORKSPACE_SLUG)) ??
-      (await wsStore.create(LOCAL_TENANT, {
-        slug: LOCAL_WORKSPACE_SLUG,
-        name: 'Default',
-        description: 'Local development workspace',
-        metamodelId,
-      }));
+    const existing = await wsStore.bySlug(LOCAL_TENANT, LOCAL_WORKSPACE_SLUG);
+    if (existing) {
+      // Local dev follows the starter metamodel as it evolves.
+      if (existing.metamodelId !== metamodelId) {
+        await wsStore.setMetamodel(LOCAL_TENANT, existing.id, metamodelId);
+      }
+      return { workspaceId: existing.id, metamodelId };
+    }
+    const ws = await wsStore.create(LOCAL_TENANT, {
+      slug: LOCAL_WORKSPACE_SLUG,
+      name: 'Default',
+      description: 'Local development workspace',
+      metamodelId,
+    });
     return { workspaceId: ws.id, metamodelId };
   });
 }

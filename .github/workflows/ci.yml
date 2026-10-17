@@ -6,6 +6,25 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: d4, POSTGRES_PASSWORD: d4-local-dev, POSTGRES_DB: d4 }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U d4" --health-interval 5s --health-retries 20
+      neo4j:
+        image: neo4j:5.26-community
+        env: { NEO4J_AUTH: neo4j/d4-local-dev }
+        ports: ['7687:7687']
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p d4-local-dev 'RETURN 1'"
+          --health-interval 10s --health-retries 30 --health-start-period 30s
+    env:
+      # Integration tests create throwaway databases / workspaces on these servers.
+      D4_TEST_POSTGRES_URL: postgres://d4:d4-local-dev@localhost:5432/postgres
+      D4_TEST_NEO4J_URL: bolt://localhost:7687
+      D4_TEST_NEO4J_PASSWORD: d4-local-dev
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

@@ -7,11 +7,12 @@ Stack: TypeScript end to end, Neo4j 5 Community (one instance per tenant), Postg
 ## Layout
 
 ```
-apps/api              NestJS API: OIDC auth, tenant → Neo4j routing, health
+apps/api              NestJS API: OIDC auth, workspace access, REST commands + GraphQL reads
 packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
 packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
 packages/db           Postgres control plane: Drizzle schema, migrations, stores, local seed
+packages/graph        Neo4j adapter: ModelRepository and read queries (list/search, neighbourhood)
 deploy/               docker-compose for local infra, Keycloak realm, Postgres bootstrap
 docs/adr/             Architecture decision records
 ```
@@ -38,6 +39,15 @@ deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volu
 | db-migrate, neo4j-schema, s3-init | One-shot jobs: Postgres migrations + local seed, Neo4j schema, S3 buckets | — |
 | api | D4 API on :3000 | 384 MB |
 | otel-collector, tempo, prometheus, grafana (:3001) | Observability profile (optional) | ~1 GB |
+
+## API
+
+| Interface | Where | Use |
+|---|---|---|
+| REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history |
+| GraphQL | `POST /graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
+
+All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/dev.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
 
 ## Developing with Node locally (optional)
 

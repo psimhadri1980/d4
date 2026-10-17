@@ -1,0 +1,200 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import neo4j, { type Driver } from 'neo4j-driver';
+import { applySchema } from '@d4/cypher';
+import { DomainError, ModelService, ulid, type CommandContext, type DomainEvent } from '@d4/core';
+import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
+import { GraphQueries, luceneQuery, Neo4jModelRepository, type EventSink, type SessionProvider } from '../src';
+
+const URL = process.env.D4_TEST_NEO4J_URL;
+const PASSWORD = process.env.D4_TEST_NEO4J_PASSWORD ?? 'd4-local-dev';
+const reg = new MetamodelRegistry(loadStarterMetamodel());
+
+describe('luceneQuery', () => {
+  it('escapes operators and prefix-matches each term', () => {
+    expect(luceneQuery('Customer  data')).toBe('+customer* +data*');
+    expect(luceneQuery('a:b (c)')).toBe('+a\\:b* +\\(c\\)*');
+  });
+});
+
+describe.skipIf(!URL)('Neo4j repository and queries', () => {
+  // A throwaway workspace on the shared dev database; removed afterwards.
+  const ctx: CommandContext = { workspaceId: `test-${ulid()}`, actor: 'tester' };
+  let driver: Driver;
+  let sessions: SessionProvider;
+  let logged: DomainEvent[];
+  let failNextLog = false;
+  let svc: ModelService;
+  let q: GraphQueries;
+
+  const sink: EventSink = {
+    async withEvents(events, write) {
+      await write();
+      if (failNextLog) {
+        failNextLog = false;
+        throw new Error('event log unavailable');
+      }
+      logged.push(...events);
+    },
+  };
+
+  const code = async (p: Promise<unknown>) =>
+    p.then(
+      () => 'OK',
+      (e) => (e instanceof DomainError ? `${e.code}${e.ruleId ? `:${e.ruleId}` : ''}` : String(e)),
+    );
+
+  beforeAll(async () => {
+    driver = neo4j.driver(URL!, neo4j.auth.basic('neo4j', PASSWORD), { disableLosslessIntegers: true });
+    sessions = async (mode) =>
+      driver.session({ defaultAccessMode: mode === 'READ' ? neo4j.session.READ : neo4j.session.WRITE });
+    // Idempotent; makes the suite work against a fresh Neo4j (e.g. CI) as well as the dev stack.
+    const s = await sessions('WRITE');
+    await applySchema(s, reg);
+    await s.run('CALL db.awaitIndexes(120)');
+    await s.close();
+
+    logged = [];
+    svc = new ModelService(reg, new Neo4jModelRepository(reg, sessions, sink));
+    q = new GraphQueries(reg, sessions);
+  });
+
+  afterAll(async () => {
+    if (!driver) return;
+    const s = await sessions('WRITE');
+    await s.run('MATCH (n:Element) WHERE n.workspaceId = $ws DETACH DELETE n', { ws: ctx.workspaceId });
+    await s.close();
+    await driver.close();
+  });
+
+  it('round-trips an element with labels, attributes and system fields', async () => {
+    const dp = await svc.createElement(ctx, {
+      type: 'DataProduct',
+      attrs: { name: 'Customer', classification: 'CONFIDENTIAL', tags: ['core', 'pii'] },
+      validFrom: '2026-01-01',
+    });
+    const repo = new Neo4jModelRepository(reg, sessions, sink);
+    expect(await repo.getElement(ctx.workspaceId, dp.id)).toEqual(dp);
+
+    const s = await sessions('READ');
+    const res = await s.run('MATCH (n {id: $id}) RETURN labels(n) AS l', { id: dp.id });
+    await s.close();
+    expect(res.records[0]!.get('l')).toEqual(expect.arrayContaining(['Element', 'DataLayer', 'DataProduct']));
+    expect(logged.at(-1)?.type).toBe('ElementCreated');
+  });
+
+  it('updates with version checks and removes unset attributes', async () => {
+    const app = await svc.createElement(ctx, { type: 'Application', attrs: { name: 'CRM', criticality: 'HIGH' } });
+    const v2 = await svc.updateElement(ctx, {
+      id: app.id,
+      expectedVersion: 1,
+      set: { lifecycle: 'PROPOSED' },
+      unset: ['criticality'],
+    });
+    const stored = await q.getElement(ctx.workspaceId, app.id);
+    expect(stored?.version).toBe(2);
+    expect(stored?.attrs).toEqual({ name: 'CRM', lifecycle: 'PROPOSED' });
+    expect(v2).toEqual(stored);
+    expect(await code(svc.updateElement(ctx, { id: app.id, expectedVersion: 1, set: { name: 'x' } }))).toBe(
+      'VERSION_CONFLICT',
+    );
+  });
+
+  it('enforces single master and allows hand-over periods', async () => {
+    const dp = await svc.createElement(ctx, { type: 'DataProduct', attrs: { name: 'Account' } });
+    const [a, b] = await Promise.all(
+      ['Core Banking', 'New Core'].map((name) => svc.createElement(ctx, { type: 'DataStore', attrs: { name } })),
+    );
+    await svc.createRelationship(ctx, {
+      type: 'HOLDS', fromId: a!.id, toId: dp.id, attrs: { role: 'MASTER' }, validTo: '2027-07-01',
+    });
+    expect(
+      await code(svc.createRelationship(ctx, { type: 'HOLDS', fromId: b!.id, toId: dp.id, attrs: { role: 'MASTER' } })),
+    ).toBe('RULE_VIOLATION:single-master-per-data-product');
+    expect(
+      await code(
+        svc.createRelationship(ctx, {
+          type: 'HOLDS', fromId: b!.id, toId: dp.id, attrs: { role: 'MASTER' }, validFrom: '2027-07-01',
+        }),
+      ),
+    ).toBe('OK');
+  });
+
+  it('detects dependency cycles through stored paths', async () => {
+    const [d1, d2, d3] = await Promise.all(
+      ['Design', 'Build', 'Launch'].map((name) => svc.createElement(ctx, { type: 'Deliverable', attrs: { name } })),
+    );
+    await svc.createRelationship(ctx, { type: 'DEPENDS_ON', fromId: d2!.id, toId: d1!.id });
+    await svc.createRelationship(ctx, { type: 'DEPENDS_ON', fromId: d3!.id, toId: d2!.id });
+    expect(await code(svc.createRelationship(ctx, { type: 'DEPENDS_ON', fromId: d1!.id, toId: d3!.id }))).toBe(
+      'RULE_VIOLATION:no-dependency-cycles',
+    );
+  });
+
+  it('finds relationships by id and cascades element deletes', async () => {
+    const div = await svc.createElement(ctx, { type: 'Division', attrs: { name: 'Retail' } });
+    const app = await svc.createElement(ctx, { type: 'Application', attrs: { name: 'Branch App' } });
+    const owns = await svc.createRelationship(ctx, { type: 'OWNS', fromId: div.id, toId: app.id });
+
+    const repo = new Neo4jModelRepository(reg, sessions, sink);
+    expect(await repo.getRelationship(ctx.workspaceId, owns.id)).toEqual(owns);
+
+    await svc.deleteElement(ctx, { id: app.id, expectedVersion: 1 });
+    expect((await repo.getRelationship(ctx.workspaceId, owns.id))?.deleted).toBe(true);
+    expect(await q.getElement(ctx.workspaceId, app.id)).toBeUndefined();
+    expect(await q.connections(ctx.workspaceId, div.id)).toEqual([]);
+  });
+
+  it('lists, filters, pages and searches elements', async () => {
+    for (const name of ['Payments Hub', 'Payments Gateway', 'Ledger']) {
+      await svc.createElement(ctx, { type: 'Platform', attrs: { name } });
+    }
+    const platforms = await q.listElements(ctx.workspaceId, { types: ['Platform'] }, { first: 2 });
+    expect(platforms.items).toHaveLength(2);
+    expect(platforms.hasMore).toBe(true);
+    const rest = await q.listElements(ctx.workspaceId, { types: ['Platform'] }, { after: platforms.endCursor! });
+    expect(rest.items.map((e) => e.attrs['name'])).toEqual(['Ledger']);
+
+    // Supertype and layer filters use labels.
+    const orgUnits = await q.listElements(ctx.workspaceId, { types: ['OrgUnit'] });
+    expect(orgUnits.items.map((e) => e.type)).toContain('Division');
+    const tech = await q.listElements(ctx.workspaceId, { layer: 'Technology' });
+    expect(tech.items.every((e) => e.type === 'Platform')).toBe(true);
+
+    const found = await q.listElements(ctx.workspaceId, { search: 'paym' });
+    expect(found.items.map((e) => e.attrs['name']).sort()).toEqual(['Payments Gateway', 'Payments Hub']);
+  });
+
+  it('returns a neighbourhood subgraph', async () => {
+    const div = await svc.createElement(ctx, { type: 'Division', attrs: { name: 'Treasury' } });
+    const dp = await svc.createElement(ctx, { type: 'DataProduct', attrs: { name: 'FX Rates' } });
+    const store = await svc.createElement(ctx, { type: 'DataStore', attrs: { name: 'Market Data DB' } });
+    await svc.createRelationship(ctx, { type: 'OWNS', fromId: div.id, toId: dp.id });
+    await svc.createRelationship(ctx, { type: 'HOLDS', fromId: store.id, toId: dp.id, attrs: { role: 'GOLDEN_COPY' } });
+
+    const one = await q.neighbourhood(ctx.workspaceId, div.id, { depth: 1 });
+    expect(one?.elements.map((e) => e.attrs['name'])).toEqual(['FX Rates']);
+    const two = await q.neighbourhood(ctx.workspaceId, div.id, { depth: 2 });
+    expect(two?.elements.map((e) => e.attrs['name']).sort()).toEqual(['FX Rates', 'Market Data DB']);
+    expect(two?.relationships.map((r) => r.type).sort()).toEqual(['HOLDS', 'OWNS']);
+
+    const holdsOnly = await q.neighbourhood(ctx.workspaceId, dp.id, { types: ['HOLDS'] });
+    expect(holdsOnly?.elements.map((e) => e.attrs['name'])).toEqual(['Market Data DB']);
+
+    const lonely = await svc.createElement(ctx, { type: 'Division', attrs: { name: 'Empty' } });
+    expect(await q.neighbourhood(ctx.workspaceId, lonely.id)).toMatchObject({ elements: [], relationships: [] });
+  });
+
+  it('rejects unknown types in queries instead of interpolating them', async () => {
+    await expect(q.listElements(ctx.workspaceId, { types: ['Nope'] })).rejects.toThrow(/Unknown element type/);
+    await expect(q.connections(ctx.workspaceId, 'x', { types: ['X]-() DETACH DELETE n //'] })).rejects.toThrow(
+      /Unknown relationship type/,
+    );
+  });
+
+  it('surfaces event-log failures to the caller', async () => {
+    failNextLog = true;
+    expect(await code(svc.createElement(ctx, { type: 'Platform', attrs: { name: 'Orphan' } }))).toBe(
+      'Error: event log unavailable',
+    );
+  });
+});

@@ -1,6 +1,6 @@
 # D4 starter metamodel. Tenants copy and extend this; it is versioned like code.
 id: d4-starter
-version: 0.1.0
+version: 0.2.0
 description: Default enterprise design-to-delivery metamodel.
 
 layers: [Strategy, Organisation, Business, Data, Application, Technology, Governance, Design, Planning, System]
@@ -422,7 +422,7 @@ relationshipTypes:
     from: [Deliverable, Milestone]
     to: [Deliverable, Milestone]
     attributes:
-      - { name: type, type: enum, enum: DependencyType }
+      - { name: dependencyType, type: enum, enum: DependencyType }
       - { name: lagDays, type: integer }
   - { name: INCLUDES, from: [Plateau], to: ['*'] }
   - name: TRANSITIONS

@@ -1,13 +1,14 @@
 import { Controller, Get, Inject, ServiceUnavailableException } from '@nestjs/common';
-import { Public, type Principal } from '../auth/auth.guard';
+import { Public } from '../auth/auth.guard';
+import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
-import { ControlPlaneService } from '../control-plane.service';
-import { TenantGraphService } from '../neo4j/tenant-graph.service';
+import { Database } from '../infra/database.service';
+import { TenantGraphService } from '../infra/tenant-graph.service';
 
 @Controller()
 export class HealthController {
   constructor(
-    @Inject(ControlPlaneService) private readonly controlPlane: ControlPlaneService,
+    @Inject(Database) private readonly database: Database,
     @Inject(TenantGraphService) private readonly graph: TenantGraphService,
   ) {}
 
@@ -23,7 +24,7 @@ export class HealthController {
   @Get('readyz')
   async ready() {
     try {
-      await this.controlPlane.ping();
+      await this.database.ping();
       return { status: 'ok' };
     } catch {
       throw new ServiceUnavailableException('control plane unreachable');

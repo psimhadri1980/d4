@@ -49,6 +49,9 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D17 | 2026-10-17 | **REST and GraphQL from the start** | GraphQL for graph-shaped reads, REST (OpenAPI) for commands, import/export and webhooks |
 | D18 | 2026-10-17 | Control plane uses **Drizzle migrations** (`packages/db/drizzle`) run by a `db-migrate` job; the event log is **append-only**, enforced by a database trigger | Replaces `init.sql`; trustworthy audit trail and outbox |
 | D19 | 2026-10-17 | Roles = IdP realm roles **plus** `role_bindings` (user or group, tenant-wide or per workspace) | The IdP stays simple, and workspace-level grants live in D4 |
+| D20 | 2026-10-17 | Metamodel attributes are stored as plain Neo4j properties, so names that clash with system fields are reserved (`DEPENDS_ON.type` → `dependencyType`; starter metamodel 0.2.0) | Readable catalog Cypher (`n.name`, `n.lifecycle`) |
+| D21 | 2026-10-17 | Graph write and event log are coordinated as described in [ADR 0004](adr/0004-graph-and-event-log-write.md): events inserted in an open Postgres transaction, Neo4j commits with version checks, then Postgres commits | No distributed transaction; the remaining gap is detectable and reconcilable |
+| D22 | 2026-10-17 | GraphQL is read-only, authenticates lazily inside resolvers, and maps errors to `extensions.code` matching the REST error codes | One error vocabulary across REST and GraphQL |
 
 ## Status
 
@@ -63,7 +66,14 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 - **Local Docker stack verified** (`e9c9d07`): all services healthy, smoke test passes.
 - **Phase 1a done:** `@d4/core` with element and relationship model, ULIDs, lifecycle, validity periods, `ModelService` commands with events, rule checks, an in-memory repository and whole-model validation. 34 tests pass.
 - **Phase 1b done:** `@d4/db` with Drizzle schema and migrations (tenants, Neo4j instances, versioned metamodels, workspaces, users, groups, role bindings, append-only event log with outbox), stores, and an idempotent local seed. 44 tests pass, including 10 Postgres integration tests.
-- **Next:** Phase 1c, a Neo4j `ModelRepository` plus REST and GraphQL endpoints for elements and relationships.
+- **Phase 1c done:**
+  - `@d4/graph`: Neo4j `ModelRepository` with version-checked writes, plus `GraphQueries` (list, filter, page, full-text search, connections, neighbourhood)
+  - API: REST endpoints for elements and relationships (with OpenAPI) and read-only GraphQL
+  - users created on first login; Keycloak roles merged with workspace role bindings
+  - event history recorded in Postgres
+  - 69 tests pass, including 14 end-to-end API tests; checked live through Keycloak
+  - CI now runs the Postgres and Neo4j integration tests
+- **Next:** Phase 1d (YAML import/export via `@d4/codecs` and `@d4/cli`, plus a sample dataset), then 1e (web app).
 
 ---
 
@@ -382,7 +392,7 @@ Data-store *role per product* (Master, Golden Copy, Approved Distributor, Replic
 (Decision)-[:DECIDES]->(:Element)   (Decision)-[:SUPERSEDES]->(Decision)
 (Initiative)-[:CONTAINS]->(Deliverable)-[:PART_OF]->(Milestone)
 (Deliverable)-[:CHANGES {action: INTRODUCE|MODIFY|RETIRE, targetLifecycle}]->(:Element)
-(Deliverable)-[:DEPENDS_ON {type: FS|SS, lagDays}]->(Deliverable)
+(Deliverable)-[:DEPENDS_ON {dependencyType: FS|SS, lagDays}]->(Deliverable)
 ```
 Relationships carry `id`, `validFrom/validTo` and `scenarioId`, so they are time-aware and scenario-aware.
 

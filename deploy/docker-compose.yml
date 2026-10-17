@@ -201,9 +201,13 @@ services:
     image: d4-test:local
     depends_on:
       postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
     environment:
       # Integration tests create and drop their own throwaway databases on this server.
       D4_TEST_POSTGRES_URL: postgres://d4:d4-local-dev@postgres:5432/postgres
+      # Graph tests use a throwaway workspace on the dev Neo4j and delete it afterwards.
+      D4_TEST_NEO4J_URL: bolt://neo4j:7687
+      D4_TEST_NEO4J_PASSWORD: d4-local-dev
 
 volumes:
   neo4j-data:

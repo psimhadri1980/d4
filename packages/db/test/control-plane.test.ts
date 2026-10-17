@@ -50,15 +50,16 @@ describe.skipIf(!ADMIN_URL)('control plane (Postgres)', () => {
 
   it('activating a new version retires the old one', async () => {
     const store = new MetamodelStore(db);
-    const v2 = await store.register(LOCAL_TENANT, { ...loadStarterMetamodel(), version: '0.2.0' }, 'test');
+    const starter = loadStarterMetamodel();
+    const v2 = await store.register(LOCAL_TENANT, { ...starter, version: `${starter.version}-next` }, 'test');
     await store.activate(LOCAL_TENANT, v2);
     const rows = await db
       .select({ version: schema.metamodels.version, status: schema.metamodels.status })
       .from(schema.metamodels);
     expect(rows).toEqual(
       expect.arrayContaining([
-        { version: '0.1.0', status: 'retired' },
-        { version: '0.2.0', status: 'active' },
+        { version: starter.version, status: 'retired' },
+        { version: `${starter.version}-next`, status: 'active' },
       ]),
     );
   });
