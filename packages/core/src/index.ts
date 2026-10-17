@@ -1,5 +1,7 @@
+export * from './changes';
 export * from './errors';
 export * from './ids';
+export * from './import';
 export * from './lifecycle';
 export * from './memory-repository';
 export * from './model-service';

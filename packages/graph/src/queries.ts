@@ -1,4 +1,4 @@
-import type { Element, Relationship } from '@d4/core';
+import type { Element, ModelSnapshot, Relationship } from '@d4/core';
 import { layerLabel, type MetamodelRegistry } from '@d4/metamodel';
 import { ident, propsToElement, propsToRelationship } from './mapping';
 import { relationshipByIdQuery, toRelationship, type SessionProvider } from './repository';
@@ -97,11 +97,31 @@ export class GraphQueries {
     return row ? propsToElement(row['p'] as Row) : undefined;
   }
 
+  /** Every live element and relationship in the workspace (export, import planning). */
+  async snapshot(ws: string): Promise<ModelSnapshot> {
+    const [elements, relationships] = await Promise.all([
+      this.read(
+        'MATCH (n:Element) WHERE n.workspaceId = $ws AND n.deleted = false RETURN properties(n) AS p ORDER BY n.id',
+        { ws },
+      ),
+      this.read(
+        `MATCH (a:Element)-[r]->(b:Element)
+         WHERE a.workspaceId = $ws AND r.workspaceId = $ws AND r.deleted = false
+         RETURN properties(r) AS p, type(r) AS t, a.id AS f, b.id AS o ORDER BY r.id`,
+        { ws },
+      ),
+    ]);
+    return {
+      elements: elements.map((row) => propsToElement(row['p'] as Row)),
+      relationships: relationships.map(toRelationship),
+    };
+  }
+
   /** A live relationship by id. */
   async getRelationship(ws: string, id: string): Promise<Relationship | undefined> {
-    const query = relationshipByIdQuery(this.reg);
+    const query = relationshipByIdQuery(this.reg, ws, id);
     if (!query) return undefined;
-    const [row] = await this.read(query, { ws, id });
+    const [row] = await this.read(query.cypher, query.params);
     const rel = row ? toRelationship(row) : undefined;
     return rel && !rel.deleted ? rel : undefined;
   }

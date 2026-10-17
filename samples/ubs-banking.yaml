@@ -1,0 +1,339 @@
+apiVersion: d4/v1
+kind: Model
+metadata:
+  name: UBS banking landscape (illustrative)
+  metamodel: d4-starter@0.2.0
+  description: >
+    Sample model for D4: client-data consolidation across a global bank. Shows divisions,
+    capabilities, onboarding and reporting processes, data products with master / golden copy /
+    distributor stores, a planned master hand-over, governance and a delivery roadmap.
+  disclaimer: >
+    Illustrative only. The legal entity and divisions follow UBS's public reporting structure; all
+    applications, data stores, data products, processes, decisions, risks and plans are invented
+    for demonstration and do not describe UBS's actual systems or plans.
+
+elements:
+  # ── Strategy ──────────────────────────────────────────────────────────
+  - { key: drv-bcbs239, type: Driver, name: Regulatory expectations on risk data aggregation, lifecycle: LIVE }
+  - { key: drv-cost, type: Driver, name: Run-cost reduction of legacy platforms, lifecycle: LIVE }
+  - { key: goal-client-view, type: Goal, name: Single trusted client view across divisions, lifecycle: DECIDED, attrs: { targetDate: 2028-06-30 } }
+  - { key: kpi-client-dq, type: KPI, name: Client data quality score, lifecycle: LIVE, attrs: { unit: '%', frequency: monthly } }
+
+  # ── Organisation ──────────────────────────────────────────────────────
+  - { key: le-group, type: LegalEntity, name: UBS Group AG, lifecycle: LIVE, attrs: { jurisdiction: CH } }
+  - { key: div-gwm, type: Division, name: Global Wealth Management, lifecycle: LIVE }
+  - { key: div-pcb, type: Division, name: Personal & Corporate Banking, lifecycle: LIVE }
+  - { key: div-am, type: Division, name: Asset Management, lifecycle: LIVE }
+  - { key: div-ib, type: Division, name: Investment Bank, lifecycle: LIVE }
+  - { key: div-ncl, type: Division, name: Non-core and Legacy, lifecycle: LIVE }
+  - { key: div-gf, type: Division, name: Group Functions, lifecycle: LIVE }
+  - { key: team-cdo, type: Team, name: Client Data Office, lifecycle: LIVE, attrs: { teamType: ENABLING } }
+  - { key: team-dpe, type: Team, name: Data Platform Engineering, lifecycle: LIVE, attrs: { teamType: PLATFORM } }
+  - { key: role-data-owner, type: Role, name: Client Data Owner, lifecycle: LIVE }
+  - { key: role-data-steward, type: Role, name: Client Data Steward, lifecycle: LIVE }
+  - { key: role-process-owner, type: Role, name: Onboarding Process Owner, lifecycle: LIVE }
+  - { key: actor-advisor, type: Actor, name: Client Advisor, lifecycle: LIVE, attrs: { actorKind: ROLE } }
+  - { key: actor-compliance, type: Actor, name: Compliance Officer, lifecycle: LIVE, attrs: { actorKind: ROLE } }
+  - { key: actor-ops, type: Actor, name: Operations Specialist, lifecycle: LIVE, attrs: { actorKind: ROLE } }
+  - { key: actor-bot, type: Actor, name: Account Opening Automation, lifecycle: LIVE, attrs: { actorKind: SYSTEM } }
+
+  # ── Business ──────────────────────────────────────────────────────────
+  - { key: cap-client-mgmt, type: Capability, name: Client Management, lifecycle: LIVE, attrs: { level: 1, strategicImportance: VERY_HIGH } }
+  - { key: cap-onboarding, type: Capability, name: Client Onboarding, lifecycle: LIVE, attrs: { level: 2, maturity: 2 } }
+  - { key: cap-client-data, type: Capability, name: Client Data Management, lifecycle: LIVE, attrs: { level: 2, maturity: 2 } }
+  - { key: cap-kyc, type: Capability, name: KYC & Due Diligence, lifecycle: LIVE, attrs: { level: 2, maturity: 3 } }
+  - { key: cap-wealth, type: Capability, name: Wealth Advisory, lifecycle: LIVE, attrs: { level: 1, strategicImportance: VERY_HIGH } }
+  - { key: cap-portfolio, type: Capability, name: Portfolio Management, lifecycle: LIVE, attrs: { level: 2, maturity: 4 } }
+  - { key: cap-risk-reg, type: Capability, name: Risk & Regulatory Reporting, lifecycle: LIVE, attrs: { level: 1, strategicImportance: HIGH } }
+  - { key: cap-credit-risk, type: Capability, name: Credit Risk Management, lifecycle: LIVE, attrs: { level: 2, maturity: 3 } }
+  - { key: cap-reg-reporting, type: Capability, name: Regulatory Reporting, lifecycle: LIVE, attrs: { level: 2, maturity: 2 } }
+
+  - { key: bp-onboarding, type: BusinessProcess, name: Client Onboarding, lifecycle: LIVE, attrs: { processLevel: 2, frequency: daily } }
+  - { key: step-capture, type: ProcessStep, name: Capture client details, lifecycle: LIVE, attrs: { seq: 1, automationLevel: SEMI_AUTOMATED } }
+  - { key: step-kyc, type: ProcessStep, name: Perform KYC screening, lifecycle: LIVE, attrs: { seq: 2, automationLevel: SEMI_AUTOMATED } }
+  - { key: step-approve, type: ProcessStep, name: Approve client relationship, lifecycle: LIVE, attrs: { seq: 3, automationLevel: MANUAL } }
+  - { key: step-open-account, type: ProcessStep, name: Open account, lifecycle: LIVE, attrs: { seq: 4, automationLevel: AUTOMATED } }
+
+  - { key: bp-offboarding, type: BusinessProcess, name: Client Offboarding, lifecycle: LIVE, attrs: { processLevel: 2, frequency: daily } }
+  - { key: step-close-accounts, type: ProcessStep, name: Close client accounts, lifecycle: LIVE, attrs: { seq: 1, automationLevel: SEMI_AUTOMATED } }
+  - { key: step-inactivate-client, type: ProcessStep, name: Inactivate client record, lifecycle: LIVE, attrs: { seq: 2, automationLevel: AUTOMATED } }
+
+  - { key: bp-reg-run, type: BusinessProcess, name: Regulatory Reporting Run, lifecycle: LIVE, attrs: { processLevel: 2, frequency: quarterly } }
+  - { key: step-aggregate, type: ProcessStep, name: Aggregate credit exposures, lifecycle: LIVE, attrs: { seq: 1, automationLevel: AUTOMATED } }
+  - { key: step-submit, type: ProcessStep, name: Validate and submit regulatory report, lifecycle: LIVE, attrs: { seq: 2, automationLevel: SEMI_AUTOMATED } }
+
+  # ── Data ──────────────────────────────────────────────────────────────
+  - { key: dom-client, type: DataDomain, name: Client, lifecycle: LIVE }
+  - { key: dom-accounts, type: DataDomain, name: Accounts & Positions, lifecycle: LIVE }
+  - { key: dom-risk, type: DataDomain, name: Risk, lifecycle: LIVE }
+  - { key: dom-reference, type: DataDomain, name: Reference Data, lifecycle: LIVE }
+
+  - { key: dp-client, type: DataProduct, name: Client Master, lifecycle: LIVE, attrs: { productType: SOURCE_ALIGNED, classification: RESTRICTED, sla: 99.9% } }
+  - { key: dp-kyc, type: DataProduct, name: KYC Profile, lifecycle: LIVE, attrs: { productType: SOURCE_ALIGNED, classification: RESTRICTED } }
+  - { key: dp-account, type: DataProduct, name: Account, lifecycle: LIVE, attrs: { productType: SOURCE_ALIGNED, classification: CONFIDENTIAL } }
+  - { key: dp-positions, type: DataProduct, name: Positions & Holdings, lifecycle: LIVE, attrs: { productType: SOURCE_ALIGNED, classification: CONFIDENTIAL } }
+  - { key: dp-product-ref, type: DataProduct, name: Product Reference, lifecycle: LIVE, attrs: { productType: SOURCE_ALIGNED, classification: INTERNAL } }
+  - { key: dp-credit-exposure, type: DataProduct, name: Credit Exposure, lifecycle: LIVE, attrs: { productType: AGGREGATE, classification: CONFIDENTIAL } }
+  - { key: dp-reg-capital, type: DataProduct, name: Regulatory Capital Report Data, lifecycle: LIVE, attrs: { productType: CONSUMER_ALIGNED, classification: CONFIDENTIAL } }
+  - { key: contract-client-v2, type: DataContract, name: Client Master contract v2, lifecycle: PLANNED, attrs: { contractVersion: 2.0.0, freshness: near-real-time } }
+
+  - { key: ds-legacy-client, type: DataStore, name: Legacy Client Database, lifecycle: LIVE, attrs: { category: OPERATIONAL, technology: relational (on-premises) } }
+  - { key: ds-mdm, type: DataStore, name: Client MDM Hub, lifecycle: IN_DEVELOPMENT, attrs: { category: OPERATIONAL, technology: master data management } }
+  - { key: ds-core-banking, type: DataStore, name: Core Banking Database, lifecycle: LIVE, attrs: { category: OPERATIONAL, technology: mainframe database } }
+  - { key: ds-lake, type: DataStore, name: Group Data Lake, lifecycle: LIVE, attrs: { category: ANALYTICAL, technology: lakehouse } }
+  - { key: ds-wealth-crm, type: DataStore, name: Wealth CRM Store, lifecycle: LIVE, attrs: { category: OPERATIONAL } }
+  - { key: ds-risk-mart, type: DataStore, name: Risk Data Mart, lifecycle: LIVE, attrs: { category: ANALYTICAL } }
+  - { key: ds-reg-db, type: DataStore, name: Regulatory Reporting Store, lifecycle: LIVE, attrs: { category: ANALYTICAL } }
+  - { key: ds-product-ref, type: DataStore, name: Product Reference Store, lifecycle: LIVE, attrs: { category: OPERATIONAL } }
+
+  - { key: rpt-client-dq, type: Dashboard, name: Client Data Quality Dashboard, lifecycle: PLANNED, attrs: { audience: Client Data Office } }
+  - { key: rpt-board-risk, type: Report, name: Board Credit Risk Report, lifecycle: LIVE, attrs: { audience: Group Executive Board } }
+
+  # ── Application ───────────────────────────────────────────────────────
+  - { key: app-onboarding, type: Application, name: Client Onboarding Portal, lifecycle: LIVE, attrs: { criticality: HIGH, hosting: PAAS, timeClass: INVEST } }
+  - { key: app-kyc, type: Application, name: KYC Screening Service, lifecycle: LIVE, attrs: { criticality: HIGH, hosting: SAAS, timeClass: TOLERATE } }
+  - { key: app-core-banking, type: Application, name: Core Banking System, lifecycle: LIVE, attrs: { criticality: MISSION_CRITICAL, hosting: ON_PREM, timeClass: TOLERATE } }
+  - { key: app-wealth, type: Application, name: Wealth Advisory Workbench, lifecycle: LIVE, attrs: { criticality: HIGH, hosting: PAAS, timeClass: INVEST } }
+  - { key: app-risk-engine, type: Application, name: Credit Risk Engine, lifecycle: LIVE, attrs: { criticality: MISSION_CRITICAL, hosting: ON_PREM, timeClass: MIGRATE } }
+  - { key: app-reg-hub, type: Application, name: Regulatory Reporting Hub, lifecycle: LIVE, attrs: { criticality: HIGH, hosting: PAAS, timeClass: INVEST } }
+  - { key: app-legacy-admin, type: Application, name: Legacy Client Administration, lifecycle: DEPRECATED, attrs: { criticality: MEDIUM, hosting: ON_PREM, timeClass: ELIMINATE } }
+
+  # ── Technology ────────────────────────────────────────────────────────
+  - { key: plat-data, type: Platform, name: Group Data Platform, lifecycle: LIVE, attrs: { platformType: data } }
+  - { key: plat-events, type: Platform, name: Event Streaming Platform, lifecycle: LIVE, attrs: { platformType: integration } }
+  - { key: plat-cloud, type: Platform, name: Private Container Cloud, lifecycle: LIVE, attrs: { platformType: compute } }
+  - { key: plat-mainframe, type: Platform, name: Mainframe, lifecycle: LIVE, attrs: { platformType: compute } }
+
+  # ── Governance ────────────────────────────────────────────────────────
+  - { key: reg-bcbs239, type: Regulation, name: BCBS 239, lifecycle: LIVE }
+  - { key: reg-fadp, type: Regulation, name: Swiss Federal Act on Data Protection, lifecycle: LIVE }
+  - { key: reg-gdpr, type: Regulation, name: EU GDPR, lifecycle: LIVE }
+  - { key: ctl-dq, type: Control, name: Client data quality checks, lifecycle: PLANNED, attrs: { controlType: detective } }
+  - { key: ctl-lineage, type: Control, name: Documented data lineage for risk aggregates, lifecycle: LIVE, attrs: { controlType: preventive, effectiveness: MEDIUM } }
+  - { key: ctl-access, type: Control, name: Quarterly access recertification, lifecycle: LIVE, attrs: { controlType: preventive, effectiveness: HIGH } }
+  - { key: risk-inconsistent-client, type: Risk, name: Inconsistent client data across divisions, lifecycle: LIVE, attrs: { likelihood: HIGH, impact: HIGH } }
+  - key: adr-mdm
+    type: Decision
+    name: Client MDM Hub becomes master for client data
+    lifecycle: DECIDED
+    attrs:
+      status: ACCEPTED
+      decidedOn: 2026-09-15
+      context: Client data is mastered in a legacy database and copied inconsistently into divisional stores.
+      consequences: Legacy client database is demoted, then retired after cut-over; consumers move to the v2 contract.
+  - { key: opt-extend-legacy, type: Option, name: Extend the legacy client database, lifecycle: RETIRED }
+  - { key: opt-mdm, type: Option, name: Introduce a dedicated client MDM hub, lifecycle: DECIDED }
+
+  # ── Planning ──────────────────────────────────────────────────────────
+  - key: init-client-data
+    type: Initiative
+    name: Client Data Consolidation
+    lifecycle: IN_DEVELOPMENT
+    attrs: { startDate: 2026-10-01, endDate: 2027-12-31, status: IN_PROGRESS, sponsor: Head of Client Data Office }
+  - { key: ms-mdm-live, type: Milestone, name: MDM Hub live, lifecycle: PLANNED, attrs: { date: 2027-03-31 } }
+  - { key: ms-cutover, type: Milestone, name: Client master cut-over, lifecycle: PLANNED, attrs: { date: 2027-07-01 } }
+  - { key: del-build-mdm, type: Deliverable, name: Build Client MDM Hub, lifecycle: IN_DEVELOPMENT, attrs: { plannedStart: 2026-10-01, plannedEnd: 2027-03-31, status: IN_PROGRESS, effortDays: 420 } }
+  - { key: del-contract, type: Deliverable, name: Publish Client Master contract v2, lifecycle: PLANNED, attrs: { plannedStart: 2027-01-15, plannedEnd: 2027-04-30, status: NOT_STARTED, effortDays: 60 } }
+  - { key: del-migrate, type: Deliverable, name: Migrate client master to MDM Hub, lifecycle: PLANNED, attrs: { plannedStart: 2027-04-01, plannedEnd: 2027-06-30, status: NOT_STARTED, effortDays: 180 } }
+  - { key: del-repoint, type: Deliverable, name: Re-point onboarding to MDM Hub, lifecycle: PLANNED, attrs: { plannedStart: 2027-05-01, plannedEnd: 2027-06-30, status: NOT_STARTED, effortDays: 90 } }
+  - { key: del-dq-dashboard, type: Deliverable, name: Launch client data quality dashboard, lifecycle: PLANNED, attrs: { plannedStart: 2027-04-01, plannedEnd: 2027-05-31, status: NOT_STARTED, effortDays: 40 } }
+  - { key: del-decommission, type: Deliverable, name: Decommission legacy client database, lifecycle: PLANNED, attrs: { plannedStart: 2027-07-01, plannedEnd: 2027-12-31, status: NOT_STARTED, effortDays: 150 } }
+
+relationships:
+  # Strategy
+  - { type: MOTIVATES, from: drv-bcbs239, to: goal-client-view }
+  - { type: MOTIVATES, from: drv-cost, to: goal-client-view }
+  - { type: REALIZED_BY, from: goal-client-view, to: init-client-data }
+  - { type: MEASURES, from: kpi-client-dq, to: goal-client-view }
+
+  # Organisation
+  - { type: HAS_UNIT, from: le-group, to: div-gwm }
+  - { type: HAS_UNIT, from: le-group, to: div-pcb }
+  - { type: HAS_UNIT, from: le-group, to: div-am }
+  - { type: HAS_UNIT, from: le-group, to: div-ib }
+  - { type: HAS_UNIT, from: le-group, to: div-ncl }
+  - { type: HAS_UNIT, from: le-group, to: div-gf }
+  - { type: OWNS, from: div-gf, to: dp-client }
+  - { type: OWNS, from: div-gf, to: dom-client }
+  - { type: OWNS, from: div-gf, to: plat-data }
+  - { type: OWNS, from: div-gf, to: app-reg-hub }
+  - { type: OWNS, from: div-gf, to: app-risk-engine }
+  - { type: OWNS, from: div-gf, to: init-client-data }
+  - { type: OWNS, from: div-gwm, to: app-wealth }
+  - { type: OWNS, from: div-gwm, to: dp-positions }
+  - { type: OWNS, from: div-pcb, to: app-core-banking }
+  - { type: OWNS, from: div-pcb, to: dp-account }
+  - { type: OWNS, from: div-pcb, to: bp-onboarding }
+  - { type: OWNS, from: div-am, to: dp-product-ref }
+  - { type: OWNS, from: div-ib, to: dp-credit-exposure }
+  - { type: OWNS, from: div-ncl, to: app-legacy-admin }
+  - { type: OWNS, from: team-dpe, to: ds-mdm }
+  - { type: OWNS, from: team-dpe, to: ds-lake }
+  - { type: ACCOUNTABLE_FOR, from: role-data-owner, to: dp-client, attrs: { raci: ACCOUNTABLE } }
+  - { type: ACCOUNTABLE_FOR, from: role-data-steward, to: dp-client, attrs: { raci: RESPONSIBLE } }
+  - { type: ACCOUNTABLE_FOR, from: team-cdo, to: dom-client, attrs: { raci: RESPONSIBLE } }
+  - { type: ACCOUNTABLE_FOR, from: role-process-owner, to: bp-onboarding, attrs: { raci: ACCOUNTABLE } }
+
+  # Capabilities and processes
+  - { type: PARENT_OF, from: cap-client-mgmt, to: cap-onboarding }
+  - { type: PARENT_OF, from: cap-client-mgmt, to: cap-client-data }
+  - { type: PARENT_OF, from: cap-client-mgmt, to: cap-kyc }
+  - { type: PARENT_OF, from: cap-wealth, to: cap-portfolio }
+  - { type: PARENT_OF, from: cap-risk-reg, to: cap-credit-risk }
+  - { type: PARENT_OF, from: cap-risk-reg, to: cap-reg-reporting }
+  - { type: SUPPORTS, from: bp-onboarding, to: cap-onboarding }
+  - { type: SUPPORTS, from: bp-onboarding, to: cap-kyc }
+  - { type: SUPPORTS, from: bp-offboarding, to: cap-client-data }
+  - { type: SUPPORTS, from: bp-reg-run, to: cap-reg-reporting }
+
+  - { type: HAS_STEP, from: bp-onboarding, to: step-capture, attrs: { seq: 1 } }
+  - { type: HAS_STEP, from: bp-onboarding, to: step-kyc, attrs: { seq: 2 } }
+  - { type: HAS_STEP, from: bp-onboarding, to: step-approve, attrs: { seq: 3 } }
+  - { type: HAS_STEP, from: bp-onboarding, to: step-open-account, attrs: { seq: 4 } }
+  - { type: NEXT, from: step-capture, to: step-kyc }
+  - { type: NEXT, from: step-kyc, to: step-approve }
+  - { type: NEXT, from: step-approve, to: step-open-account, attrs: { condition: approved } }
+  - { type: HAS_STEP, from: bp-offboarding, to: step-close-accounts, attrs: { seq: 1 } }
+  - { type: HAS_STEP, from: bp-offboarding, to: step-inactivate-client, attrs: { seq: 2 } }
+  - { type: NEXT, from: step-close-accounts, to: step-inactivate-client }
+  - { type: HAS_STEP, from: bp-reg-run, to: step-aggregate, attrs: { seq: 1 } }
+  - { type: HAS_STEP, from: bp-reg-run, to: step-submit, attrs: { seq: 2 } }
+  - { type: NEXT, from: step-aggregate, to: step-submit }
+
+  - { type: PERFORMED_BY, from: step-capture, to: actor-advisor }
+  - { type: PERFORMED_BY, from: step-kyc, to: actor-compliance }
+  - { type: PERFORMED_BY, from: step-approve, to: actor-compliance }
+  - { type: PERFORMED_BY, from: step-open-account, to: actor-bot }
+  - { type: PERFORMED_BY, from: step-close-accounts, to: actor-ops }
+  - { type: PERFORMED_BY, from: step-inactivate-client, to: actor-bot }
+  - { type: PERFORMED_BY, from: step-aggregate, to: actor-bot }
+  - { type: PERFORMED_BY, from: step-submit, to: actor-ops }
+
+  # Process ↔ data (CRUD-I)
+  - { type: ACTS_ON, from: step-capture, to: dp-client, attrs: { op: CREATE } }
+  - { type: ACTS_ON, from: step-kyc, to: dp-client, attrs: { op: READ } }
+  - { type: ACTS_ON, from: step-kyc, to: dp-kyc, attrs: { op: CREATE } }
+  - { type: ACTS_ON, from: step-approve, to: dp-kyc, attrs: { op: UPDATE } }
+  - { type: ACTS_ON, from: step-open-account, to: dp-account, attrs: { op: CREATE } }
+  - { type: ACTS_ON, from: step-open-account, to: dp-product-ref, attrs: { op: READ } }
+  - { type: ACTS_ON, from: step-close-accounts, to: dp-account, attrs: { op: INACTIVATE } }
+  - { type: ACTS_ON, from: step-inactivate-client, to: dp-client, attrs: { op: INACTIVATE } }
+  - { type: ACTS_ON, from: step-aggregate, to: dp-credit-exposure, attrs: { op: READ } }
+  - { type: ACTS_ON, from: step-aggregate, to: dp-client, attrs: { op: READ } }
+  - { type: ACTS_ON, from: step-submit, to: dp-reg-capital, attrs: { op: CREATE } }
+
+  # Data products, domains and lineage
+  - { type: IN_DOMAIN, from: dp-client, to: dom-client }
+  - { type: IN_DOMAIN, from: dp-kyc, to: dom-client }
+  - { type: IN_DOMAIN, from: dp-account, to: dom-accounts }
+  - { type: IN_DOMAIN, from: dp-positions, to: dom-accounts }
+  - { type: IN_DOMAIN, from: dp-product-ref, to: dom-reference }
+  - { type: IN_DOMAIN, from: dp-credit-exposure, to: dom-risk }
+  - { type: IN_DOMAIN, from: dp-reg-capital, to: dom-risk }
+  - { type: DERIVED_FROM, from: dp-credit-exposure, to: dp-account }
+  - { type: DERIVED_FROM, from: dp-credit-exposure, to: dp-positions }
+  - { type: DERIVED_FROM, from: dp-credit-exposure, to: dp-client }
+  - { type: DERIVED_FROM, from: dp-reg-capital, to: dp-credit-exposure }
+  - { type: EXPOSES, from: dp-client, to: contract-client-v2 }
+  - { type: CONSUMES, from: rpt-client-dq, to: dp-client }
+  - { type: CONSUMES, from: rpt-board-risk, to: dp-credit-exposure }
+
+  # Where data lives: master, golden copy, approved distributor, … (note the planned hand-over)
+  - { type: HOLDS, from: ds-legacy-client, to: dp-client, attrs: { role: MASTER }, validTo: 2027-07-01 }
+  - { type: HOLDS, from: ds-legacy-client, to: dp-client, attrs: { role: REPLICA }, validFrom: 2027-07-01, validTo: 2027-12-31 }
+  - { type: HOLDS, from: ds-mdm, to: dp-client, attrs: { role: GOLDEN_COPY }, validTo: 2027-07-01 }
+  - { type: HOLDS, from: ds-mdm, to: dp-client, attrs: { role: MASTER }, validFrom: 2027-07-01 }
+  - { type: HOLDS, from: ds-lake, to: dp-client, attrs: { role: APPROVED_DISTRIBUTOR } }
+  - { type: HOLDS, from: ds-wealth-crm, to: dp-client, attrs: { role: CONSUMER_CACHE } }
+  - { type: HOLDS, from: ds-mdm, to: dp-kyc, attrs: { role: MASTER } }
+  - { type: HOLDS, from: ds-core-banking, to: dp-account, attrs: { role: MASTER } }
+  - { type: HOLDS, from: ds-core-banking, to: dp-positions, attrs: { role: MASTER } }
+  - { type: HOLDS, from: ds-lake, to: dp-account, attrs: { role: APPROVED_DISTRIBUTOR } }
+  - { type: HOLDS, from: ds-lake, to: dp-positions, attrs: { role: GOLDEN_COPY } }
+  - { type: HOLDS, from: ds-product-ref, to: dp-product-ref, attrs: { role: MASTER } }
+  - { type: HOLDS, from: ds-risk-mart, to: dp-credit-exposure, attrs: { role: MASTER } }
+  - { type: HOLDS, from: ds-reg-db, to: dp-reg-capital, attrs: { role: MASTER } }
+  - { type: FEEDS, from: ds-legacy-client, to: ds-lake, attrs: { mode: BATCH } }
+  - { type: FEEDS, from: ds-mdm, to: ds-lake, attrs: { mode: STREAM } }
+  - { type: FEEDS, from: ds-legacy-client, to: ds-wealth-crm, attrs: { mode: API } }
+  - { type: FEEDS, from: ds-core-banking, to: ds-lake, attrs: { mode: BATCH } }
+  - { type: FEEDS, from: ds-lake, to: ds-risk-mart, attrs: { mode: BATCH } }
+  - { type: FEEDS, from: ds-risk-mart, to: ds-reg-db, attrs: { mode: BATCH } }
+
+  # Applications
+  - { type: REALIZES, from: app-onboarding, to: cap-onboarding }
+  - { type: REALIZES, from: app-kyc, to: cap-kyc }
+  - { type: REALIZES, from: app-core-banking, to: cap-client-mgmt }
+  - { type: REALIZES, from: app-wealth, to: cap-portfolio }
+  - { type: REALIZES, from: app-risk-engine, to: cap-credit-risk }
+  - { type: REALIZES, from: app-reg-hub, to: cap-reg-reporting }
+  - { type: REALIZES, from: app-legacy-admin, to: cap-client-data }
+  - { type: SUPPORTS_STEP, from: app-onboarding, to: step-capture }
+  - { type: SUPPORTS_STEP, from: app-kyc, to: step-kyc }
+  - { type: SUPPORTS_STEP, from: app-onboarding, to: step-approve }
+  - { type: SUPPORTS_STEP, from: app-core-banking, to: step-open-account }
+  - { type: SUPPORTS_STEP, from: app-core-banking, to: step-close-accounts }
+  - { type: SUPPORTS_STEP, from: app-legacy-admin, to: step-inactivate-client }
+  - { type: SUPPORTS_STEP, from: app-risk-engine, to: step-aggregate }
+  - { type: SUPPORTS_STEP, from: app-reg-hub, to: step-submit }
+  - { type: USES, from: app-onboarding, to: ds-legacy-client, attrs: { op: CREATE } }
+  - { type: USES, from: app-legacy-admin, to: ds-legacy-client, attrs: { op: UPDATE } }
+  - { type: USES, from: app-kyc, to: ds-mdm, attrs: { op: UPDATE } }
+  - { type: USES, from: app-core-banking, to: ds-core-banking, attrs: { op: UPDATE } }
+  - { type: USES, from: app-wealth, to: ds-wealth-crm, attrs: { op: READ } }
+  - { type: USES, from: app-risk-engine, to: ds-risk-mart, attrs: { op: UPDATE } }
+  - { type: USES, from: app-reg-hub, to: ds-reg-db, attrs: { op: UPDATE } }
+  - { type: INTEGRATES_WITH, from: app-onboarding, to: app-kyc, attrs: { style: REST } }
+  - { type: INTEGRATES_WITH, from: app-onboarding, to: app-core-banking, attrs: { style: EVENT } }
+  - { type: INTEGRATES_WITH, from: app-risk-engine, to: app-reg-hub, attrs: { style: FILE } }
+  - { type: RUNS_ON, from: app-onboarding, to: plat-cloud }
+  - { type: RUNS_ON, from: app-wealth, to: plat-cloud }
+  - { type: RUNS_ON, from: app-reg-hub, to: plat-cloud }
+  - { type: RUNS_ON, from: app-core-banking, to: plat-mainframe }
+  - { type: RUNS_ON, from: app-risk-engine, to: plat-mainframe }
+  - { type: RUNS_ON, from: ds-mdm, to: plat-data }
+  - { type: RUNS_ON, from: ds-lake, to: plat-data }
+  - { type: RUNS_ON, from: ds-risk-mart, to: plat-data }
+  - { type: RUNS_ON, from: ds-core-banking, to: plat-mainframe }
+
+  # Governance
+  - { type: REQUIRES, from: reg-bcbs239, to: ctl-lineage }
+  - { type: REQUIRES, from: reg-bcbs239, to: ctl-dq }
+  - { type: REQUIRES, from: reg-fadp, to: ctl-access }
+  - { type: REQUIRES, from: reg-gdpr, to: ctl-access }
+  - { type: MITIGATES, from: ctl-dq, to: risk-inconsistent-client }
+  - { type: AFFECTS, from: risk-inconsistent-client, to: dp-client }
+  - { type: IMPLEMENTS_CONTROL, from: ds-mdm, to: ctl-dq }
+  - { type: IMPLEMENTS_CONTROL, from: plat-data, to: ctl-lineage }
+  - { type: IMPLEMENTS_CONTROL, from: app-onboarding, to: ctl-access }
+  - { type: CONSIDERED, from: adr-mdm, to: opt-extend-legacy }
+  - { type: CONSIDERED, from: adr-mdm, to: opt-mdm }
+  - { type: CHOSE, from: adr-mdm, to: opt-mdm }
+  - { type: DECIDES, from: adr-mdm, to: ds-mdm }
+  - { type: DECIDES, from: adr-mdm, to: dp-client }
+  - { type: DECIDES, from: adr-mdm, to: ds-legacy-client }
+
+  # Roadmap
+  - { type: CONTAINS, from: init-client-data, to: del-build-mdm }
+  - { type: CONTAINS, from: init-client-data, to: del-contract }
+  - { type: CONTAINS, from: init-client-data, to: del-migrate }
+  - { type: CONTAINS, from: init-client-data, to: del-repoint }
+  - { type: CONTAINS, from: init-client-data, to: del-dq-dashboard }
+  - { type: CONTAINS, from: init-client-data, to: del-decommission }
+  - { type: PART_OF_MILESTONE, from: del-build-mdm, to: ms-mdm-live }
+  - { type: PART_OF_MILESTONE, from: del-migrate, to: ms-cutover }
+  - { type: PART_OF_MILESTONE, from: del-repoint, to: ms-cutover }
+  - { type: DEPENDS_ON, from: del-contract, to: del-build-mdm, attrs: { dependencyType: START_START, lagDays: 90 } }
+  - { type: DEPENDS_ON, from: del-migrate, to: del-build-mdm, attrs: { dependencyType: FINISH_START } }
+  - { type: DEPENDS_ON, from: del-migrate, to: del-contract, attrs: { dependencyType: FINISH_START } }
+  - { type: DEPENDS_ON, from: del-repoint, to: del-contract, attrs: { dependencyType: FINISH_START } }
+  - { type: DEPENDS_ON, from: del-dq-dashboard, to: del-build-mdm, attrs: { dependencyType: FINISH_START } }
+  - { type: DEPENDS_ON, from: del-decommission, to: ms-cutover, attrs: { dependencyType: FINISH_START } }
+  - { type: CHANGES, from: del-build-mdm, to: ds-mdm, attrs: { action: INTRODUCE, targetLifecycle: LIVE } }
+  - { type: CHANGES, from: del-contract, to: contract-client-v2, attrs: { action: INTRODUCE, targetLifecycle: LIVE } }
+  - { type: CHANGES, from: del-migrate, to: dp-client, attrs: { action: MODIFY } }
+  - { type: CHANGES, from: del-repoint, to: app-onboarding, attrs: { action: MODIFY } }
+  - { type: CHANGES, from: del-dq-dashboard, to: rpt-client-dq, attrs: { action: INTRODUCE, targetLifecycle: LIVE } }
+  - { type: CHANGES, from: del-dq-dashboard, to: ctl-dq, attrs: { action: INTRODUCE, targetLifecycle: LIVE } }
+  - { type: CHANGES, from: del-decommission, to: ds-legacy-client, attrs: { action: RETIRE, targetLifecycle: RETIRED } }
+  - { type: CHANGES, from: del-decommission, to: app-legacy-admin, attrs: { action: RETIRE, targetLifecycle: RETIRED } }

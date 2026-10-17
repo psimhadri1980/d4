@@ -52,6 +52,8 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D20 | 2026-10-17 | Metamodel attributes are stored as plain Neo4j properties, so names that clash with system fields are reserved (`DEPENDS_ON.type` → `dependencyType`; starter metamodel 0.2.0) | Readable catalog Cypher (`n.name`, `n.lifecycle`) |
 | D21 | 2026-10-17 | Graph write and event log are coordinated as described in [ADR 0004](adr/0004-graph-and-event-log-write.md): events inserted in an open Postgres transaction, Neo4j commits with version checks, then Postgres commits | No distributed transaction; the remaining gap is detectable and reconcilable |
 | D22 | 2026-10-17 | GraphQL is read-only, authenticates lazily inside resolvers, and maps errors to `extensions.code` matching the REST error codes | One error vocabulary across REST and GraphQL |
+| D23 | 2026-10-17 | Model-as-code format `d4/v1`: document `key`s for wiring, ids kept on export; imports match by id → externalKey → type + name, are validated as a whole, applied as one change set, and never delete | Hand-authored files re-import without duplicates; exports round-trip exactly |
+| D24 | 2026-10-17 | Sample dataset uses UBS's public divisions with **invented** systems, data and plans, labelled illustrative | Realistic demo without misrepresenting a real bank's internals |
 
 ## Status
 
@@ -73,7 +75,13 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - event history recorded in Postgres
   - 69 tests pass, including 14 end-to-end API tests; checked live through Keycloak
   - CI now runs the Postgres and Neo4j integration tests
-- **Next:** Phase 1d (YAML import/export via `@d4/codecs` and `@d4/cli`, plus a sample dataset), then 1e (web app).
+- **Phase 1d done:**
+  - `planImport` in `@d4/core`
+  - `@d4/codecs` (model-as-code documents) and the `@d4/cli` `d4` command (validate, import, export, workspaces)
+  - API `import` (with dry run) and `export` endpoints
+  - `samples/ubs-banking.yaml` (92 elements, 178 relationships), imported live; the re-import is a no-op
+  - 91 tests pass
+- **Next:** Phase 1e, the web app (Keycloak login, graph explorer, metamodel-driven forms).
 
 ---
 

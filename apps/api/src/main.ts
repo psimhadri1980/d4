@@ -9,7 +9,11 @@ import { configureApp } from './app.setup';
 import { APP_CONFIG, type AppConfig } from './config';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
+  // Model imports can be large; 20 MB covers tens of thousands of elements.
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ bodyLimit: 20 * 1024 * 1024 }),
+  );
   await configureApp(app);
   const config = app.get<AppConfig>(APP_CONFIG);
   await app.listen(config.API_PORT, '0.0.0.0');

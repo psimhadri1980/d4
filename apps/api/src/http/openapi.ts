@@ -163,6 +163,40 @@ export function buildOpenApiDocument(): OpenApiDocument {
     responses: { 200: json(z.array(EventSchema), 'Change events, oldest first'), ...errors },
   });
 
+  // Model-as-code
+  const ImportSummary = z
+    .object({
+      ok: z.boolean(),
+      applied: z.boolean(),
+      issues: z.array(z.object({ subjectId: z.string(), ruleId: z.string().optional(), message: z.string() })),
+      elements: z.object({ created: z.number(), updated: z.number(), unchanged: z.number() }),
+      relationships: z.object({ created: z.number(), updated: z.number(), unchanged: z.number() }),
+      keyToId: z.record(z.string()),
+    })
+    .openapi('ImportSummary');
+  const ModelDocumentSchema = z
+    .record(z.unknown())
+    .openapi('ModelDocument', { description: 'apiVersion d4/v1, kind Model; see samples/ubs-banking.yaml' });
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/import',
+    tags: ['Model as code'],
+    summary: 'Import a model document (idempotent; validated as a whole; applied as one change)',
+    request: {
+      params: z.object({ ws }),
+      query: z.object({ dryRun: z.enum(['true', 'false']).optional() }),
+      body: { content: { 'application/json': { schema: ModelDocumentSchema } } },
+    },
+    responses: { 200: json(ImportSummary, 'Plan summary; `applied` tells whether changes were written'), ...writeErrors },
+  });
+  route({
+    method: 'get',
+    path: '/v1/workspaces/{ws}/export',
+    tags: ['Model as code'],
+    request: { params: z.object({ ws }) },
+    responses: { 200: json(ModelDocumentSchema, 'The workspace as a model document'), ...errors },
+  });
+
   return new OpenApiGeneratorV3(registry.definitions).generateDocument({
     openapi: '3.0.3',
     info: {

@@ -13,6 +13,9 @@ packages/core         Domain model: elements, relationships, lifecycle, rules, M
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
 packages/db           Postgres control plane: Drizzle schema, migrations, stores, local seed
 packages/graph        Neo4j adapter: ModelRepository and read queries (list/search, neighbourhood)
+packages/codecs       Model-as-code documents (YAML/JSON): parse, import input, export
+packages/cli          `d4` command line: validate, import, export, workspaces
+samples/              Example models, e.g. ubs-banking.yaml (illustrative)
 deploy/               docker-compose for local infra, Keycloak realm, Postgres bootstrap
 docs/adr/             Architecture decision records
 ```
@@ -48,6 +51,19 @@ deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volu
 | GraphQL | `POST /graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
 
 All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/dev.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
+
+## Model as code
+
+Models can be written as YAML (`apiVersion: d4/v1`, `kind: Model`) and imported. Elements get a `key` that relationships refer to. Imports are idempotent: items are matched by id, then `externalKey`, then type + name. The whole resulting model is validated before anything is written, and nothing is ever deleted by an import.
+
+```bash
+deploy/dev.sh sample                                    # import samples/ubs-banking.yaml into "default"
+deploy/dev.sh cli validate samples/ubs-banking.yaml     # offline check against the starter metamodel
+deploy/dev.sh cli import my-model.yaml -w default --dry-run
+deploy/dev.sh cli export -w default -o exports/default.yaml
+```
+
+`samples/ubs-banking.yaml` is **illustrative**. Its legal entity and divisions follow UBS's public reporting structure, but all systems, data stores, processes, decisions and plans are invented.
 
 ## Developing with Node locally (optional)
 

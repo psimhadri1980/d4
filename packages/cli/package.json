@@ -1,0 +1,22 @@
+{
+  "name": "@d4/cli",
+  "version": "0.0.1",
+  "private": true,
+  "description": "d4 command line: validate, import and export model-as-code documents.",
+  "bin": { "d4": "dist/main.js" },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@d4/codecs": "workspace:*",
+    "@d4/core": "workspace:*",
+    "@d4/metamodel": "workspace:*",
+    "commander": "^12.1.0"
+  }
+}

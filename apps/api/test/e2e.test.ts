@@ -3,7 +3,10 @@ import { Test } from '@nestjs/testing';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
 import neo4j from 'neo4j-driver';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Client } from 'pg';
+import { parseModelDocument } from '@d4/codecs';
 import { applySchema } from '@d4/cypher';
 import { createDb, RoleStore, runMigrations, seedLocal, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
@@ -250,6 +253,82 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `${ws()}/relationships/${rel.body!['id']}`, token)).status).toBe(404);
       const history = await call('GET', `${ws()}/relationships/${rel.body!['id']}/history`, token);
       expect(history.body!.map((e: any) => e.data.reason)).toEqual([undefined, 'endpoint-deleted']);
+    });
+  });
+
+  describe('model as code (import / export)', () => {
+    const sample = parseModelDocument(
+      readFileSync(join(__dirname, '..', '..', '..', 'samples', 'ubs-banking.yaml'), 'utf8'),
+    );
+
+    it('dry-runs without writing and needs only read access', async () => {
+      const viewer = await sign('viewer-io', ['viewer']);
+      const res = await call('POST', `${ws()}/import?dryRun=true`, viewer, sample);
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ ok: true, applied: false, issues: [] });
+      expect(res.body!['elements'].created).toBe(sample.elements.length);
+      const search = await call('GET', `${ws()}/elements?q=consolidation`, viewer);
+      expect(search.body!['items']).toEqual([]);
+    });
+
+    it('imports the UBS sample in one go, then re-imports as a no-op', async () => {
+      const token = await sign('importer-1', ['architect']);
+      const first = await call('POST', `${ws()}/import`, token, sample);
+      expect(first.status).toBe(200);
+      expect(first.body).toMatchObject({ ok: true, applied: true });
+      expect(first.body!['relationships'].created).toBe(sample.relationships.length);
+
+      const again = await call('POST', `${ws()}/import`, token, sample);
+      expect(again.body).toMatchObject({ ok: true, applied: false });
+      expect(again.body!['elements']).toEqual({ created: 0, updated: 0, unchanged: sample.elements.length });
+
+      // The planned hand-over is visible: legacy is master until mid-2027, the MDM hub after.
+      const clientId = first.body!['keyToId']['dp-client'];
+      const holds = await call('GET', `${ws()}/elements/${clientId}/relationships?direction=IN&type=HOLDS`, token);
+      const masters = holds.body!
+        .filter((c: any) => c.relationship.attrs.role === 'MASTER')
+        .map((c: any) => `${c.other.attrs.name}:${c.relationship.validFrom ?? '-'}:${c.relationship.validTo ?? '-'}`)
+        .sort();
+      expect(masters).toEqual(['Client MDM Hub:2027-07-01:-', 'Legacy Client Database:-:2027-07-01']);
+
+      const history = await call('GET', `${ws()}/elements/${clientId}/history`, token);
+      expect(history.body![0]).toMatchObject({ type: 'ElementCreated', data: { source: 'import' } });
+    });
+
+    it('rejects invalid documents and rule violations without partial writes', async () => {
+      const token = await sign('importer-2', ['architect']);
+      const malformed = await call('POST', `${ws()}/import`, token, { apiVersion: 'd4/v1', kind: 'Model' });
+      expect(malformed.status).toBe(400);
+
+      const clash = await call('POST', `${ws()}/import`, token, {
+        apiVersion: 'd4/v1',
+        kind: 'Model',
+        metadata: { name: 'clash' },
+        elements: [
+          { key: 'shadow', type: 'DataStore', name: 'Shadow Client Store' },
+          { key: 'client', type: 'DataProduct', name: 'Client Master' },
+        ],
+        relationships: [{ type: 'HOLDS', from: 'shadow', to: 'client', attrs: { role: 'MASTER' } }],
+      });
+      expect(clash.status).toBe(200);
+      expect(clash.body).toMatchObject({ ok: false, applied: false });
+      expect(clash.body!['issues'].map((i: any) => i.ruleId)).toContain('single-master-per-data-product');
+      const shadow = await call('GET', `${ws()}/elements?q=shadow`, token);
+      expect(shadow.body!['items']).toEqual([]);
+    });
+
+    it('exports a document that re-imports unchanged', async () => {
+      const token = await sign('exporter-1', ['viewer']);
+      const exported = await call('GET', `${ws()}/export`, token);
+      expect(exported.status).toBe(200);
+      expect(exported.body!['metadata']).toMatchObject({ name: 'Default', metamodel: 'd4-starter@0.2.0' });
+      expect(exported.body!['elements'].length).toBeGreaterThanOrEqual(sample.elements.length);
+
+      const writer = await sign('importer-3', ['architect']);
+      const roundTrip = await call('POST', `${ws()}/import?dryRun=true`, writer, exported.body);
+      expect(roundTrip.body).toMatchObject({ ok: true });
+      expect(roundTrip.body!['elements'].created + roundTrip.body!['elements'].updated).toBe(0);
+      expect(roundTrip.body!['relationships'].created + roundTrip.body!['relationships'].updated).toBe(0);
     });
   });
 

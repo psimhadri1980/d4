@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
-import { applySchema, schemaStatements } from '../src';
+import { applySchema, relationshipIdIndexName, schemaStatements } from '../src';
 
 const reg = new MetamodelRegistry(loadStarterMetamodel());
 
@@ -24,10 +24,28 @@ describe('schemaStatements', () => {
     expect(stmts).toContain('CREATE INDEX rel_holds_id IF NOT EXISTS FOR ()-[r:HOLDS]-() ON (r.id)');
   });
 
-  it('applies each statement through the runner', async () => {
+  it('indexes relationship ids across all types with an exact-match full-text index', () => {
+    const name = relationshipIdIndexName(reg);
+    expect(name).toMatch(/^relationship_ids_[0-9a-f]{8}$/);
+    const ddl = stmts.find((s) => s.includes(name))!;
+    expect(ddl).toMatch(/FOR \(\)-\[r:[A-Z_|]+\]-\(\) ON EACH \[r\.id\]/);
+    expect(ddl).toContain('HOLDS|');
+    expect(ddl).toContain("'keyword'");
+  });
+
+  it('applies each statement and drops outdated relationship-id indexes', async () => {
     const ran: string[] = [];
-    const n = await applySchema({ run: async (s) => void ran.push(s) }, reg);
+    const n = await applySchema(
+      {
+        run: async (s) => {
+          ran.push(s);
+          return s.startsWith('SHOW INDEXES') ? { records: [{ get: () => 'relationship_ids_deadbeef' }] } : undefined;
+        },
+      },
+      reg,
+    );
     expect(n).toBe(stmts.length);
-    expect(ran).toEqual(stmts);
+    expect(ran.slice(0, stmts.length)).toEqual(stmts);
+    expect(ran.at(-1)).toBe('DROP INDEX relationship_ids_deadbeef IF EXISTS');
   });
 });

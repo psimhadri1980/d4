@@ -13,6 +13,7 @@ import { TenantGraphService } from './infra/tenant-graph.service';
 import { ElementsController } from './model/elements.controller';
 import { ModelFactory } from './model/model.factory';
 import { RelationshipsController } from './model/relationships.controller';
+import { TransferController } from './model/transfer.controller';
 import { WorkspaceAccess } from './model/workspace-access.service';
 import { WorkspacesController } from './model/workspaces.controller';
 
@@ -23,6 +24,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     WorkspacesController,
     ElementsController,
     RelationshipsController,
+    TransferController,
   ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },

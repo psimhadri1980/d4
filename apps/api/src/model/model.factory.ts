@@ -8,6 +8,8 @@ import type { WorkspaceScope } from './workspace-access.service';
 
 export interface ModelHandles {
   service: ModelService;
+  /** For whole-change-set writes (imports); single commands go through `service`. */
+  repository: Neo4jModelRepository;
   queries: GraphQueries;
   events: EventStore;
 }
@@ -25,6 +27,7 @@ export class ModelFactory {
     const repo = new Neo4jModelRepository(scope.registry, sessions, this.eventSink(scope.tenantId));
     return {
       service: new ModelService(scope.registry, repo),
+      repository: repo,
       queries: new GraphQueries(scope.registry, sessions),
       events: new EventStore(this.database.db),
     };

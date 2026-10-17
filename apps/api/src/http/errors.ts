@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
 import { ZodError, type ZodType, type ZodTypeDef } from 'zod';
+import { CodecError } from '@d4/codecs';
 import { DomainError, type DomainErrorCode } from '@d4/core';
 
 export const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
@@ -39,6 +40,9 @@ export function toErrorResponse(e: unknown): { status: number; body: ErrorBody }
         issues: e.issues.map((i) => `${i.path.join('.') || '<body>'}: ${i.message}`),
       },
     };
+  }
+  if (e instanceof CodecError) {
+    return { status: 400, body: { error: 'BAD_REQUEST', message: 'Invalid model document', issues: e.issues } };
   }
   // Unknown element/relationship types in query filters.
   if (e instanceof RangeError) {

@@ -1,0 +1,21 @@
+{
+  "name": "@d4/codecs",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Model-as-code documents: parse, convert to imports, export from snapshots.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@d4/core": "workspace:*",
+    "@d4/metamodel": "workspace:*",
+    "yaml": "^2.5.0",
+    "zod": "^3.23.8"
+  }
+}

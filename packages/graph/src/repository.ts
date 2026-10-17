@@ -1,6 +1,8 @@
 import type { ManagedTransaction, Session } from 'neo4j-driver';
+import { relationshipIdIndexName } from '@d4/cypher';
 import {
   DomainError,
+  ULID_PATTERN,
   type ChangeSet,
   type DomainEvent,
   type Element,
@@ -47,9 +49,9 @@ export class Neo4jModelRepository implements ModelRepository {
   }
 
   async getRelationship(ws: string, id: string): Promise<Relationship | undefined> {
-    const query = relationshipByIdQuery(this.reg);
+    const query = relationshipByIdQuery(this.reg, ws, id);
     if (!query) return undefined;
-    const [row] = await this.read(query, { ws, id });
+    const [row] = await this.read(query.cypher, query.params);
     return row ? toRelationship(row) : undefined;
   }
 
@@ -153,18 +155,21 @@ export class Neo4jModelRepository implements ModelRepository {
 }
 
 /**
- * Finds a relationship by id. Relationship property indexes are per type, so this seeks each
- * type's id index (UNION ALL) instead of scanning every relationship. Returns p, t, f, o.
+ * Cypher and parameters to find a relationship by id through the cross-type full-text id index
+ * (see @d4/cypher). Returns undefined for values that cannot be ids. Yields p, t, f, o.
  */
-export function relationshipByIdQuery(reg: MetamodelRegistry): string | undefined {
-  const branches = reg
-    .relationshipTypes()
-    .map(
-      (t) =>
-        `MATCH (a)-[r:${ident(t.name)} {id: $id}]->(b) WHERE r.workspaceId = $ws ` +
-        'RETURN properties(r) AS p, type(r) AS t, a.id AS f, b.id AS o',
-    );
-  return branches.length ? `CALL { ${branches.join(' UNION ALL ')} } RETURN p, t, f, o LIMIT 1` : undefined;
+export function relationshipByIdQuery(
+  reg: MetamodelRegistry,
+  ws: string,
+  id: string,
+): { cypher: string; params: Row } | undefined {
+  if (!ULID_PATTERN.test(id) || !reg.relationshipTypes().length) return undefined;
+  return {
+    cypher: `CALL db.index.fulltext.queryRelationships($index, $q) YIELD relationship AS r
+             WITH r WHERE r.id = $id AND r.workspaceId = $ws
+             RETURN properties(r) AS p, type(r) AS t, startNode(r).id AS f, endNode(r).id AS o LIMIT 1`,
+    params: { index: relationshipIdIndexName(reg), q: `"${id}"`, id, ws },
+  };
 }
 
 export function toRelationship(row: Row): Relationship {
