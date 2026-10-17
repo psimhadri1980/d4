@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "d4",
+      "credentials": [{ "accessKey": "d4", "secretKey": "d4-local-dev" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

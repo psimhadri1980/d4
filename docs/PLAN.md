@@ -118,7 +118,7 @@ Query lifecycle: **Draft → In Review → Published (vN, immutable, hashed) →
 | Validation / schemas | **zod** (metamodel, DTOs), shared by API and UI |
 | Graph algorithms in core | **graphology** (topo-sort, cycles, critical path) |
 | Auth | **Keycloak** (or Auth0/Zitadel) via OIDC, `jose` for JWT validation |
-| Object storage | S3 / MinIO (`@aws-sdk/client-s3`) |
+| Object storage | S3 / SeaweedFS locally (`@aws-sdk/client-s3`) |
 | Front end | **React + Vite**, TanStack Router/Query, **Cytoscape.js** (Sigma.js + graphology for very large graphs), **CodeMirror 6** + Neo4j Cypher language support, custom D3/SVG Gantt, AG Grid, Zustand |
 | Exports | `exceljs`, Playwright/headless Chromium (PDF/PNG), `fast-xml-parser` (ArchiMate), Mermaid text |
 | Observability | OpenTelemetry JS → Prometheus / Grafana / Tempo / Loki |
@@ -179,7 +179,7 @@ All **reads** are Cypher. System queries come from templates in `@d4/cypher`. Us
 - Neo4j Community 5 (one instance per tenant, APOC Core + GDS Community plugins)
 - PostgreSQL (control plane, event log; managed HA)
 - Redis (queue + cache)
-- S3/MinIO
+- S3 (SeaweedFS locally)
 - Keycloak (IdP, per-tenant realms or organisations)
 - Ingress / API gateway (TLS, WAF, rate limits)
 - CDN
@@ -411,7 +411,7 @@ d4/
   apps/   web  api  query  worker  renderer  control-plane  connectors
   packages/  core  metamodel  cypher  codecs  sdk  cli  ui-kit  config(eslint/tsconfig)
   packages/metamodel/starter.yaml  samples/bank.yaml
-  deploy/docker-compose.yml   # neo4j:5-community(+APOC,GDS), postgres, redis, minio, keycloak
+  deploy/docker-compose.yml   # neo4j:5-community(+APOC,GDS), postgres, redis, seaweedfs (s3), keycloak
   deploy/helm/  deploy/terraform/
   docs/adr/
 ```

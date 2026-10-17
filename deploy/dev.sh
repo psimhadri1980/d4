@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Local stack helper. Works without Node installed: everything builds inside Docker.
 set -euo pipefail
-cd "$(dirname "$0")"
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+cd "$(dirname "$SELF")"
 
 # Docker Desktop's CLI is not always on PATH.
 if ! command -v docker >/dev/null; then
@@ -10,8 +11,8 @@ fi
 dc() { docker compose -f docker-compose.yml "$@"; }
 
 case "${1:-help}" in
-  up)       dc up -d --build --wait api && "$0" status ;;
-  up-obs)   D4_OTEL_ENDPOINT=http://otel-collector:4318 dc --profile observability up -d --build --wait && "$0" status ;;
+  up)       dc up -d --build --wait api && "$SELF" status ;;
+  up-obs)   D4_OTEL_ENDPOINT=http://otel-collector:4318 dc --profile observability up -d --build --wait && "$SELF" status ;;
   down)     dc --profile observability --profile tools down ;;
   reset)    dc --profile observability --profile tools down -v ;;
   status)   dc --profile observability ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}' ;;

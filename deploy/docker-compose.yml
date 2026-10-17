@@ -1,5 +1,5 @@
 # Local D4 stack. Sized for an 8 GB machine (~3 GB for the core profile).
-#   core (default):  neo4j, postgres, redis, minio, keycloak + init jobs + api
+#   core (default):  neo4j, postgres, redis, s3 (SeaweedFS), keycloak + init jobs + api
 #   observability:   otel-collector, tempo, prometheus, grafana   (--profile observability)
 #   tools:           test runner                                  (--profile tools)
 # Use deploy/dev.sh rather than calling compose directly.
@@ -69,20 +69,21 @@ services:
       interval: 5s
       retries: 20
 
-  minio:
-    image: minio/minio:RELEASE.2024-08-17T01-24-54Z
-    command: server /data --console-address ":9001"
-    ports: ['9000:9000', '9001:9001']
-    environment:
-      MINIO_ROOT_USER: d4
-      MINIO_ROOT_PASSWORD: d4-local-dev
+  # S3-compatible object store (MinIO no longer publishes container images).
+  s3:
+    image: chrislusf/seaweedfs:3.80
+    command: >
+      server -dir=/data -ip=s3 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=128 -volume.max=20
+      -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    ports: ['8333:8333']
     volumes:
-      - minio-data:/data
+      - s3-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
     mem_limit: 256m
     healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8333/healthz >/dev/null 2>&1']
       interval: 5s
-      retries: 20
+      retries: 30
 
   # ── Identity ──────────────────────────────────────────────────────────
   keycloak:
@@ -107,13 +108,18 @@ services:
       start_period: 30s
 
   # ── One-shot init jobs ───────────────────────────────────────────────
-  minio-init:
-    image: minio/mc:RELEASE.2024-08-17T11-33-50Z
-    depends_on: { minio: { condition: service_healthy } }
+  s3-init:
+    image: amazon/aws-cli:2.17.40
+    depends_on: { s3: { condition: service_healthy } }
+    environment:
+      AWS_ACCESS_KEY_ID: d4
+      AWS_SECRET_ACCESS_KEY: d4-local-dev
+      AWS_DEFAULT_REGION: us-east-1
     entrypoint: >
-      sh -c "mc alias set d4 http://minio:9000 d4 d4-local-dev &&
-             mc mb --ignore-existing d4/d4-exports d4/d4-attachments d4/d4-backups &&
-             mc anonymous set none d4/d4-exports"
+      sh -c 'for b in d4-exports d4-attachments d4-backups; do
+               aws --endpoint-url http://s3:8333 s3api head-bucket --bucket $$b 2>/dev/null ||
+               aws --endpoint-url http://s3:8333 s3 mb s3://$$b || exit 1;
+             done'
     restart: 'no'
 
   neo4j-schema:
@@ -136,7 +142,7 @@ services:
       neo4j-schema: { condition: service_completed_successfully }
       keycloak: { condition: service_healthy }
       redis: { condition: service_healthy }
-      minio-init: { condition: service_completed_successfully }
+      s3-init: { condition: service_completed_successfully }
     mem_limit: 384m
 
   # ── Observability (optional) ─────────────────────────────────────────
@@ -188,5 +194,5 @@ volumes:
   neo4j-plugins:
   pg-data:
   redis-data:
-  minio-data:
+  s3-data:
   tempo-data:

@@ -31,9 +31,9 @@ deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volu
 | neo4j 5.26 Community + APOC + GDS | Tenant graph (`t_local`) | 1.4 GB |
 | postgres 16 | Control plane (tenants, events) | 256 MB |
 | redis 7 | Queue / cache | 128 MB |
-| minio | S3 buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
+| s3 (SeaweedFS) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
 | keycloak 25 | OIDC realm `d4`, roles, dev users | 768 MB |
-| neo4j-schema, minio-init | One-shot init jobs | — |
+| neo4j-schema, s3-init | One-shot init jobs | — |
 | api | D4 API on :3000 | 384 MB |
 | otel-collector, tempo, prometheus, grafana (:3001) | Observability profile (optional) | ~1 GB |
 
@@ -52,7 +52,7 @@ Local consoles:
 |---|---|
 | Neo4j Browser | http://localhost:7474 (neo4j / d4-local-dev) |
 | Keycloak | http://localhost:8080 (admin / d4-local-dev) |
-| MinIO | http://localhost:9001 (d4 / d4-local-dev) |
+| S3 API (SeaweedFS) | http://localhost:8333 (access key d4 / d4-local-dev) |
 | Grafana | http://localhost:3001 (admin / d4-local-dev) |
 
 All of these are local development credentials only.
