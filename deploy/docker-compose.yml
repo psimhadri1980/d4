@@ -1,8 +1,23 @@
-# Local development infrastructure for D4.
-# One Neo4j Community instance stands in for a single tenant database.
+# Local D4 stack. Sized for an 8 GB machine (~3 GB for the core profile).
+#   core (default):  neo4j, postgres, redis, minio, keycloak + init jobs + api
+#   observability:   otel-collector, tempo, prometheus, grafana   (--profile observability)
+#   tools:           test runner                                  (--profile tools)
+# Use deploy/dev.sh rather than calling compose directly.
 name: d4
 
+x-api-env: &api-env
+  API_PORT: 3000
+  POSTGRES_URL: postgres://d4:d4-local-dev@postgres:5432/d4
+  NEO4J_USER: neo4j
+  NEO4J_PASSWORD: d4-local-dev
+  # Tokens are issued for the browser-facing URL; keys are fetched over the compose network.
+  OIDC_ISSUER: http://localhost:8080/realms/d4
+  OIDC_JWKS_URI: http://keycloak:8080/realms/d4/protocol/openid-connect/certs
+  OIDC_AUDIENCE: d4-api
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
+
 services:
+  # ── Data stores ───────────────────────────────────────────────────────
   neo4j:
     image: neo4j:5.26-community
     ports: ['7474:7474', '7687:7687']
@@ -12,13 +27,19 @@ services:
       NEO4J_dbms_security_procedures_unrestricted: 'apoc.*,gds.*'
       NEO4J_dbms_security_procedures_allowlist: 'apoc.*,gds.*'
       NEO4J_db_transaction_timeout: 30s
-      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 768m
+      NEO4J_server_memory_pagecache_size: 256m
     volumes:
       - neo4j-data:/data
+      - neo4j-plugins:/plugins
+    mem_limit: 1400m
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:7474 || exit 1']
+      test: ['CMD-SHELL', 'cypher-shell -u neo4j -p d4-local-dev "RETURN 1" >/dev/null 2>&1']
       interval: 10s
-      retries: 12
+      timeout: 10s
+      retries: 30
+      start_period: 30s
 
   postgres:
     image: postgres:16-alpine
@@ -30,14 +51,23 @@ services:
     volumes:
       - pg-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    mem_limit: 256m
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U d4']
+      test: ['CMD-SHELL', 'pg_isready -U d4 -d d4']
       interval: 5s
-      retries: 12
+      retries: 20
 
   redis:
     image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '96mb', '--maxmemory-policy', 'noeviction']
     ports: ['6379:6379']
+    volumes:
+      - redis-data:/data
+    mem_limit: 128m
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 20
 
   minio:
     image: minio/minio:RELEASE.2024-08-17T01-24-54Z
@@ -48,7 +78,13 @@ services:
       MINIO_ROOT_PASSWORD: d4-local-dev
     volumes:
       - minio-data:/data
+    mem_limit: 256m
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      retries: 20
 
+  # ── Identity ──────────────────────────────────────────────────────────
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     command: start-dev --import-realm
@@ -56,16 +92,101 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: d4-local-dev
+      KC_HEALTH_ENABLED: 'true'
+      # Fixed public issuer; containers may still call keycloak:8080 on the back channel.
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
+      JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=60
     volumes:
       - ./keycloak/d4-realm.json:/opt/keycloak/data/import/d4-realm.json:ro
+    mem_limit: 768m
+    healthcheck:
+      test: ['CMD-SHELL', 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /health/ready HTTP/1.0\r\n\r\n" >&3 && grep -q UP <&3']
+      interval: 10s
+      retries: 30
+      start_period: 30s
 
+  # ── One-shot init jobs ───────────────────────────────────────────────
+  minio-init:
+    image: minio/mc:RELEASE.2024-08-17T11-33-50Z
+    depends_on: { minio: { condition: service_healthy } }
+    entrypoint: >
+      sh -c "mc alias set d4 http://minio:9000 d4 d4-local-dev &&
+             mc mb --ignore-existing d4/d4-exports d4/d4-attachments d4/d4-backups &&
+             mc anonymous set none d4/d4-exports"
+    restart: 'no'
+
+  neo4j-schema:
+    build: { context: .., dockerfile: Dockerfile, target: api }
+    image: d4-api:local
+    depends_on:
+      neo4j: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    environment: *api-env
+    command: ['node', 'dist/scripts/apply-schema.js', 't_local']
+    restart: 'no'
+
+  # ── Application ───────────────────────────────────────────────────────
+  api:
+    image: d4-api:local
+    build: { context: .., dockerfile: Dockerfile, target: api }
+    ports: ['3000:3000']
+    environment: *api-env
+    depends_on:
+      neo4j-schema: { condition: service_completed_successfully }
+      keycloak: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    mem_limit: 384m
+
+  # ── Observability (optional) ─────────────────────────────────────────
   otel-collector:
+    profiles: [observability]
     image: otel/opentelemetry-collector-contrib:0.108.0
     ports: ['4317:4317', '4318:4318']
     volumes:
       - ./otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    mem_limit: 192m
+
+  tempo:
+    profiles: [observability]
+    image: grafana/tempo:2.5.0
+    command: ['-config.file=/etc/tempo.yaml']
+    volumes:
+      - ./otel/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    mem_limit: 256m
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v2.54.1
+    ports: ['9090:9090']
+    volumes:
+      - ./otel/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+    mem_limit: 256m
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:11.2.0
+    ports: ['3001:3000']
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: d4-local-dev
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    mem_limit: 256m
+
+  # ── Tools ─────────────────────────────────────────────────────────────
+  test:
+    profiles: [tools]
+    build: { context: .., dockerfile: Dockerfile, target: test }
+    image: d4-test:local
 
 volumes:
   neo4j-data:
+  neo4j-plugins:
   pg-data:
+  redis-data:
   minio-data:
+  tempo-data:

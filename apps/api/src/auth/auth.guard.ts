@@ -40,7 +40,9 @@ export const jwksProvider = {
   provide: JWKS,
   inject: [APP_CONFIG],
   useFactory: (c: AppConfig): JWTVerifyGetKey =>
-    createRemoteJWKSet(new URL(`${c.OIDC_ISSUER}/protocol/openid-connect/certs`)),
+    createRemoteJWKSet(
+      new URL(c.OIDC_JWKS_URI ?? `${c.OIDC_ISSUER}/protocol/openid-connect/certs`),
+    ),
 };
 
 /** Extracts a Principal from a verified token; tenant comes only from the signed `tenant` claim. */

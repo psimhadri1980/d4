@@ -14,29 +14,36 @@ deploy/               docker-compose for local infra, Keycloak realm, Postgres b
 docs/adr/             Architecture decision records
 ```
 
-## Prerequisites
+## Local stack (Docker only, no Node needed)
 
-- Node.js ≥ 20.11 and pnpm 9 (`corepack enable`)
-- Docker Desktop (or another Docker engine with Compose)
-
-## Getting started
+Prerequisite: Docker Desktop running. On an 8 GB machine, give it at least 4 GB of memory under Settings → Resources.
 
 ```bash
-cp .env.example .env
-pnpm install
-pnpm infra:up          # neo4j, postgres, redis, minio, keycloak, otel-collector
-pnpm build && pnpm test
-pnpm db:schema         # apply Neo4j constraints/indexes to the local tenant
-pnpm --filter @d4/api dev
+deploy/dev.sh up        # build the API image, start the core stack, apply the Neo4j schema, create buckets
+deploy/dev.sh smoke     # health checks + Keycloak login + /v1/me
+deploy/dev.sh test      # run the whole test suite inside a container
+deploy/dev.sh up-obs    # also start OTel collector, Tempo, Prometheus, Grafana
+deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volumes
 ```
 
-Smoke test:
+| Component | Purpose | Memory cap |
+|---|---|---|
+| neo4j 5.26 Community + APOC + GDS | Tenant graph (`t_local`) | 1.4 GB |
+| postgres 16 | Control plane (tenants, events) | 256 MB |
+| redis 7 | Queue / cache | 128 MB |
+| minio | S3 buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
+| keycloak 25 | OIDC realm `d4`, roles, dev users | 768 MB |
+| neo4j-schema, minio-init | One-shot init jobs | — |
+| api | D4 API on :3000 | 384 MB |
+| otel-collector, tempo, prometheus, grafana (:3001) | Observability profile (optional) | ~1 GB |
+
+## Developing with Node locally (optional)
+
+Requires Node.js ≥ 20.11 and pnpm 9 (`corepack enable`).
 
 ```bash
-curl localhost:3000/healthz
-TOKEN=$(curl -s -d client_id=d4-web -d grant_type=password -d username=dev-admin -d password=d4-local-dev \
-  localhost:8080/realms/d4/protocol/openid-connect/token | jq -r .access_token)
-curl -H "Authorization: Bearer $TOKEN" localhost:3000/v1/me   # → tenant t_local, roles, graph: ok
+cp .env.example .env && pnpm install && pnpm build && pnpm test
+pnpm --filter @d4/api dev    # with the data stores from deploy/dev.sh up
 ```
 
 Local consoles:
@@ -46,5 +53,6 @@ Local consoles:
 | Neo4j Browser | http://localhost:7474 (neo4j / d4-local-dev) |
 | Keycloak | http://localhost:8080 (admin / d4-local-dev) |
 | MinIO | http://localhost:9001 (d4 / d4-local-dev) |
+| Grafana | http://localhost:3001 (admin / d4-local-dev) |
 
 All of these are local development credentials only.

@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.turbo
+.git
+.env
+.claude
+**/.DS_Store
+deploy/data
