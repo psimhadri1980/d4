@@ -9,7 +9,9 @@ Stack: TypeScript end to end, Neo4j 5 Community (one instance per tenant), Postg
 ```
 apps/api              NestJS API: OIDC auth, tenant → Neo4j routing, health
 packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
+packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
+packages/db           Postgres control plane: Drizzle schema, migrations, stores, local seed
 deploy/               docker-compose for local infra, Keycloak realm, Postgres bootstrap
 docs/adr/             Architecture decision records
 ```
@@ -33,7 +35,7 @@ deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volu
 | redis 7 | Queue / cache | 128 MB |
 | s3 (SeaweedFS) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
 | keycloak 25 | OIDC realm `d4`, roles, dev users | 768 MB |
-| neo4j-schema, s3-init | One-shot init jobs | — |
+| db-migrate, neo4j-schema, s3-init | One-shot jobs: Postgres migrations + local seed, Neo4j schema, S3 buckets | — |
 | api | D4 API on :3000 | 384 MB |
 | otel-collector, tempo, prometheus, grafana (:3001) | Observability profile (optional) | ~1 GB |
 

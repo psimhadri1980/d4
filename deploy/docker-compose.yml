@@ -1,5 +1,6 @@
 # Local D4 stack. Sized for an 8 GB machine (~3 GB for the core profile).
-#   core (default):  neo4j, postgres, redis, s3 (SeaweedFS), keycloak + init jobs + api
+#   core (default):  neo4j, postgres, redis, s3 (SeaweedFS), keycloak
+#                    + init jobs (db-migrate, neo4j-schema, s3-init) + api
 #   observability:   otel-collector, tempo, prometheus, grafana   (--profile observability)
 #   tools:           test runner                                  (--profile tools)
 # Use deploy/dev.sh rather than calling compose directly.
@@ -50,7 +51,6 @@ services:
       POSTGRES_DB: d4
     volumes:
       - pg-data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     mem_limit: 256m
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U d4 -d d4']
@@ -122,12 +122,23 @@ services:
              done'
     restart: 'no'
 
+  # Applies control-plane migrations, then seeds the local tenant, metamodel and workspace.
+  db-migrate:
+    build: { context: .., dockerfile: Dockerfile, target: api }
+    image: d4-api:local
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment: *api-env
+    working_dir: /repo/packages/db
+    command: ['node', 'dist/seed-local.js']
+    restart: 'no'
+
   neo4j-schema:
     build: { context: .., dockerfile: Dockerfile, target: api }
     image: d4-api:local
     depends_on:
       neo4j: { condition: service_healthy }
-      postgres: { condition: service_healthy }
+      db-migrate: { condition: service_completed_successfully }
     environment: *api-env
     command: ['node', 'dist/scripts/apply-schema.js', 't_local']
     restart: 'no'
@@ -188,6 +199,11 @@ services:
     profiles: [tools]
     build: { context: .., dockerfile: Dockerfile, target: test }
     image: d4-test:local
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      # Integration tests create and drop their own throwaway databases on this server.
+      D4_TEST_POSTGRES_URL: postgres://d4:d4-local-dev@postgres:5432/postgres
 
 volumes:
   neo4j-data:

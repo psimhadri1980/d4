@@ -46,6 +46,9 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D14 | 2026-10-17 | MinIO replaced by **SeaweedFS** for local S3 | MinIO no longer publishes container images |
 | D15 | 2026-10-17 | `validFrom`/`validTo`/`scenarioId` are **system fields** on elements and relationships, not metamodel attributes | Time travel and rule checks need them uniformly on both |
 | D16 | 2026-10-17 | Lifecycle moves forward one step, back one step for rework before LIVE, may retire early before LIVE, LIVE ↔ DEPRECATED; RETIRED is terminal | Encoded in `@d4/core` `lifecycle.ts` |
+| D17 | 2026-10-17 | **REST and GraphQL from the start** | GraphQL for graph-shaped reads, REST (OpenAPI) for commands, import/export and webhooks |
+| D18 | 2026-10-17 | Control plane uses **Drizzle migrations** (`packages/db/drizzle`) run by a `db-migrate` job; the event log is **append-only**, enforced by a database trigger | Replaces `init.sql`; trustworthy audit trail and outbox |
+| D19 | 2026-10-17 | Roles = IdP realm roles **plus** `role_bindings` (user or group, tenant-wide or per workspace) | The IdP stays simple, and workspace-level grants live in D4 |
 
 ## Status
 
@@ -59,7 +62,8 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 - **Not yet verified.** Nothing has been built or tested, because Node, pnpm and Docker weren't installed on the dev machine. Run the README "Getting started" steps to verify.
 - **Local Docker stack verified** (`e9c9d07`): all services healthy, smoke test passes.
 - **Phase 1a done:** `@d4/core` with element and relationship model, ULIDs, lifecycle, validity periods, `ModelService` commands with events, rule checks, an in-memory repository and whole-model validation. 34 tests pass.
-- **Next:** Phase 1b (Postgres migrations), then 1c (Neo4j repository and API endpoints).
+- **Phase 1b done:** `@d4/db` with Drizzle schema and migrations (tenants, Neo4j instances, versioned metamodels, workspaces, users, groups, role bindings, append-only event log with outbox), stores, and an idempotent local seed. 44 tests pass, including 10 Postgres integration tests.
+- **Next:** Phase 1c, a Neo4j `ModelRepository` plus REST and GraphQL endpoints for elements and relationships.
 
 ---
 

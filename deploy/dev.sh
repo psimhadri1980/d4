@@ -17,6 +17,7 @@ case "${1:-help}" in
   reset)    dc --profile observability --profile tools down -v ;;
   status)   dc --profile observability ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}' ;;
   logs)     dc logs -f "${@:2}" ;;
+  migrate)  dc run --rm --build db-migrate ;;
   schema)   dc run --rm neo4j-schema ;;
   test)     dc --profile tools run --rm --build test ;;
   smoke)
@@ -27,5 +28,5 @@ case "${1:-help}" in
       | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
     curl -fsS -H "Authorization: Bearer $TOKEN" localhost:3000/v1/me && echo ;;
   *)
-    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|schema|test|smoke" ;;
+    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|smoke" ;;
 esac
