@@ -4,9 +4,11 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
 
 FROM base AS build
+# Download packages from the lockfile alone, so this layer is cached until dependencies change.
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
 COPY . .
-# No lockfile exists yet on first run; once pnpm-lock.yaml is committed this installs from it.
-RUN pnpm install && pnpm build
+RUN pnpm install --offline --frozen-lockfile && pnpm build
 
 # `docker compose run --rm test` runs the full test suite.
 FROM build AS test
