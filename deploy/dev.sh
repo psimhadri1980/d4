@@ -11,7 +11,7 @@ fi
 dc() { docker compose -f docker-compose.yml "$@"; }
 
 case "${1:-help}" in
-  up)       dc up -d --build --wait api && "$SELF" status ;;
+  up)       dc up -d --build --wait web && "$SELF" status ;;
   up-obs)   D4_OTEL_ENDPOINT=http://otel-collector:4318 dc --profile observability up -d --build --wait && "$SELF" status ;;
   down)     dc --profile observability --profile tools down ;;
   reset)    dc --profile observability --profile tools down -v ;;

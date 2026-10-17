@@ -1,6 +1,6 @@
 # Local D4 stack. Sized for an 8 GB machine (~3 GB for the core profile).
 #   core (default):  neo4j, postgres, redis, s3 (SeaweedFS), keycloak
-#                    + init jobs (db-migrate, neo4j-schema, s3-init) + api
+#                    + init jobs (db-migrate, neo4j-schema, s3-init) + api + web (:5173)
 #   observability:   otel-collector, tempo, prometheus, grafana   (--profile observability)
 #   tools:           test runner                                  (--profile tools)
 # Use deploy/dev.sh rather than calling compose directly.
@@ -155,6 +155,18 @@ services:
       redis: { condition: service_healthy }
       s3-init: { condition: service_completed_successfully }
     mem_limit: 384m
+
+  web:
+    build: { context: .., dockerfile: Dockerfile, target: web }
+    image: d4-web:local
+    ports: ['5173:80']
+    depends_on:
+      api: { condition: service_healthy }
+    mem_limit: 64m
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null || exit 1']
+      interval: 10s
+      retries: 6
 
   # ── Observability (optional) ─────────────────────────────────────────
   otel-collector:

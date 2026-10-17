@@ -54,6 +54,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D22 | 2026-10-17 | GraphQL is read-only, authenticates lazily inside resolvers, and maps errors to `extensions.code` matching the REST error codes | One error vocabulary across REST and GraphQL |
 | D23 | 2026-10-17 | Model-as-code format `d4/v1`: document `key`s for wiring, ids kept on export; imports match by id → externalKey → type + name, are validated as a whole, applied as one change set, and never delete | Hand-authored files re-import without duplicates; exports round-trip exactly |
 | D24 | 2026-10-17 | Sample dataset uses UBS's public divisions with **invented** systems, data and plans, labelled illustrative | Realistic demo without misrepresenting a real bank's internals |
+| D25 | 2026-10-18 | Web app uses `react-router` (not TanStack Router), `oidc-client-ts` (PKCE, session storage), and runs `@d4/metamodel` + `@d4/core` in the browser | Forms, relationship options and lifecycle moves follow the exact server rules |
 
 ## Status
 
@@ -81,7 +82,18 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - API `import` (with dry run) and `export` endpoints
   - `samples/ubs-banking.yaml` (92 elements, 178 relationships), imported live; the re-import is a no-op
   - 91 tests pass
-- **Next:** Phase 1e, the web app (Keycloak login, graph explorer, metamodel-driven forms).
+- **Phase 1e done:**
+  - `apps/web`: Keycloak sign-in, search and filters, Cytoscape neighbourhood graph with expand, details panel (relationships, history), metamodel-driven create/edit, add/remove relationships, delete
+  - served by nginx on :5173
+  - checked live in the browser
+  - 97 tests pass
+- **Phase 1 (Model) complete.**
+- **Known follow-ups:**
+  - automated browser (Playwright) tests
+  - code-splitting (bundle ~290 KB gzipped)
+  - graph layout readability on dense neighbourhoods
+  - batched Neo4j writes for large imports
+- **Next:** Phase 2, the Query Catalog.
 
 ---
 

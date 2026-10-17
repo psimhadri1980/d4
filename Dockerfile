@@ -21,3 +21,8 @@ WORKDIR /repo/apps/api
 EXPOSE 3000
 HEALTHCHECK --interval=10s --retries=6 CMD wget -qO- http://127.0.0.1:3000/healthz || exit 1
 CMD ["node", "dist/main.js"]
+
+# Static web app (built above) served by nginx.
+FROM nginx:1.27-alpine AS web
+COPY deploy/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /repo/apps/web/dist /usr/share/nginx/html

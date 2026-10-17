@@ -8,6 +8,7 @@ Stack: TypeScript end to end, Neo4j 5 Community (one instance per tenant), Postg
 
 ```
 apps/api              NestJS API: OIDC auth, workspace access, REST commands + GraphQL reads
+apps/web              React explorer: Keycloak login, search, graph canvas, metamodel-driven forms
 packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
 packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
@@ -41,7 +42,17 @@ deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volu
 | keycloak 25 | OIDC realm `d4`, roles, dev users | 768 MB |
 | db-migrate, neo4j-schema, s3-init | One-shot jobs: Postgres migrations + local seed, Neo4j schema, S3 buckets | — |
 | api | D4 API on :3000 | 384 MB |
+| web | D4 Explorer on http://localhost:5173 (nginx, static build) | 64 MB |
 | otel-collector, tempo, prometheus, grafana (:3001) | Observability profile (optional) | ~1 GB |
+
+## Web app
+
+Open http://localhost:5173 and sign in as `dev-admin` (or `dev-viewer` for read-only), password `d4-local-dev`. These are local dev users only. Run `deploy/dev.sh sample` first to get something to explore.
+
+- **Left:** search names and descriptions, filter by layer and type.
+- **Centre:** the selected element's neighbourhood (depth 1–3), coloured by layer. Double-click a node to expand it; dashed edges are not valid yet (e.g. a planned hand-over).
+- **Right:** attributes, relationships (add or remove; only types the metamodel allows are offered), and change history.
+- **New element / Edit:** forms come from the metamodel. Lifecycle offers only the allowed moves, and the same validation as the server runs in the browser.
 
 ## API
 
