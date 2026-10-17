@@ -88,6 +88,12 @@ importers:
         specifier: ^1.5.1
         version: 1.6.0(@swc/core@1.16.18)(esbuild@0.28.2)(rollup@4.64.8)(vite@5.4.21(@types/node@20.19.43))
 
+  packages/core:
+    dependencies:
+      '@d4/metamodel':
+        specifier: workspace:*
+        version: link:../metamodel
+
   packages/cypher:
     dependencies:
       '@d4/metamodel':

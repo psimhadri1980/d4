@@ -43,6 +43,9 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D11 | 2026-10-15 | Layer labels use a **`Layer` suffix** (e.g. `:ApplicationLayer`) ([ADR 0003](adr/0003-metamodel-driven-labels.md)) | Avoids clashes with type labels such as `Application` |
 | D12 | 2026-10-15 | Back end on **NestJS (Fastify)**; local auth via **Keycloak** OIDC; tenant taken **only from the signed `tenant` token claim** | Structured DI and guards; no tenant spoofing |
 | D13 | 2026-10-15 | `@d4/core` is deferred to Phase 1; the starter metamodel lives in `packages/metamodel/` | Nothing to hold in core until Phase 1 |
+| D14 | 2026-10-17 | MinIO replaced by **SeaweedFS** for local S3 | MinIO no longer publishes container images |
+| D15 | 2026-10-17 | `validFrom`/`validTo`/`scenarioId` are **system fields** on elements and relationships, not metamodel attributes | Time travel and rule checks need them uniformly on both |
+| D16 | 2026-10-17 | Lifecycle moves forward one step, back one step for rework before LIVE, may retire early before LIVE, LIVE ↔ DEPRECATED; RETIRED is terminal | Encoded in `@d4/core` `lifecycle.ts` |
 
 ## Status
 
@@ -54,7 +57,9 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - `apps/api` skeleton
   - ADRs 0001–0003
 - **Not yet verified.** Nothing has been built or tested, because Node, pnpm and Docker weren't installed on the dev machine. Run the README "Getting started" steps to verify.
-- **Next:** Phase 1 (Model).
+- **Local Docker stack verified** (`e9c9d07`): all services healthy, smoke test passes.
+- **Phase 1a done:** `@d4/core` with element and relationship model, ULIDs, lifecycle, validity periods, `ModelService` commands with events, rule checks, an in-memory repository and whole-model validation. 34 tests pass.
+- **Next:** Phase 1b (Postgres migrations), then 1c (Neo4j repository and API endpoints).
 
 ---
 

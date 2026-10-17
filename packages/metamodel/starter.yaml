@@ -32,14 +32,14 @@ enums:
   Raci: [RESPONSIBLE, ACCOUNTABLE, CONSULTED, INFORMED]
   InterfaceStyle: [REST, GRAPHQL, GRPC, EVENT, FILE, DB_LINK, OTHER]
 
+# Element attributes every type carries. System fields (id, workspaceId, version, validFrom,
+# validTo, scenarioId, audit fields) are managed by @d4/core and are not listed here.
 commonAttributes:
   - { name: name, type: string, required: true }
   - { name: description, type: text }
   - { name: lifecycle, type: enum, enum: Lifecycle }
   - { name: ownerId, type: string }
   - { name: tags, type: 'string[]' }
-  - { name: validFrom, type: date }
-  - { name: validTo, type: date }
   - { name: externalKey, type: string, description: Identifier in a source system (CMDB, catalog, Jira) }
 
 nodeTypes:
