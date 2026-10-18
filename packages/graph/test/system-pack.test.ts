@@ -3,7 +3,20 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import neo4j, { type Driver } from 'neo4j-driver';
 import { parseModelDocument, toImportInput } from '@d4/codecs';
-import { ModelService, planImport, roadmapFromGraph, ulid, type CommandContext } from '@d4/core';
+import {
+  buildMatrix,
+  DECISION_RELATIONSHIPS,
+  decisionLog,
+  LIFECYCLE,
+  lifecycleMatrix,
+  MATRIX_ELEMENT_TYPES,
+  MATRIX_RELATIONSHIPS,
+  ModelService,
+  planImport,
+  roadmapFromGraph,
+  ulid,
+  type CommandContext,
+} from '@d4/core';
 import { applySchema, awaitSchemaOnline, bindParams, checkReadOnly, loadPack, type SystemQuery } from '@d4/cypher';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { GraphQueries, Neo4jModelRepository, neo4jExplainer, type SessionProvider } from '../src';
@@ -187,6 +200,48 @@ describe.skipIf(!URL)('system query pack on the UBS sample', () => {
       expect(g.items.length).toBe(8);
       expect(roadmapFromGraph(g, { lanes: 'division' }).lanes.map((l) => l.name)).toEqual(expect.arrayContaining(['Group Functions']));
       expect((await new GraphQueries(reg, sessions).planningGraph(ctx.workspaceId, [keyToId['plat-mainframe']!])).items).toEqual([]);
+    });
+  });
+
+  describe('matrices and decisions', () => {
+    const q = () => new GraphQueries(reg, sessions);
+    const matrix = async (kind: keyof typeof MATRIX_RELATIONSHIPS, view = {}) =>
+      buildMatrix(kind, await q().subgraphOf(ctx.workspaceId, MATRIX_RELATIONSHIPS[kind], MATRIX_ELEMENT_TYPES[kind], view));
+    const at = (m: Awaited<ReturnType<typeof matrix>>, row: string, column: string) => {
+      const r = m.rows.find((x) => x.name === row)?.id;
+      const c = m.columns.find((x) => x.name === column)?.id;
+      return m.cells.find((x) => x.row === r && x.column === c)?.values;
+    };
+
+    it('builds the CRUD-I matrix grouped by process', async () => {
+      const m = await matrix('crud');
+      expect(at(m, 'Capture client details', 'Client Master')).toEqual(['CREATE']);
+      expect(m.rows.find((r) => r.name === 'Capture client details')?.group).toBe('Client Onboarding');
+    });
+
+    it('builds data store roles as of a date', async () => {
+      expect(at(await matrix('data-store-roles', { asOf: '2027-01-01' }), 'Client MDM Hub', 'Client Master')).toEqual(['GOLDEN_COPY']);
+      expect(at(await matrix('data-store-roles', { asOf: '2027-08-01' }), 'Client MDM Hub', 'Client Master')).toEqual(['MASTER']);
+      // Without a date both periods show, so the hand-over is visible in one cell.
+      expect(at(await matrix('data-store-roles'), 'Client MDM Hub', 'Client Master')).toEqual(['MASTER', 'GOLDEN_COPY']);
+      expect((await matrix('data-store-roles')).findings).toContain('Orphaned Feed: no master store');
+    });
+
+    it('builds capability × application and the lifecycle heat-map', async () => {
+      const m = await matrix('capability-application');
+      expect(m.cells.length).toBeGreaterThan(0);
+      const heat = lifecycleMatrix(await q().lifecycleCounts(ctx.workspaceId), [...LIFECYCLE]);
+      const live = heat.cells.filter((c) => c.column === 'LIVE').reduce((n, c) => n + Number(c.values[0]), 0);
+      expect(live).toBeGreaterThan(20);
+      expect(heat.rows.some((r) => r.name === 'Application' && r.group === 'Application')).toBe(true);
+    });
+
+    it('builds the decision log from the sample ADR', async () => {
+      const log = decisionLog(await q().subgraphOf(ctx.workspaceId, DECISION_RELATIONSHIPS, ['Decision']));
+      const adr = log.find((d) => d.name === 'Client MDM Hub becomes master for client data')!;
+      expect(adr).toMatchObject({ status: 'ACCEPTED', decidedOn: '2026-09-15' });
+      expect(adr.options.filter((o) => o.chosen).map((o) => o.name)).toEqual(['Introduce a dedicated client MDM hub']);
+      expect(adr.decides.map((d) => d.name)).toEqual(['Client Master', 'Client MDM Hub', 'Legacy Client Database']);
     });
   });
 });

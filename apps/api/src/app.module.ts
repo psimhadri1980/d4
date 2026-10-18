@@ -17,6 +17,7 @@ import { TenantGraphService } from './infra/tenant-graph.service';
 import { ElementsController } from './model/elements.controller';
 import { ModelFactory } from './model/model.factory';
 import { DiffController } from './model/diff.controller';
+import { InsightsController } from './model/insights.controller';
 import { RoadmapController } from './model/roadmap.controller';
 import { RelationshipsController } from './model/relationships.controller';
 import { TransferController } from './model/transfer.controller';
@@ -32,6 +33,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     RelationshipsController,
     RoadmapController,
     DiffController,
+    InsightsController,
     TransferController,
     CatalogController,
     CatalogRunController,

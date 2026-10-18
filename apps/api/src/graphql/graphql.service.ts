@@ -7,7 +7,8 @@ import type { AttributeDef, MetamodelRegistry } from '@d4/metamodel';
 import { AuthService } from '../auth/auth.service';
 import type { Principal } from '../auth/identity';
 import { parse, toErrorResponse } from '../http/errors';
-import { DiffQuery, RoadmapQuery, ViewArgsSchema } from '../http/schemas';
+import { DiffQuery, MatrixParams, RoadmapQuery, ViewArgsSchema } from '../http/schemas';
+import { decisionsFor, matrixFor } from '../model/insights.controller';
 import { diffFor } from '../model/diff.controller';
 import { resolveView } from '../model/view';
 import { roadmapFor } from '../model/roadmap.controller';
@@ -166,6 +167,15 @@ export class GraphqlService {
             toScenario: args.to?.scenario ?? undefined,
           });
           return diffFor(s.queries, s.registry, ws.id, q);
+        },
+        matrix: async (ws: WorkspaceRow, args: { kind: string } & ViewArgs, ctx: Ctx) => {
+          const s = await this.scope(ctx, ws.id);
+          const { kind } = parse(MatrixParams, { kind: args.kind });
+          return matrixFor(s.queries, s.registry, ws.id, kind, viewArgs(args));
+        },
+        decisions: async (ws: WorkspaceRow, args: ViewArgs, ctx: Ctx) => {
+          const s = await this.scope(ctx, ws.id);
+          return decisionsFor(s.queries, s.registry, ws.id, viewArgs(args));
         },
         roadmap: async (ws: WorkspaceRow, args: { scope: string[]; lanes?: string; today?: string }, ctx: Ctx) => {
           const q = parse(RoadmapQuery, { scope: args.scope.join(','), lanes: args.lanes ?? undefined, today: args.today ?? undefined });

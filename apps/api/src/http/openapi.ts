@@ -20,6 +20,10 @@ import {
   RoadmapSchema,
   DiffQuery,
   DiffSchema,
+  MatrixParams,
+  MatrixSchema,
+  DecisionSchema,
+  ViewArgsSchema,
 } from './schemas';
 
 const json = (schema: z.ZodTypeAny, description: string) => ({
@@ -145,6 +149,23 @@ export function buildOpenApiDocument(): OpenApiDocument {
       'Differences between two views of the workspace (dates and/or scenarios): elements added and removed, relationships added, removed and replaced (same type between the same two elements).',
     request: { params: z.object({ ws }), query: DiffQuery },
     responses: { 200: json(DiffSchema, 'Differences, from → to'), ...errors },
+  });
+
+  route({
+    method: 'get',
+    path: '/v1/workspaces/{ws}/matrix/{kind}',
+    tags: ['Matrices and decisions'],
+    description: 'A matrix with findings: CRUD-I, capability × application, data store roles, or the lifecycle heat-map.',
+    request: { params: z.object({ ws }).merge(MatrixParams), query: ViewArgsSchema },
+    responses: { 200: json(MatrixSchema, 'Matrix'), ...errors },
+  });
+  route({
+    method: 'get',
+    path: '/v1/workspaces/{ws}/decisions',
+    tags: ['Matrices and decisions'],
+    description: 'Architecture decision records, newest first, with decided elements, options, supersession and findings.',
+    request: { params: z.object({ ws }), query: ViewArgsSchema },
+    responses: { 200: json(z.array(DecisionSchema), 'Decision log'), ...errors },
   });
 
   // Relationships

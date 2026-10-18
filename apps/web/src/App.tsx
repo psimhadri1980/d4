@@ -9,6 +9,8 @@ import { Explorer } from './pages/Explorer';
 import { Queries, type TabMode } from './pages/Queries';
 import { Roadmap } from './pages/Roadmap';
 import { Compare } from './pages/Compare';
+import { Decisions } from './pages/Decisions';
+import { Matrices } from './pages/Matrices';
 
 export function App() {
   const { user, ready, returnTo } = useAuth();
@@ -26,6 +28,8 @@ export function App() {
         <Route path="queries" element={<Queries />} />
         <Route path="roadmap" element={<Roadmap />} />
         <Route path="compare" element={<Compare />} />
+        <Route path="matrices" element={<Matrices />} />
+        <Route path="decisions" element={<Decisions />} />
         {/* Earlier separate screens now open as tabs in Queries. */}
         <Route path="catalog/:qid?" element={<ToQueries mode="run" />} />
         <Route path="studio/:qid?" element={<ToQueries mode="edit" />} />

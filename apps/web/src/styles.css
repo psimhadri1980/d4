@@ -1075,6 +1075,10 @@ tbody tr:hover td {
   .nav {
     min-width: 0;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar {
+    display: none;
   }
   .nav a {
     padding: 0 var(--sp-04);
@@ -1510,5 +1514,269 @@ ul.plain {
   }
   .compare-side {
     flex-direction: column;
+  }
+}
+
+/* ── Matrices ───────────────────────────────────────────────────────────── */
+.matrices-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  height: 100%;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.matrices-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-05);
+}
+.matrices-head h2 {
+  margin: 0;
+}
+.matrix-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-05);
+}
+.matrix-head .button {
+  margin-left: auto;
+}
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-04);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.matrix-scroll {
+  overflow: auto;
+  max-height: 65vh;
+  border: 1px solid var(--border-subtle);
+  background: var(--layer-01);
+}
+table.matrix {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+table.matrix th,
+table.matrix td {
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--sp-02) var(--sp-03);
+}
+table.matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--layer-02);
+  vertical-align: bottom;
+}
+table.matrix .col-head {
+  height: 150px;
+  white-space: nowrap;
+}
+table.matrix .col-head span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  max-height: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.matrix.heat .col-head {
+  height: auto;
+}
+table.matrix.heat .col-head span {
+  writing-mode: horizontal-tb;
+  transform: none;
+}
+table.matrix .corner {
+  left: 0;
+  z-index: 3;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+table.matrix .row-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--layer-01);
+  text-align: left;
+  font-weight: 400;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.matrix .group-row th {
+  position: sticky;
+  left: 0;
+  background: var(--layer-02);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+table.matrix td {
+  min-width: 32px;
+  text-align: center;
+  white-space: nowrap;
+}
+table.matrix tbody tr:hover td,
+table.matrix tbody tr:hover .row-head {
+  background: var(--layer-hover);
+}
+.mcell {
+  display: inline-block;
+  min-width: 18px;
+  margin: 0 1px;
+  padding: 0 3px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--text-on-color);
+  background: var(--border-strong);
+}
+.mcell.v-create,
+.mcell.v-master,
+.mcell.v-invest {
+  background: var(--support-success);
+}
+.mcell.v-update,
+.mcell.v-golden_copy,
+.mcell.v-tolerate {
+  background: var(--interactive);
+}
+.mcell.v-read,
+.mcell.v-approved_distributor,
+.mcell.v-realizes {
+  background: var(--layer-data);
+}
+.mcell.v-inactivate,
+.mcell.v-replica,
+.mcell.v-migrate {
+  background: var(--support-warning);
+}
+.mcell.v-delete,
+.mcell.v-eliminate {
+  background: var(--support-error);
+}
+.mcell.v-consumer_cache {
+  background: var(--layer-design);
+}
+.heat-cell {
+  background: rgba(15, 98, 254, calc(var(--heat, 0) * 0.85));
+  font-variant-numeric: tabular-nums;
+}
+.heat-cell.hot {
+  color: var(--text-on-color);
+  font-weight: 600;
+}
+
+/* ── Decisions ──────────────────────────────────────────────────────────── */
+.decisions {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  height: 100%;
+}
+.decisions .pane.left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  padding: var(--sp-05);
+  overflow: auto;
+}
+.decisions .pane.main {
+  overflow: auto;
+}
+.decisions-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.decisions-tools h2 {
+  margin: 0;
+}
+/* These lists have no layer dot, so they do not use the dot column of .items. */
+.decisions .items li .item {
+  grid-template-columns: 1fr;
+  gap: var(--sp-01);
+}
+.scope-picker .items li .item {
+  grid-template-columns: 1fr auto;
+}
+.decisions .items .item .name {
+  width: 100%;
+  white-space: normal;
+  overflow: visible;
+}
+.decisions .pane.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+}
+.warn-dot {
+  display: inline-block;
+  width: 16px;
+  margin-right: var(--sp-02);
+  border-radius: 8px;
+  background: var(--support-error);
+  color: var(--text-on-color);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.badge.dec-accepted,
+.badge.chosen {
+  color: var(--support-success);
+  border-color: var(--support-success);
+}
+.badge.dec-proposed {
+  color: var(--interactive);
+  border-color: var(--interactive);
+}
+.badge.dec-rejected,
+.badge.dec-superseded {
+  color: var(--text-secondary);
+}
+.decision {
+  max-width: 820px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+}
+.decision h2 {
+  margin: 0 0 var(--sp-02);
+}
+.decision h3 {
+  margin-bottom: var(--sp-03);
+}
+.decision .prose {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.decision .findings {
+  border-left: 3px solid var(--support-error);
+}
+.decision .options li.chosen {
+  font-weight: 600;
+}
+@media (max-width: 900px) {
+  .decisions {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .matrices-page {
+    padding: var(--sp-04);
   }
 }

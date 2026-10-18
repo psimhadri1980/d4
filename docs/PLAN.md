@@ -63,6 +63,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D31 | 2026-10-18 | Roadmap engine is dependency-free in `@d4/core`: whole-day dates, deliverables inclusive `[start, end]`, milestones as points; planned dates are "not earlier than" constraints and dependency pushes are reported as conflicts, never written back | Pure, testable in Node and the browser; the plan stays the user's, the engine only explains it |
 | D32 | 2026-10-19 | Optional local Node for the web app: Vite on the host (:5173) against API/Keycloak in Docker, with `web-local`, `web-check`, `e2e-local`; `web-deploy` puts committed changes back into the container. Docker stays the source of truth for CI and other packages | Web iterations in seconds instead of image rebuilds; the dev build also catches StrictMode-only bugs |
 | D33 | 2026-10-19 | Model views: reads default to the baseline (items without `scenarioId`) and ignore validity; `asOf` keeps items valid on that date (half-open periods); a scenario view is the baseline plus that scenario, where a scenario relationship of a type between two elements replaces the baseline's relationships of that type between them. Elements are additive. Diffs match by id and pair replaced relationships as changes | Lets a scenario re-date a hand-over without touching the baseline; one rule implemented twice (`applyView` in `@d4/core`, `inView`/`relInView` in Cypher) and tested for agreement |
+| D34 | 2026-10-19 | Matrices and the decision log are computed in `@d4/core` from a scoped fetch (only the relationship types a matrix needs, in the model view; lifecycle counts aggregated in Cypher). Each matrix carries findings; overlapping-master checks use validity periods so a planned hand-over is not flagged. Decisions stay ordinary `Decision` elements (no separate store) | Pure, testable shaping; bounded queries instead of whole-workspace snapshots; ADRs are edited with the same metamodel-driven forms as everything else |
 
 ## Status
 
@@ -144,6 +145,13 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - web: Explorer "As of" and "Scenario" pickers (kept per tab), a notice while not on today's baseline, scenario badges, new relationships go into the selected scenario, dashed edges relative to the view date; Compare page with swap and shareable URL
   - 4 core, 1 Neo4j, 2 API and 4 browser tests
   - follow-up: deleting a Scenario should remove its items
+- **3e done:**
+  - `@d4/core`: CRUD-I, capability × application (TIME classes), data store roles and lifecycle heat-map matrices with findings and CSV; `decisionLog` (options, chosen, decided elements, supersession, findings)
+  - `GraphQueries.subgraphOf` and `lifecycleCounts`; `GET /v1/workspaces/{ws}/matrix/{kind}` and `/decisions` (REST, OpenAPI, GraphQL), all following `asOf` and `scenario`
+  - web: Matrices page (sticky headers, grouped rows, legend, findings, CSV) and Decisions page (search, status filter, record view, "New decision" preselecting the type)
+  - fixed the Roadmap scope search squeezing names into the layer-dot column
+  - 9 core, 4 Neo4j, 1 API and 4 browser tests
+- **Phase 3 (Planning) complete.**
 
 ---
 

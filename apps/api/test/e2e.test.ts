@@ -403,6 +403,33 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       ]);
     });
 
+    it('serves matrices and the decision log', async () => {
+      const token = await sign('analyst-4', ['viewer']);
+      const crud = await call('GET', `${ws()}/matrix/crud`, token);
+      expect(crud.status).toBe(200);
+      const step = crud.body!['rows'].find((r: any) => r.name === 'Capture client details');
+      const client = crud.body!['columns'].find((c: any) => c.name === 'Client Master');
+      expect(crud.body!['cells']).toContainEqual({ row: step.id, column: client.id, values: ['CREATE'] });
+
+      const roles = await call('GET', `${ws()}/matrix/data-store-roles?asOf=2027-08-01`, token);
+      const mdm = roles.body!['rows'].find((r: any) => r.name === 'Client MDM Hub');
+      expect(roles.body!['cells']).toContainEqual({ row: mdm.id, column: client.id, values: ['MASTER'] });
+
+      const heat = await call('GET', `${ws()}/matrix/lifecycle`, token);
+      expect(heat.body!['columns'].map((c: any) => c.name)).toContain('LIVE');
+      expect((await call('GET', `${ws()}/matrix/nope`, token)).status).toBe(400);
+
+      const log = await call('GET', `${ws()}/decisions`, token);
+      expect(log.body![0]).toMatchObject({ name: 'Client MDM Hub becomes master for client data', status: 'ACCEPTED', findings: [] });
+
+      const g = await gql(token, `query ($ws: ID!) { workspace(id: $ws) { matrix(kind: "capability-application") { title rows { name } findings } decisions { name options { name chosen } } } }`, {
+        ws: workspaceId,
+      });
+      expect(g.body!['errors']).toBeUndefined();
+      expect(g.body!['data'].workspace.matrix.title).toBe('Capability × application');
+      expect(g.body!['data'].workspace.decisions[0].options.find((o: any) => o.chosen).name).toBe('Introduce a dedicated client MDM hub');
+    });
+
     it('exports a document that re-imports unchanged', async () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);

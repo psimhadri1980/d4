@@ -1,6 +1,6 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { LANE_KINDS } from '@d4/core';
+import { LANE_KINDS, MATRIX_KINDS } from '@d4/core';
 
 // Adds `.openapi()` to zod schemas; must run before any schema below is defined.
 extendZodWithOpenApi(z);
@@ -88,6 +88,10 @@ export const NeighbourhoodQuery = z.object({
   depth: z.coerce.number().int().min(1).max(3).optional(),
   type: csv,
   limit: z.coerce.number().int().min(1).max(2000).optional(),
+});
+
+export const MatrixParams = z.object({
+  kind: z.enum(MATRIX_KINDS).openapi({ description: 'crud | capability-application | data-store-roles | lifecycle' }),
 });
 
 export const DiffQuery = z
@@ -224,6 +228,40 @@ export const DiffSchema = z
     names: z.record(z.string()).openapi({ description: 'Element id → name for every element the relationships mention' }),
   })
   .openapi('ModelDiff');
+
+const AxisItem = z.object({ id: z.string(), name: z.string(), type: z.string(), group: z.string().optional() });
+export const MatrixSchema = z
+  .object({
+    kind: z.enum(MATRIX_KINDS),
+    title: z.string(),
+    rowLabel: z.string(),
+    columnLabel: z.string(),
+    rows: z.array(AxisItem),
+    columns: z.array(AxisItem),
+    cells: z.array(z.object({ row: z.string(), column: z.string(), values: z.array(z.string()) })),
+    values: z.array(z.string()),
+    findings: z.array(z.string()),
+    truncated: z.boolean(),
+  })
+  .openapi('Matrix');
+
+const DecisionRef = z.object({ id: z.string(), name: z.string(), type: z.string(), lifecycle: z.string().nullable() });
+export const DecisionSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    status: z.string().nullable(),
+    decidedOn: IsoDate.nullable(),
+    context: z.string().nullable(),
+    consequences: z.string().nullable(),
+    lifecycle: z.string().nullable(),
+    decides: z.array(DecisionRef),
+    options: z.array(DecisionRef.extend({ chosen: z.boolean() })),
+    supersedes: z.array(DecisionRef),
+    supersededBy: z.array(DecisionRef),
+    findings: z.array(z.string()),
+  })
+  .openapi('Decision');
 
 export const ErrorSchema = z
   .object({

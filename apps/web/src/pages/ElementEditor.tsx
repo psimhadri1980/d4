@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { allowedTransitions, isLifecycleState, LIFECYCLE } from '@d4/core';
 import { api } from '../api';
 import { AttributeField } from '../components/AttributeField';
@@ -19,7 +19,9 @@ export function ElementEditor({ mode }: { mode: 'create' | 'edit' }) {
     queryFn: () => api.element(ws!, id!),
   });
 
-  const [type, setType] = useState('');
+  // `?type=Decision` preselects the type (e.g. "New decision" on the Decisions page).
+  const [search] = useSearchParams();
+  const [type, setType] = useState(mode === 'create' ? (search.get('type') ?? '') : '');
   const [values, setValues] = useState<FormValues>({});
   const [validFrom, setValidFrom] = useState('');
   const [validTo, setValidTo] = useState('');
@@ -28,6 +30,10 @@ export function ElementEditor({ mode }: { mode: 'create' | 'edit' }) {
   const [busy, setBusy] = useState(false);
 
   const reg = registry.data;
+  // An unknown `?type=` must not look selected.
+  useEffect(() => {
+    if (reg && type && !reg.nodeType(type)) setType('');
+  }, [reg, type]);
   const defs = useMemo(() => (reg && type ? reg.attributesFor(type) : []), [reg, type]);
 
   // Load the element being edited into the form.

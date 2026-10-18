@@ -30,6 +30,10 @@ export const typeDefs = /* GraphQL */ `
     roadmap(scope: [ID!]!, lanes: String, today: String): Roadmap!
     "Differences between two views (dates and/or scenarios)."
     diff(from: ViewInput, to: ViewInput): ModelDiff!
+    "kind: crud | capability-application | data-store-roles | lifecycle."
+    matrix(kind: String!, asOf: String, scenario: ID): Matrix!
+    "Architecture decision records, newest first."
+    decisions(asOf: String, scenario: ID): [Decision!]!
   }
 
   type Roadmap {
@@ -65,6 +69,62 @@ export const typeDefs = /* GraphQL */ `
     itemIds: [ID!]!
     message: String!
     days: Int
+  }
+
+  type Matrix {
+    kind: String!
+    title: String!
+    rowLabel: String!
+    columnLabel: String!
+    rows: [MatrixAxisItem!]!
+    columns: [MatrixAxisItem!]!
+    cells: [MatrixCell!]!
+    values: [String!]!
+    findings: [String!]!
+    truncated: Boolean!
+  }
+
+  type MatrixAxisItem {
+    id: ID!
+    name: String!
+    type: String!
+    group: String
+  }
+
+  type MatrixCell {
+    row: ID!
+    column: ID!
+    values: [String!]!
+  }
+
+  type Decision {
+    id: ID!
+    name: String!
+    status: String
+    decidedOn: String
+    context: String
+    consequences: String
+    lifecycle: String
+    decides: [DecisionRef!]!
+    options: [DecisionOption!]!
+    supersedes: [DecisionRef!]!
+    supersededBy: [DecisionRef!]!
+    findings: [String!]!
+  }
+
+  type DecisionRef {
+    id: ID!
+    name: String!
+    type: String!
+    lifecycle: String
+  }
+
+  type DecisionOption {
+    id: ID!
+    name: String!
+    type: String!
+    lifecycle: String
+    chosen: Boolean!
   }
 
   input ViewInput {

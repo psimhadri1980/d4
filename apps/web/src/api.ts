@@ -1,4 +1,4 @@
-import type { Element, LaneKind, ModelDiff, Relationship, RoadmapView } from '@d4/core';
+import type { DecisionRecord, Element, LaneKind, Matrix, MatrixKind, ModelDiff, Relationship, RoadmapView } from '@d4/core';
 import type { Metamodel } from '@d4/metamodel';
 import { userManager } from './auth';
 import { config } from './config';
@@ -127,6 +127,9 @@ export const api = {
     request<Connection[]>('GET', `/v1/workspaces/${ws}/elements/${id}/relationships${qs({ ...view })}`),
   neighbourhood: (ws: string, id: string, depth: number, view: ViewParams = {}) =>
     request<Subgraph>('GET', `/v1/workspaces/${ws}/elements/${id}/neighbourhood${qs({ depth, limit: 800, ...view })}`),
+  matrix: (ws: string, kind: MatrixKind, view: ViewParams = {}) =>
+    request<Matrix & { truncated: boolean }>('GET', `/v1/workspaces/${ws}/matrix/${kind}${qs({ ...view })}`),
+  decisions: (ws: string, view: ViewParams = {}) => request<DecisionRecord[]>('GET', `/v1/workspaces/${ws}/decisions${qs({ ...view })}`),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>
     request<ModelDiffView>(
       'GET',

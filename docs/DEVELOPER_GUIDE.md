@@ -132,6 +132,8 @@ For quick web changes, run Vite on the host against the API and Keycloak in Dock
 
 Loop: `web-local` (plus `api-local` when the API changes) → edit (hot reload) → `web-check` and `e2e-local` → commit → ask before deploying → stop the local servers → `web-deploy` (and rebuild the API container) → `e2e`.
 
+Hot reload covers `apps/web` only. After changing `packages/*`, restart `web-local` (it rebuilds the packages and Vite's pre-bundle with `--force`) and `api-local`; otherwise the page uses the old package and fails with errors such as an export being undefined.
+
 Vite serves the dev build, so React StrictMode runs effects twice. That surfaces bugs the production build hides, such as one-time OIDC callback codes being redeemed twice.
 
 ### Ports
@@ -406,6 +408,9 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`auth.tsx`) |
 | Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in compose; start in stages (see §3) |
 | Explorer tests opened "Client Master contract v2" | Fresh full-text index scored the longer name higher | Exact name matches rank first; tests pick by exact name |
+| Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `web-local` runs Vite with `--force`; restart it after changing `packages/*` |
+| Names in a list squeezed to one letter | `.items` rows are a grid whose first column is the 10 px layer dot | Lists without a dot override `grid-template-columns` |
+| Catalog browser test counted 9 queries instead of 8 | A tenant query had been published in the dev workspace | The test counts what is listed and checks the 8 certified system queries |
 | Neo4j and API test suites time out on a brand-new Neo4j | `CALL db.awaitIndexes(120)` is one transaction, killed by the 30 s server timeout while ~100 indexes populate; concurrent appliers also collided | `awaitSchemaOnline` polls `SHOW INDEXES` in short queries; `applySchema` treats "already exists" from a concurrent applier as success and retries transient lock errors |
 | Neo4j container exits 137 during tests or builds | Docker VM out of memory | Neo4j heap 640m / page cache 256m / transaction cap 256m, container cap 1.8 GB; test container 1.5 GB with `--concurrency=2`; Docker Desktop at 6 GB |
 | Reviews fail with "fingerprint mismatch" | Postgres `jsonb` reorders keys | `canonicalJson` sorts keys before hashing |
@@ -451,4 +456,5 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 - Batched (`UNWIND`) graph writes for large imports.
 - Write-class catalog queries (`kind: write`) are modelled but not executable.
 - Licensed UBS font to replace the Source Sans 3 stand-in (`--font-sans`).
-- Phase 3d–3e: time travel and scenarios, matrices and decision records (PLAN.md).
+- Deleting a Scenario should remove its scenario items.
+- Next phase: Phase 4, delivery outputs (PLAN.md).

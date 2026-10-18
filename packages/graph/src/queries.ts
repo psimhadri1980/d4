@@ -1,7 +1,7 @@
-import type { Element, ModelSnapshot, ModelView, PlanningGraph, Relationship } from '@d4/core';
+import type { Element, LifecycleCount, ModelSnapshot, ModelView, PlanningGraph, Relationship } from '@d4/core';
 import { layerLabel, type MetamodelRegistry } from '@d4/metamodel';
 import { ident, propsToElement, propsToRelationship } from './mapping';
-import { relationshipByIdQuery, toRelationship, type SessionProvider } from './repository';
+import { relationshipByIdQuery, toNumber, toRelationship, type SessionProvider } from './repository';
 
 type Row = Record<string, unknown>;
 
@@ -227,6 +227,75 @@ export class GraphQueries {
       ),
       truncated: row['truncated'] === true,
     };
+  }
+
+  /**
+   * Relationships of the given types (with both ends) plus all elements of `elementTypes`, as
+   * seen in a view: the input for matrices and the decision log. Capped at `max` relationships.
+   */
+  async subgraphOf(
+    ws: string,
+    relTypes: string[],
+    elementTypes: string[] = [],
+    view: ModelView = {},
+    max = 20_000,
+  ): Promise<{ elements: Element[]; relationships: Relationship[]; truncated: boolean }> {
+    const rels = relTypes.map((t) => ident(this.knownRel(t)));
+    const labels = elementTypes.map((t) => this.knownType(t));
+    const params = { ws, labels, max: max + 1, ...viewParams(view) };
+    const [relRows, elRows] = await Promise.all([
+      rels.length
+        ? this.read(
+            `MATCH (a:Element)-[r:${rels.join('|')}]->(b:Element)
+             WHERE a.workspaceId = $ws AND r.deleted = false AND a.deleted = false AND b.deleted = false
+               AND ${relInView('r')} AND ${inView('a')} AND ${inView('b')}
+             RETURN properties(r) AS p, type(r) AS t, a.id AS f, b.id AS o, properties(a) AS ap, properties(b) AS bp
+             LIMIT toInteger($max)`,
+            params,
+          )
+        : Promise.resolve([]),
+      labels.length
+        ? this.read(
+            `MATCH (n:Element) WHERE n.workspaceId = $ws AND n.deleted = false
+               AND any(l IN labels(n) WHERE l IN $labels) AND ${inView('n')}
+             RETURN properties(n) AS p LIMIT toInteger($max)`,
+            params,
+          )
+        : Promise.resolve([]),
+    ]);
+    const elements = new Map<string, Element>();
+    for (const r of relRows) {
+      for (const k of ['ap', 'bp']) {
+        const e = propsToElement(r[k] as Row);
+        elements.set(e.id, e);
+      }
+    }
+    for (const r of elRows) {
+      const e = propsToElement(r['p'] as Row);
+      elements.set(e.id, e);
+    }
+    return {
+      elements: [...elements.values()],
+      relationships: relRows.slice(0, max).map((r) => propsToRelationship(r['p'] as Row, r['t'] as string, r['f'] as string, r['o'] as string)),
+      truncated: relRows.length > max,
+    };
+  }
+
+  /** Element counts per type and lifecycle state in a view (for the lifecycle heat-map). */
+  async lifecycleCounts(ws: string, view: ModelView = {}): Promise<LifecycleCount[]> {
+    const rows = await this.read(
+      `MATCH (n:Element) WHERE n.workspaceId = $ws AND n.deleted = false AND ${inView('n')}
+       RETURN n.type AS type, n.lifecycle AS lifecycle, count(*) AS count`,
+      { ws, ...viewParams(view) },
+    );
+    return rows
+      .filter((r) => this.reg.nodeType(r['type'] as string) && !this.reg.nodeType(r['type'] as string)!.internal)
+      .map((r) => ({
+        type: r['type'] as string,
+        layer: this.reg.nodeType(r['type'] as string)!.layer,
+        lifecycle: (r['lifecycle'] as string | null) ?? null,
+        count: toNumber(r['count']),
+      }));
   }
 
   /**
