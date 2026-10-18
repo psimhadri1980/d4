@@ -77,9 +77,13 @@ export class GraphQueries {
     let cypher: string;
     if (filter.search?.trim()) {
       params['q'] = luceneQuery(filter.search);
+      params['exact'] = filter.search.trim().toLowerCase();
+      // An exact name match comes first; Lucene scores alone can rank a longer name above it.
       cypher = `CALL db.index.fulltext.queryNodes('element_search', $q) YIELD node AS n, score
                 WHERE ${where}
-                RETURN properties(n) AS p ORDER BY score DESC, n.id LIMIT toInteger($limit)`;
+                RETURN properties(n) AS p
+                ORDER BY CASE WHEN toLower(n.name) = $exact THEN 0 ELSE 1 END, score DESC, n.id
+                LIMIT toInteger($limit)`;
     } else {
       params['after'] = page.after ?? null;
       cypher = `MATCH (n:Element) WHERE ${where} AND ($after IS NULL OR n.id > $after)

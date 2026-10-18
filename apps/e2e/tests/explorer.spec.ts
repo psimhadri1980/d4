@@ -10,7 +10,9 @@ async function viewCounts(page: Page) {
 async function open(page: Page, name: string) {
   await page.goto('/');
   await page.getByLabel('Search elements').fill(name);
-  await page.getByRole('link', { name: new RegExp(`^${name}`) }).first().click();
+  // Match the exact name, not longer ones such as "Client Master contract v2".
+  const exact = page.locator('.name', { hasText: new RegExp(`^${name}$`) });
+  await page.locator('.items li a', { has: exact }).first().click();
   await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
 }
 

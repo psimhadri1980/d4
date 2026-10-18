@@ -163,6 +163,11 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
 
     const found = await q.listElements(ctx.workspaceId, { search: 'paym' });
     expect(found.items.map((e) => e.attrs['name']).sort()).toEqual(['Payments Gateway', 'Payments Hub']);
+
+    // An exact name match ranks first, even against longer names with the same words.
+    await svc.createElement(ctx, { type: 'Platform', attrs: { name: 'Payments Hub Gateway Hub Payments' } });
+    const exact = await q.listElements(ctx.workspaceId, { search: 'payments hub' });
+    expect(exact.items[0]!.attrs['name']).toBe('Payments Hub');
   });
 
   it('returns a neighbourhood subgraph', async () => {
