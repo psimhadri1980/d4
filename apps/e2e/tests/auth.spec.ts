@@ -28,7 +28,7 @@ test.describe('sign-in', () => {
       const ws = /\/w\/([0-9A-Z]{26})/.exec(page.url())![1];
 
       // Fresh session, then open a deep link: Keycloak SSO signs in and we land on that page.
-      await page.evaluate(() => (globalThis as unknown as { sessionStorage: { clear(): void } }).sessionStorage.clear());
+      await page.evaluate(() => sessionStorage.clear());
       await page.goto(`/w/${ws}/queries`);
       await expect(page).toHaveURL(new RegExp(`/w/${ws}/queries$`));
       await expect(page.getByRole('button', { name: /^.?Catalog/ })).toBeVisible();

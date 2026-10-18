@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { applyTheme, storedTheme, type ThemeChoice } from '../theme';
 
 export function Layout() {
   const { ws } = useParams();
@@ -9,6 +11,9 @@ export function Layout() {
   const { user, logout } = useAuth();
   const workspaces = useQuery({ queryKey: ['workspaces'], queryFn: api.workspaces });
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
+  const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
+  // Explorer covers the workspace home, element pages and the element editor.
+  const inQueries = useLocation().pathname.startsWith(`/w/${ws}/queries`);
 
   return (
     <div className="app">
@@ -28,9 +33,10 @@ export function Layout() {
           </select>
         </label>
         <nav className="nav" aria-label="Main">
-          <NavLink to={`/w/${ws}`} end>
+          {/* Plain Link: NavLink's prefix match would mark Explorer current on /queries too. */}
+          <Link to={`/w/${ws}`} className={inQueries ? '' : 'active'} aria-current={inQueries ? undefined : 'page'}>
             Explorer
-          </NavLink>
+          </Link>
           <NavLink to={`/w/${ws}/queries`}>Queries</NavLink>
         </nav>
         <div className="spacer" />
@@ -41,6 +47,22 @@ export function Layout() {
           <span>{(user?.profile.preferred_username as string | undefined) ?? user?.profile.email}</span>
           <span className="muted small">{me.data?.roles.join(', ')}</span>
         </div>
+        <label className="theme-picker">
+          <span className="sr-only">Theme</span>
+          <select
+            aria-label="Theme"
+            value={theme}
+            onChange={(e) => {
+              const t = e.target.value as ThemeChoice;
+              setTheme(t);
+              applyTheme(t);
+            }}
+          >
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
         <button className="button ghost" onClick={() => void logout()}>
           Sign out
         </button>

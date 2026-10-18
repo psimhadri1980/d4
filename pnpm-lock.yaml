@@ -129,6 +129,12 @@ importers:
       '@d4/metamodel':
         specifier: workspace:*
         version: link:../../packages/metamodel
+      '@fontsource/ibm-plex-mono':
+        specifier: ^5.1.0
+        version: 5.3.0
+      '@fontsource/source-sans-3':
+        specifier: ^5.1.0
+        version: 5.3.1
       '@tanstack/react-query':
         specifier: ^5.56.2
         version: 5.104.4(@types/react@18.3.31)(react@18.3.1)
@@ -1039,6 +1045,12 @@ packages:
 
   '@fastify/websocket@10.0.1':
     resolution: {integrity: sha512-8/pQIxTPRD8U94aILTeJ+2O3el/r19+Ej5z1O1mXlqplsUH7KzCjAI0sgd5DM/NoPjAi5qLFNIjgM5+9/rGSNw==}
+
+  '@fontsource/ibm-plex-mono@5.3.0':
+    resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
+
+  '@fontsource/source-sans-3@5.3.1':
+    resolution: {integrity: sha512-O3YxvbotUOgYI2Zx0bBcEMNjnwitRf9P2+9pd54sMoux1NHrdXnMwZusw2P78lFhEzOPN4glOEQmX0ASaS68uA==}
 
   '@graphql-typed-document-node/core@3.2.0':
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
@@ -4321,6 +4333,10 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@fontsource/ibm-plex-mono@5.3.0': {}
+
+  '@fontsource/source-sans-3@5.3.1': {}
 
   '@graphql-typed-document-node/core@3.2.0(graphql@16.14.2)':
     dependencies:

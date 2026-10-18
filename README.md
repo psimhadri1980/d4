@@ -68,9 +68,15 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
   - **Stewardship** (query-steward): the review queue (count = waiting for review) plus "Manage any query". A Review tab shows submitted vs published Cypher, publish or send back, test run, grants, certification, version lifecycle, archive and recent runs.
   - The old `/catalog`, `/studio` and `/stewardship` links still work and open the matching tab.
 
+### Look and feel
+
+The UI follows IBM Carbon design principles: a dark shell header, layered greys, field-style inputs, contained tabs, and an accessible palette for metamodel layers. The header has a **Theme** picker (System, Light, Dark); the choice is remembered per browser.
+
+Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in for the licensed UBS brand typeface, and IBM Plex Mono for Cypher. Both are bundled from npm, so nothing loads from external font services. To use the licensed font, add it with `@font-face` (e.g. in `apps/web/src/fonts.css`) and put its family first in `--font-sans` in `apps/web/src/styles.css`.
+
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 37 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs 40 Playwright tests in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete

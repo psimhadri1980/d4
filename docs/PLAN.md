@@ -59,6 +59,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D27 | 2026-10-19 | Query Catalog runs as a module inside the API for now (`apps/api/src/catalog`), not yet the separate P3 service | Same auth, tenancy and Neo4j routing; split out when load or isolation needs it |
 | D28 | 2026-10-19 | Catalog rules: authors draft and submit; stewards review (no self-review except admins), publish, deprecate and grant; system pack installed per tenant as certified, published entries; runs require a grant, a published or deprecated version, a matching fingerprint and valid parameters | ADR 0002 made concrete |
 | D29 | 2026-10-19 | Content fingerprints use canonical JSON (keys sorted) | Postgres jsonb reorders keys; fingerprints must survive storage |
+| D30 | 2026-10-19 | Web UI follows IBM Carbon principles (productive type scale, 8 px grid, layered greys, dark UI shell, field-style inputs, contained tabs, categorical layer palette) with light (White/G10) and dark (G100) themes plus a System/Light/Dark picker; **Source Sans 3** (OFL) stands in for the licensed UBS brand font, IBM Plex Mono for code | Consistent, accessible look; the brand font can be dropped in later via `--font-sans` without other changes |
 
 ## Status
 

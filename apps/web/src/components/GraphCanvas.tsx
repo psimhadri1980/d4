@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import type { Element, Relationship } from '../api';
 import { elementName, layerOf } from '../model';
+import { THEME_EVENT } from '../theme';
 
 interface Props {
   registry: MetamodelRegistry;
@@ -92,6 +93,56 @@ function layoutOptions(kind: GraphLayout, rootId: string | undefined, hops: Map<
 
 /** Reads a CSS custom property so the graph follows the light/dark theme tokens. */
 const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const layerColor = (layer: string) => token(`--layer-${layer.toLowerCase()}`) || token('--layer-other');
+
+type GraphStyle = cytoscape.StylesheetJsonBlock[];
+
+/** Cytoscape stylesheet built from the current theme tokens (rebuilt when the theme changes). */
+function graphStyle(): GraphStyle {
+  return [
+    {
+      selector: 'node',
+      style: {
+        'background-color': 'data(color)',
+        label: 'data(label)',
+        color: token('--text'),
+        'font-family': token('--font-sans'),
+        'font-size': 11,
+        'text-valign': 'bottom',
+        'text-margin-y': 4,
+        'text-wrap': 'wrap',
+        'text-max-width': '110px',
+        width: 26,
+        height: 26,
+        'border-width': 2,
+        'border-color': token('--surface'),
+      },
+    },
+    {
+      selector: 'node:selected, node.focus',
+      style: { 'border-color': token('--accent'), 'border-width': 4, width: 34, height: 34 },
+    },
+    {
+      selector: 'edge',
+      style: {
+        width: 1.5,
+        'line-color': token('--edge'),
+        'target-arrow-color': token('--edge'),
+        'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        label: 'data(label)',
+        'font-size': 9,
+        'font-family': token('--font-sans'),
+        color: token('--muted'),
+        'text-rotation': 'autorotate',
+        'text-background-color': token('--bg'),
+        'text-background-opacity': 1,
+        'text-background-padding': '2px',
+      },
+    },
+    { selector: 'edge.future', style: { 'line-style': 'dashed' } },
+  ] as GraphStyle;
+}
 
 /** Graph of the current view; nodes are coloured by metamodel layer. */
 export function GraphCanvas({
@@ -117,54 +168,24 @@ export function GraphCanvas({
       wheelSensitivity: 0.2,
       minZoom: 0.2,
       maxZoom: 3,
-      style: [
-        {
-          selector: 'node',
-          style: {
-            'background-color': 'data(color)',
-            label: 'data(label)',
-            color: token('--text'),
-            'font-size': 11,
-            'text-valign': 'bottom',
-            'text-margin-y': 4,
-            'text-wrap': 'wrap',
-            'text-max-width': '110px',
-            width: 26,
-            height: 26,
-            'border-width': 2,
-            'border-color': token('--surface'),
-          },
-        },
-        {
-          selector: 'node:selected, node.focus',
-          style: { 'border-color': token('--accent'), 'border-width': 4, width: 34, height: 34 },
-        },
-        {
-          selector: 'edge',
-          style: {
-            width: 1.5,
-            'line-color': token('--edge'),
-            'target-arrow-color': token('--edge'),
-            'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier',
-            label: 'data(label)',
-            'font-size': 9,
-            color: token('--muted'),
-            'text-rotation': 'autorotate',
-            'text-background-color': token('--bg'),
-            'text-background-opacity': 1,
-            'text-background-padding': '2px',
-          },
-        },
-        { selector: 'edge.future', style: { 'line-style': 'dashed' } },
-      ],
+      style: graphStyle(),
     });
     instance.on('tap', 'node', (e) => handlers.current.onSelect(e.target.id()));
     instance.on('dbltap', 'node', (e) => handlers.current.onExpand(e.target.id()));
     cy.current = instance;
+    const onTheme = () => {
+      instance.style(graphStyle());
+      instance.nodes().forEach((n) => {
+        n.data('color', layerColor(String(n.data('layer'))));
+      });
+    };
+    window.addEventListener(THEME_EVENT, onTheme);
     // Test hook: lets browser tests measure node placement.
     (host.current as unknown as { __cy?: Core }).__cy = instance;
-    return () => instance.destroy();
+    return () => {
+      window.removeEventListener(THEME_EVENT, onTheme);
+      instance.destroy();
+    };
   }, []);
 
   // Sync data; re-layout only when the set of nodes changes.
@@ -178,7 +199,8 @@ export function GraphCanvas({
         data: {
           id: e.id,
           label: `${elementName(e)}\n‹${e.type}›`,
-          color: token(`--layer-${layerOf(registry, e.type).toLowerCase()}`) || token('--layer-other'),
+          layer: layerOf(registry, e.type),
+          color: layerColor(layerOf(registry, e.type)),
         },
       })),
       ...relationships
