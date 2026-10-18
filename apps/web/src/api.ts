@@ -97,6 +97,34 @@ export interface ViewParams {
 
 export type ModelDiffView = ModelDiff & { names: Record<string, string> };
 
+export interface Upload {
+  name: string;
+  /** base64 */
+  content: string;
+}
+
+export type TableMapping =
+  | { kind: 'elements' | 'relationships'; type?: string; columns: Record<string, string> }
+  | { kind: 'ignore' };
+
+export interface AnalyzedTable {
+  name: string;
+  headers: string[];
+  rowCount: number;
+  preview: string[][];
+  mapping: TableMapping;
+}
+
+export interface TabularImportResult {
+  ok: boolean;
+  applied: boolean;
+  issues: { subjectId: string; ruleId?: string; message: string }[];
+  rowIssues: { table: string; row: number; column?: string; message: string }[];
+  rowsUsed: Record<string, number>;
+  elements: { created: number; updated: number; unchanged: number };
+  relationships: { created: number; updated: number; unchanged: number };
+}
+
 export interface ListFilter {
   type?: string[];
   layer?: string;
@@ -143,6 +171,10 @@ export const api = {
   decisions: (ws: string, view: ViewParams = {}) => request<DecisionRecord[]>('GET', `/v1/workspaces/${ws}/decisions${qs({ ...view })}`),
   exportFile: (ws: string, format: string, opts: ViewParams & { scope?: string[]; depth?: number } = {}) =>
     requestFile(`/v1/workspaces/${ws}/export${qs({ format, ...opts, depth: opts.depth })}`),
+  analyzeTabular: (ws: string, files: Upload[]) =>
+    request<{ tables: AnalyzedTable[] }>('POST', `/v1/workspaces/${ws}/import/tabular/analyze`, { files }),
+  importTabular: (ws: string, files: Upload[], mappings: { table: string; mapping: TableMapping }[], dryRun: boolean) =>
+    request<TabularImportResult>('POST', `/v1/workspaces/${ws}/import/tabular${dryRun ? '?dryRun=true' : ''}`, { files, mappings }),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>
     request<ModelDiffView>(
       'GET',

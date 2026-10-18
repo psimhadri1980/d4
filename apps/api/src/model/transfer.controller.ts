@@ -9,6 +9,7 @@ import {
   toCypherScript,
   toImportInput,
   toMermaid,
+  toWorkbook,
   validateModelDocument,
 } from '@d4/codecs';
 import type { ModelSnapshot } from '@d4/core';
@@ -110,7 +111,9 @@ export class TransferController {
     if (!q.format) return doc();
 
     const body =
-      q.format === 'yaml' || q.format === 'json'
+      q.format === 'xlsx'
+        ? Buffer.from(await toWorkbook({ elements: elementsToCsv(snapshot, reg), relationships: relationshipsToCsv(snapshot) }))
+        : q.format === 'yaml' || q.format === 'json'
         ? stringifyModelDocument(doc(), q.format)
         : q.format === 'elements-csv'
           ? elementsToCsv(snapshot, reg)
@@ -123,7 +126,7 @@ export class TransferController {
                 : toCypherScript(snapshot, reg);
     const media = EXPORT_MEDIA[q.format];
     const file = `${(row?.slug ?? 'model').replace(/[^a-z0-9-]/gi, '-')}${q.asOf ? `-${q.asOf}` : ''}.${media.extension}`;
-    reply.header('content-type', `${media.contentType}; charset=utf-8`);
+    reply.header('content-type', q.format === 'xlsx' ? media.contentType : `${media.contentType}; charset=utf-8`);
     reply.header('content-disposition', `attachment; filename="${file}"`);
     return body;
   }

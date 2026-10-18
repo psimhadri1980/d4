@@ -2,7 +2,7 @@
   "name": "@d4/codecs",
   "version": "0.0.1",
   "private": true,
-  "description": "Model-as-code documents: parse, convert to imports, export from snapshots.",
+  "description": "Model-as-code documents, tabular (CSV/Excel) imports and export formats.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
@@ -15,6 +15,7 @@
   "dependencies": {
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
+    "exceljs": "^4.4.0",
     "yaml": "^2.5.0",
     "zod": "^3.23.8"
   }

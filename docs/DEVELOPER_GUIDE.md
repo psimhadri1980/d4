@@ -186,6 +186,8 @@ docker run --rm -v "$PWD":/repo -w /repo node:20-alpine sh -c \
   "corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install --lockfile-only"
 ```
 
+With a local install (`node_modules` present), that container run stops at pnpm's "remove the modules directories?" prompt; answering yes would delete the host's `node_modules`. Use the local pnpm instead: `npx pnpm@9.12.0 install` (Node at `/opt/homebrew/bin`). The lockfile is platform-independent, so Docker builds accept it.
+
 Images install with `--frozen-lockfile`. A stale lockfile fails the build, not silently at run time.
 
 ---

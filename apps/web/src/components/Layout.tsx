@@ -15,7 +15,7 @@ export function Layout() {
   const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
   // Explorer covers the workspace home, element pages and the element editor.
   const path = useLocation().pathname;
-  const inExplorer = !['queries', 'roadmap', 'compare', 'matrices', 'decisions'].some((p) => path.startsWith(`/w/${ws}/${p}`));
+  const inExplorer = !['queries', 'roadmap', 'compare', 'matrices', 'decisions', 'import'].some((p) => path.startsWith(`/w/${ws}/${p}`));
 
   return (
     <div className="app">
@@ -46,6 +46,9 @@ export function Layout() {
           <NavLink to={`/w/${ws}/decisions`}>Decisions</NavLink>
         </nav>
         <div className="spacer" />
+        <Link to={`/w/${ws}/import`} className="button ghost">
+          Import
+        </Link>
         <Link to={`/w/${ws}/new`} className="button primary">
           + New element
         </Link>

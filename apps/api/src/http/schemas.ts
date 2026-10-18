@@ -105,6 +105,34 @@ export const ExportQuery = z.object({
   depth: z.coerce.number().int().min(1).max(3).optional(),
 });
 
+const Upload = z
+  .object({
+    name: z.string().min(1).max(200).openapi({ example: 'applications.xlsx' }),
+    content: z.string().max(28_000_000).openapi({ description: 'File content, base64 (≤ 20 MB decoded)' }),
+  })
+  .openapi('Upload');
+export const TabularAnalyzeBody = z.object({ files: z.array(Upload).min(1).max(10) }).openapi('TabularAnalyze');
+
+const ElementFieldSchema = z
+  .string()
+  .regex(/^(key|id|externalKey|type|name|lifecycle|description|validFrom|validTo|scenarioId|ignore|attr:[A-Za-z][\w]*)$/);
+const RelationshipFieldSchema = z.string().regex(/^(id|type|from|to|validFrom|validTo|scenarioId|ignore|attr:[A-Za-z][\w]*)$/);
+export const TableMappingSchema = z
+  .discriminatedUnion('kind', [
+    z.object({ kind: z.literal('elements'), type: z.string().optional(), columns: z.record(ElementFieldSchema) }),
+    z.object({ kind: z.literal('relationships'), type: z.string().optional(), columns: z.record(RelationshipFieldSchema) }),
+    z.object({ kind: z.literal('ignore') }),
+  ])
+  .openapi('TableMapping', {
+    description: 'How to read a table: element or relationship rows, an optional type for the whole table, and a field per column header.',
+  });
+export const TabularImportBody = z
+  .object({
+    files: z.array(Upload).min(1).max(10),
+    mappings: z.array(z.object({ table: z.string(), mapping: TableMappingSchema })).default([]),
+  })
+  .openapi('TabularImport');
+
 export const MatrixParams = z.object({
   kind: z.enum(MATRIX_KINDS).openapi({ description: 'crud | capability-application | data-store-roles | lifecycle' }),
 });

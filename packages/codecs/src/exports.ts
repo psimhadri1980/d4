@@ -5,7 +5,7 @@ import type { MetamodelRegistry } from '@d4/metamodel';
  * Export formats over a model snapshot (or part of one): CSV, Mermaid, ArchiMate Open Exchange
  * and a Cypher script. All are pure and deterministic (sorted by id) so exports diff cleanly.
  */
-export const EXPORT_FORMATS = ['yaml', 'json', 'elements-csv', 'relationships-csv', 'mermaid', 'archimate', 'cypher'] as const;
+export const EXPORT_FORMATS = ['yaml', 'json', 'elements-csv', 'relationships-csv', 'xlsx', 'mermaid', 'archimate', 'cypher'] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 export const EXPORT_MEDIA: Record<ExportFormat, { contentType: string; extension: string }> = {
@@ -13,6 +13,7 @@ export const EXPORT_MEDIA: Record<ExportFormat, { contentType: string; extension
   json: { contentType: 'application/json', extension: 'json' },
   'elements-csv': { contentType: 'text/csv', extension: 'elements.csv' },
   'relationships-csv': { contentType: 'text/csv', extension: 'relationships.csv' },
+  xlsx: { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', extension: 'xlsx' },
   mermaid: { contentType: 'text/plain', extension: 'mmd' },
   archimate: { contentType: 'application/xml', extension: 'archimate.xml' },
   cypher: { contentType: 'text/plain', extension: 'cypher' },

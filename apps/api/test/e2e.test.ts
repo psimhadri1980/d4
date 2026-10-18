@@ -457,6 +457,44 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await raw('format=pdf')).status).toBe(400);
     });
 
+    it('imports CSV and Excel via analyze → dry run → apply, and round-trips its own Excel export', async () => {
+      const architect = await sign('sheets-1', ['architect']);
+      const viewer = await sign('sheets-2', ['viewer']);
+      const b64 = (s: string | Buffer) => Buffer.from(s).toString('base64');
+      const apps = { name: 'Applications.csv', content: b64('Name,Criticality,timeClass\nSheet Gateway,high,invest\nSheet Broken,huge,\n') };
+      const links = { name: 'links.csv', content: b64('type,from,to\nREALIZES,Sheet Gateway,Capability: Client Onboarding\n') };
+
+      const analyzed = await call('POST', `${ws()}/import/tabular/analyze`, viewer, { files: [apps, links] });
+      expect(analyzed.status).toBe(200);
+      expect(analyzed.body!['tables'].map((t: any) => [t.name, t.rowCount, t.mapping.kind, t.mapping.type ?? null])).toEqual([
+        ['Applications.csv', 2, 'elements', 'Application'],
+        ['links.csv', 1, 'relationships', null],
+      ]);
+
+      // A bad row blocks the whole import and is reported with row and column.
+      const dry = await call('POST', `${ws()}/import/tabular?dryRun=true`, viewer, { files: [apps, links] });
+      expect(dry.body).toMatchObject({ ok: false, applied: false, rowIssues: [{ table: 'Applications.csv', row: 3, column: 'Criticality' }] });
+
+      // Ignore the bad row's column via the mapping; viewers may dry-run but not apply.
+      const mappings = [{ table: 'Applications.csv', mapping: { kind: 'elements', type: 'Application', columns: { Name: 'name', Criticality: 'ignore', timeClass: 'attr:timeClass' } } }];
+      expect((await call('POST', `${ws()}/import/tabular`, viewer, { files: [apps, links], mappings })).status).toBe(403);
+      const applied = await call('POST', `${ws()}/import/tabular`, architect, { files: [apps, links], mappings });
+      expect(applied.body).toMatchObject({ ok: true, applied: true, rowIssues: [], elements: { created: 2 }, relationships: { created: 1 } });
+      const again = await call('POST', `${ws()}/import/tabular`, architect, { files: [apps, links], mappings });
+      expect(again.body).toMatchObject({ ok: true, applied: false, elements: { created: 0, unchanged: 2 } });
+
+      // The workspace's own Excel export imports back with no changes.
+      const xlsx = await app.inject({ method: 'GET', url: `${ws()}/export?format=xlsx`, headers: { authorization: `Bearer ${architect}` } });
+      expect(xlsx.headers['content-type']).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const round = await call('POST', `${ws()}/import/tabular?dryRun=true`, viewer, { files: [{ name: 'default.xlsx', content: xlsx.rawPayload.toString('base64') }] });
+      expect(round.body).toMatchObject({ ok: true, rowIssues: [], elements: { created: 0, updated: 0 }, relationships: { created: 0, updated: 0 } });
+
+      expect((await call('POST', `${ws()}/import/tabular/analyze`, viewer, { files: [{ name: 'x.pdf', content: b64('%PDF') }] })).body).toMatchObject({
+        error: 'VALIDATION',
+        message: 'x.pdf: only .csv and .xlsx files can be imported',
+      });
+    });
+
     it('exports a document that re-imports unchanged', async () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);

@@ -11,6 +11,7 @@ import { Roadmap } from './pages/Roadmap';
 import { Compare } from './pages/Compare';
 import { Decisions } from './pages/Decisions';
 import { Matrices } from './pages/Matrices';
+import { Import } from './pages/Import';
 
 export function App() {
   const { user, ready, returnTo } = useAuth();
@@ -30,6 +31,7 @@ export function App() {
         <Route path="compare" element={<Compare />} />
         <Route path="matrices" element={<Matrices />} />
         <Route path="decisions" element={<Decisions />} />
+        <Route path="import" element={<Import />} />
         {/* Earlier separate screens now open as tabs in Queries. */}
         <Route path="catalog/:qid?" element={<ToQueries mode="run" />} />
         <Route path="studio/:qid?" element={<ToQueries mode="edit" />} />

@@ -145,6 +145,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     .option('--scope <ids>', 'comma-separated element ids: export their neighbourhood')
     .option('--depth <n>', 'neighbourhood depth for --scope (1-3)')
     .action(async (opts: { workspace: string; out?: string; format: string; asOf?: string; scenario?: string; scope?: string; depth?: string }) => {
+      if (opts.format === 'xlsx') throw new ApiError('xlsx is binary: download it from the web app or GET /export?format=xlsx');
       if (!(EXPORT_FORMATS as readonly string[]).includes(opts.format)) {
         throw new ApiError(`unknown format '${opts.format}' (one of: ${EXPORT_FORMATS.join(', ')})`);
       }

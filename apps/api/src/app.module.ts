@@ -20,6 +20,7 @@ import { DiffController } from './model/diff.controller';
 import { InsightsController } from './model/insights.controller';
 import { RoadmapController } from './model/roadmap.controller';
 import { RelationshipsController } from './model/relationships.controller';
+import { TabularController } from './model/tabular.controller';
 import { TransferController } from './model/transfer.controller';
 import { WorkspaceAccess } from './model/workspace-access.service';
 import { WorkspacesController } from './model/workspaces.controller';
@@ -35,6 +36,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     DiffController,
     InsightsController,
     TransferController,
+    TabularController,
     CatalogController,
     CatalogRunController,
   ],

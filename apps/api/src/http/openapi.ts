@@ -25,6 +25,9 @@ import {
   DecisionSchema,
   ViewArgsSchema,
   ExportQuery,
+  TabularAnalyzeBody,
+  TabularImportBody,
+  TableMappingSchema,
 } from './schemas';
 
 const json = (schema: z.ZodTypeAny, description: string) => ({
@@ -252,9 +255,50 @@ export function buildOpenApiDocument(): OpenApiDocument {
           'text/plain': { schema: z.string() },
           'application/xml': { schema: z.string() },
           'application/yaml': { schema: z.string() },
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { schema: z.string().openapi({ format: 'binary' }) },
         },
       },
       ...errors,
+    },
+  });
+
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/import/tabular/analyze',
+    tags: ['Model as code'],
+    summary: 'Read CSV / Excel files and suggest a mapping per table (sheet)',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: TabularAnalyzeBody } } } },
+    responses: {
+      200: json(
+        z.object({
+          tables: z.array(
+            z.object({ name: z.string(), headers: z.array(z.string()), rowCount: z.number(), preview: z.array(z.array(z.string())), mapping: TableMappingSchema }),
+          ),
+        }),
+        'Tables with a preview and a suggested mapping',
+      ),
+      ...errors,
+    },
+  });
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/import/tabular',
+    tags: ['Model as code'],
+    summary: 'Import mapped CSV / Excel rows (dry run with ?dryRun=true; applied as one change only when every row is valid)',
+    request: {
+      params: z.object({ ws }),
+      query: z.object({ dryRun: z.enum(['true', 'false']).optional() }),
+      body: { content: { 'application/json': { schema: TabularImportBody } } },
+    },
+    responses: {
+      200: json(
+        ImportSummary.extend({
+          rowIssues: z.array(z.object({ table: z.string(), row: z.number(), column: z.string().optional(), message: z.string() })),
+          rowsUsed: z.record(z.number()),
+        }),
+        'Plan summary plus problems per row',
+      ),
+      ...writeErrors,
     },
   });
 

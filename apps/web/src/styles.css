@@ -1803,3 +1803,59 @@ table.matrix tbody tr:hover .row-head {
 .export-menu select {
   width: auto;
 }
+
+/* ── Spreadsheet import ─────────────────────────────────────────────────── */
+.import-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  height: 100%;
+  max-width: 1100px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.import-page header p {
+  max-width: 820px;
+}
+.import-table-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-05);
+  margin-bottom: var(--sp-04);
+}
+.import-table-head .field select {
+  min-width: 220px;
+}
+table.mapping,
+table.issues {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.mapping th,
+table.mapping td,
+table.issues th,
+table.issues td {
+  padding: var(--sp-02) var(--sp-03);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: middle;
+}
+table.mapping tbody th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+table.mapping select {
+  min-width: 200px;
+}
+.import-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-04);
+}
+.import-result.ok {
+  border-left: 3px solid var(--support-success);
+}
+.import-result.bad {
+  border-left: 3px solid var(--support-error);
+}

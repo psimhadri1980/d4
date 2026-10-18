@@ -8,6 +8,7 @@ const FORMATS: { value: string; label: string }[] = [
   { value: 'archimate', label: 'ArchiMate Open Exchange (.xml)' },
   { value: 'elements-csv', label: 'Elements (CSV)' },
   { value: 'relationships-csv', label: 'Relationships (CSV)' },
+  { value: 'xlsx', label: 'Excel workbook (elements + relationships)' },
   { value: 'yaml', label: 'Model as code (YAML)' },
   { value: 'cypher', label: 'Cypher script' },
 ];
