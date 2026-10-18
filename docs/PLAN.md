@@ -60,6 +60,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D28 | 2026-10-19 | Catalog rules: authors draft and submit; stewards review (no self-review except admins), publish, deprecate and grant; system pack installed per tenant as certified, published entries; runs require a grant, a published or deprecated version, a matching fingerprint and valid parameters | ADR 0002 made concrete |
 | D29 | 2026-10-19 | Content fingerprints use canonical JSON (keys sorted) | Postgres jsonb reorders keys; fingerprints must survive storage |
 | D30 | 2026-10-19 | Web UI follows IBM Carbon principles (productive type scale, 8 px grid, layered greys, dark UI shell, field-style inputs, contained tabs, categorical layer palette) with light (White/G10) and dark (G100) themes plus a System/Light/Dark picker; **Source Sans 3** (OFL) stands in for the licensed UBS brand font, IBM Plex Mono for code | Consistent, accessible look; the brand font can be dropped in later via `--font-sans` without other changes |
+| D31 | 2026-10-18 | Roadmap engine is dependency-free in `@d4/core`: whole-day dates, deliverables inclusive `[start, end]`, milestones as points; planned dates are "not earlier than" constraints and dependency pushes are reported as conflicts, never written back | Pure, testable in Node and the browser; the plan stays the user's, the engine only explains it |
 
 ## Status
 
@@ -119,7 +120,13 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - delete/archive of catalog entries
   - readable explorer layouts (radial, force, hierarchy) with measured readability tests
 - **Still open:** dedicated tests for the catalog runner (owner to provide); the runner is exercised end to end, including node, relationship and path conversion.
-- **Next:** Phase 3, planning and roadmaps.
+- **Phase 3 plan:**
+  - 3a: roadmap engine in `@d4/core` (cycles, topological order, forward/backward pass for all four dependency types with lags, slack, critical path, lanes, conflicts: cycle, unscheduled, dependency violated, change after retirement, duplicate introduction, past due, done before predecessor)
+  - 3b: roadmap API: resolve a scope (initiative, division or catalog query result) to deliverables via `CONTAINS`/`CHANGES`/`DEPENDS_ON`, run the engine, REST + GraphQL
+  - 3c: Roadmap Studio in the web app: Gantt with lanes by any aspect, dependency arrows, critical path, conflict list, CSV/Mermaid export
+  - 3d: time travel and scenarios: as-of graph, scenario branches, side-by-side diff
+  - 3e: matrices (CRUD-I, capability × application, data-store roles, lifecycle heat-map) and decision records
+- **3a done:** roadmap engine with 12 tests over the sample client-master plan and edge cases.
 
 ---
 
