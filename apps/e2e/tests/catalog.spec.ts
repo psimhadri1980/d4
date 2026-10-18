@@ -32,7 +32,13 @@ test.describe('queries workspace', () => {
     await signIn(page, 'viewer');
     await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Queries' })).toBeVisible();
     await openQueries(page);
-    await expect(section(page, 'Catalog').locator('.count')).toHaveText('8');
+    // The 8 system queries, plus any tenant queries already published in the dev workspace.
+    const catalog = section(page, 'Catalog');
+    await expect(catalog.locator('.items li').first()).toBeVisible();
+    const listed = await catalog.locator('.items li').count();
+    expect(listed).toBeGreaterThanOrEqual(8);
+    await expect(catalog.locator('.count')).toHaveText(String(listed));
+    await expect(catalog.locator('.items li .badge.certified')).toHaveCount(8);
     await expect(section(page, 'Studio')).toHaveCount(0);
     await expect(section(page, 'Stewardship')).toHaveCount(0);
   });
