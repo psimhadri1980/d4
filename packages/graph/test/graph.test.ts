@@ -3,7 +3,8 @@ import neo4j, { type Driver } from 'neo4j-driver';
 import { applySchema } from '@d4/cypher';
 import { DomainError, ModelService, ulid, type CommandContext, type DomainEvent } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
-import { GraphQueries, luceneQuery, Neo4jModelRepository, type EventSink, type SessionProvider } from '../src';
+import { checkReadOnly } from '@d4/cypher';
+import { GraphQueries, luceneQuery, Neo4jModelRepository, neo4jExplainer, type EventSink, type SessionProvider } from '../src';
 
 const URL = process.env.D4_TEST_NEO4J_URL;
 const PASSWORD = process.env.D4_TEST_NEO4J_PASSWORD ?? 'd4-local-dev';
@@ -189,6 +190,21 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
     await expect(q.connections(ctx.workspaceId, 'x', { types: ['X]-() DETACH DELETE n //'] })).rejects.toThrow(
       /Unknown relationship type/,
     );
+  });
+
+  it('classifies queries with EXPLAIN without running them', async () => {
+    const explainer = neo4jExplainer(sessions);
+    const params = { workspace: ctx.workspaceId };
+    expect(await explainer.explain('MATCH (n:Element) WHERE n.workspaceId = $workspace RETURN n LIMIT 1', params)).toBe('r');
+    const write = 'MATCH (n:Element) WHERE n.workspaceId = $workspace SET n.hacked = true RETURN n';
+    expect(await explainer.explain(write, params)).toBe('rw');
+    expect((await checkReadOnly(explainer, write, params)).errors[0]).toMatch(/not read-only/);
+    // EXPLAIN planned but did not execute the write.
+    const s = await sessions('READ');
+    const res = await s.run('MATCH (n:Element) WHERE n.workspaceId = $ws AND n.hacked = true RETURN count(n) AS c', { ws: ctx.workspaceId });
+    await s.close();
+    expect(Number(res.records[0]!.get('c'))).toBe(0);
+    expect((await checkReadOnly(explainer, 'MATC (n) RETURN n', {})).errors[0]).toMatch(/Neo4j rejected the query/);
   });
 
   it('surfaces event-log failures to the caller', async () => {
