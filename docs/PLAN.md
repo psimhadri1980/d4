@@ -56,6 +56,9 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D24 | 2026-10-17 | Sample dataset uses UBS's public divisions with **invented** systems, data and plans, labelled illustrative | Realistic demo without misrepresenting a real bank's internals |
 | D25 | 2026-10-18 | Web app uses `react-router` (not TanStack Router), `oidc-client-ts` (PKCE, session storage), and runs `@d4/metamodel` + `@d4/core` in the browser | Forms, relationship options and lifecycle moves follow the exact server rules |
 | D26 | 2026-10-18 | Browser tests with **Playwright 1.47** in Docker (`deploy/dev.sh e2e`); the container forwards localhost:5173/8080/3000 to web/keycloak/api so OIDC origins match a developer browser; tests run serially on the dev workspace with `e2erun…`-prefixed data cleaned up after | Real login flow and real API; no test-only auth bypass |
+| D27 | 2026-10-19 | Query Catalog runs as a module inside the API for now (`apps/api/src/catalog`), not yet the separate P3 service | Same auth, tenancy and Neo4j routing; split out when load or isolation needs it |
+| D28 | 2026-10-19 | Catalog rules: authors draft and submit; stewards review (no self-review except admins), publish, deprecate and grant; system pack installed per tenant as certified, published entries; runs require a grant, a published or deprecated version, a matching fingerprint and valid parameters | ADR 0002 made concrete |
+| D29 | 2026-10-19 | Content fingerprints use canonical JSON (keys sorted) | Postgres jsonb reorders keys; fingerprints must survive storage |
 
 ## Status
 
@@ -96,7 +99,14 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - code-splitting (bundle ~290 KB gzipped)
   - graph layout readability on dense neighbourhoods
   - batched Neo4j writes for large imports
-- **Next:** Phase 2, the Query Catalog.
+- **Phase 2 progress:**
+  - 2a: catalog storage
+  - 2b: authoring checks and EXPLAIN
+  - 2c: system pack (7 queries)
+  - 2d: API (search, detail, drafts, submit, review, version status, grants, executions, run)
+  - the catalog runner was written by the project owner
+  - 154 tests pass
+- **Next:** 2e, the catalog UI (catalog page, Query Studio, steward console).
 
 ---
 

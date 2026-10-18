@@ -158,4 +158,10 @@ describe('contentHash', () => {
     expect(contentHash({ ...base, cypher: `${GOOD} ` })).not.toBe(h);
     expect(contentHash({ ...base, resultShape: 'graph' })).not.toBe(h);
   });
+
+  it('ignores key order, so a jsonb round-trip keeps the same fingerprint', () => {
+    const a = { cypher: 'RETURN 1', params: [{ name: 'x', type: 'string', required: false }], resultShape: 'table', kind: 'read' };
+    const b = { kind: 'read', resultShape: 'table', params: [{ required: false, type: 'string', name: 'x' }], cypher: 'RETURN 1' };
+    expect(contentHash(b)).toBe(contentHash(a));
+  });
 });

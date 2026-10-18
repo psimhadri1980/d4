@@ -78,6 +78,21 @@ The stack needs about 3.3 GB, and the browser tests add about 1 GB. On a 4 GB Do
 
 All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/dev.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
 
+## Query Catalog
+
+Users don't write Cypher; they run published catalog queries (ADR 0002).
+
+| Endpoint | Who | Purpose |
+|---|---|---|
+| `GET /v1/catalog?q=&tag=` | everyone | Queries you can run (authors and stewards see all) |
+| `GET /v1/catalog/:id` | everyone | Detail, versions; grants for authors and stewards |
+| `POST /v1/workspaces/:ws/catalog/:id/run` | granted roles | Run with `{ params, version? }`; table results, capped and logged |
+| `POST /v1/catalog`, `PUT /v1/catalog/:id/draft`, `POST …/submit` | query-author | Create, draft (checks recorded), submit |
+| `POST …/review`, `POST …/versions/:v/status`, `PUT …/grants`, `PATCH …` | query-steward | Publish or send back, deprecate or retire, grant, certify |
+| `GET …/executions` | steward or owning author | Run history |
+
+The system pack (`packages/cypher/packs/system`) is installed into each tenant on first use.
+
 ## Model as code
 
 Models can be written as YAML (`apiVersion: d4/v1`, `kind: Model`) and imported. Elements get a `key` that relationships refer to. Imports are idempotent: items are matched by id, then `externalKey`, then type + name. The whole resulting model is validated before anything is written, and nothing is ever deleted by an import.

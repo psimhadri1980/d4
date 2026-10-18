@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
+import { CatalogController, CatalogRunController } from './catalog/catalog.controller';
+import { CatalogService } from './catalog/catalog.service';
+import { PackInstaller } from './catalog/pack-installer.service';
+import { QueryRunService } from './catalog/query-run.service';
 import { jwksProvider } from './auth/identity';
 import { APP_CONFIG, loadConfig } from './config';
 import { GraphqlService } from './graphql/graphql.service';
@@ -25,6 +29,8 @@ import { WorkspacesController } from './model/workspaces.controller';
     ElementsController,
     RelationshipsController,
     TransferController,
+    CatalogController,
+    CatalogRunController,
   ],
   providers: [
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
@@ -35,6 +41,9 @@ import { WorkspacesController } from './model/workspaces.controller';
     WorkspaceAccess,
     ModelFactory,
     GraphqlService,
+    PackInstaller,
+    CatalogService,
+    QueryRunService,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
   ],

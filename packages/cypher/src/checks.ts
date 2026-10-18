@@ -149,8 +149,24 @@ export async function checkReadOnly(explainer: Explainer, cypher: string, params
   }
 }
 
-/** Fingerprint of a version's executable content; verified before every run. */
+/** JSON with object keys sorted recursively, so storage (e.g. Postgres jsonb) can't change it. */
+export function canonicalJson(value: unknown): string {
+  const sort = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(sort)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.entries(v as Record<string, unknown>)
+              .filter(([, x]) => x !== undefined)
+              .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+              .map(([k, x]) => [k, sort(x)]),
+          )
+        : v;
+  return JSON.stringify(sort(value));
+}
+
+/** Fingerprint of a version's executable content; verified before publishing and every run. */
 export function contentHash(v: { cypher: string; params: unknown; resultShape: string; kind: string }): string {
-  const canonical = JSON.stringify({ cypher: v.cypher, params: v.params, resultShape: v.resultShape, kind: v.kind });
+  const canonical = canonicalJson({ cypher: v.cypher, params: v.params, resultShape: v.resultShape, kind: v.kind });
   return `sha256:${createHash('sha256').update(canonical).digest('hex')}`;
 }

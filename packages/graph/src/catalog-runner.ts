@@ -25,11 +25,8 @@ export async function runCatalogQuery(
     try {
       return await session.executeRead(async (tx: ManagedTransaction) => {
         const result = tx.run(cypher, params);
-
-        // Column names are available even when there are no rows.
         const keys = await result.keys();
         
-        // 2. Consume the result lazily row-by-row. Stop at maxRows + 1 to optimize network usage.
         const collectedRecords: Neo4jRecord[] = [];
         let truncated = false;
 
