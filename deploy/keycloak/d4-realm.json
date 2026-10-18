@@ -104,6 +104,44 @@
       "realmRoles": [
         "viewer"
       ]
+    },
+    {
+      "username": "dev-author",
+      "enabled": true,
+      "email": "dev-author@d4.localhost",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Author",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "d4-local-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "query-author",
+        "viewer"
+      ]
+    },
+    {
+      "username": "dev-steward",
+      "enabled": true,
+      "email": "dev-steward@d4.localhost",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Steward",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "d4-local-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "query-steward",
+        "viewer"
+      ]
     }
   ]
 }

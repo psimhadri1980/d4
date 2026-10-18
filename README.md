@@ -49,7 +49,14 @@ deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volu
 
 ## Web app
 
-Open http://localhost:5173 and sign in as `dev-admin` (or `dev-viewer` for read-only), password `d4-local-dev`. These are local dev users only. Run `deploy/dev.sh sample` first to get something to explore.
+Open http://localhost:5173 and sign in with one of the local dev users (password `d4-local-dev` for all; local only):
+
+| User | Roles | Use it to |
+|---|---|---|
+| `dev-admin` | admin, query-author, query-steward | Everything |
+| `dev-viewer` | viewer | Browse and run granted catalog queries (read-only) |
+| `dev-author` | query-author, viewer | Write catalog queries in the Query Studio and submit them |
+| `dev-steward` | query-steward, viewer | Review, publish, grant and deprecate catalog queries | Run `deploy/dev.sh sample` first to get something to explore.
 
 - **Left:** search names and descriptions, filter by layer and type.
 - **Centre:** the selected element's neighbourhood (depth 1–3), coloured by layer. Double-click a node to expand it; dashed edges are not valid yet (e.g. a planned hand-over).

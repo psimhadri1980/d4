@@ -7,6 +7,8 @@ export const API = process.env.E2E_API_URL ?? 'http://localhost:3000';
 export const USERS = {
   admin: { username: 'dev-admin', password: 'd4-local-dev' },
   viewer: { username: 'dev-viewer', password: 'd4-local-dev' },
+  author: { username: 'dev-author', password: 'd4-local-dev' },
+  steward: { username: 'dev-steward', password: 'd4-local-dev' },
 } as const;
 
 /** Prefix for everything a run creates; one search token (no hyphens) so cleanup can find it. */
