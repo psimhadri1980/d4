@@ -13,7 +13,8 @@ export function Layout() {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
   // Explorer covers the workspace home, element pages and the element editor.
-  const inQueries = useLocation().pathname.startsWith(`/w/${ws}/queries`);
+  const path = useLocation().pathname;
+  const inExplorer = !path.startsWith(`/w/${ws}/queries`) && !path.startsWith(`/w/${ws}/roadmap`);
 
   return (
     <div className="app">
@@ -33,11 +34,12 @@ export function Layout() {
           </select>
         </label>
         <nav className="nav" aria-label="Main">
-          {/* Plain Link: NavLink's prefix match would mark Explorer current on /queries too. */}
-          <Link to={`/w/${ws}`} className={inQueries ? '' : 'active'} aria-current={inQueries ? undefined : 'page'}>
+          {/* Plain Link: NavLink's prefix match would mark Explorer current on every page. */}
+          <Link to={`/w/${ws}`} className={inExplorer ? 'active' : ''} aria-current={inExplorer ? 'page' : undefined}>
             Explorer
           </Link>
           <NavLink to={`/w/${ws}/queries`}>Queries</NavLink>
+          <NavLink to={`/w/${ws}/roadmap`}>Roadmap</NavLink>
         </nav>
         <div className="spacer" />
         <Link to={`/w/${ws}/new`} className="button primary">

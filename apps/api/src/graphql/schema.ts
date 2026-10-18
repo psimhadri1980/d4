@@ -37,6 +37,7 @@ export const typeDefs = /* GraphQL */ `
     lanes: [RoadmapLane!]!
     lanesBy: String!
     changes: [RoadmapChange!]!
+    dependencies: [RoadmapDependency!]!
     start: String
     end: String
   }
@@ -61,6 +62,13 @@ export const typeDefs = /* GraphQL */ `
     itemIds: [ID!]!
     message: String!
     days: Int
+  }
+
+  type RoadmapDependency {
+    from: ID!
+    to: ID!
+    type: String!
+    lagDays: Int!
   }
 
   type RoadmapLane {

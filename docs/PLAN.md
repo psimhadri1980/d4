@@ -132,6 +132,10 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - `roadmapFromGraph` in `@d4/core`: lanes by initiative, division, status, type or milestone; change list; new `misses-milestone` conflict
   - `GET /v1/workspaces/{ws}/roadmap` (OpenAPI) and GraphQL `Workspace.roadmap`
   - on the sample: migrate is 30 days too early and misses cut-over by 29 days; critical path is cut-over → decommission
+- **3c done:**
+  - Roadmap page in the web app (`/w/:ws/roadmap?scope=…&lanes=…&zoom=…`): scope picker (initiatives, divisions, element search), SVG Gantt with lanes, week/month/quarter zoom, today line, dependency arrows, critical path, planned-vs-earliest outlines, conflict list, item details (dates, slack, dependencies, changes) and CSV/Mermaid export
+  - roadmap responses now include the dependencies between items
+  - 3 web unit tests (exports, Gantt geometry) and 2 browser tests
 
 ---
 

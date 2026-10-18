@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { ElementEditor } from './pages/ElementEditor';
 import { Explorer } from './pages/Explorer';
 import { Queries, type TabMode } from './pages/Queries';
+import { Roadmap } from './pages/Roadmap';
 
 export function App() {
   const { user, ready, returnTo } = useAuth();
@@ -22,6 +23,7 @@ export function App() {
         <Route path="new" element={<ElementEditor mode="create" />} />
         <Route path="e/:id/edit" element={<ElementEditor mode="edit" />} />
         <Route path="queries" element={<Queries />} />
+        <Route path="roadmap" element={<Roadmap />} />
         {/* Earlier separate screens now open as tabs in Queries. */}
         <Route path="catalog/:qid?" element={<ToQueries mode="run" />} />
         <Route path="studio/:qid?" element={<ToQueries mode="edit" />} />

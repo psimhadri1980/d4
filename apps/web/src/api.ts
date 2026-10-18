@@ -1,9 +1,9 @@
-import type { Element, Relationship } from '@d4/core';
+import type { Element, LaneKind, Relationship, RoadmapView } from '@d4/core';
 import type { Metamodel } from '@d4/metamodel';
 import { userManager } from './auth';
 import { config } from './config';
 
-export type { Element, Relationship };
+export type { Element, Relationship, RoadmapView };
 
 /** Error body shared by REST and GraphQL (`extensions.code`). */
 export class ApiError extends Error {
@@ -109,6 +109,8 @@ export const api = {
   workspaces: () => request<Workspace[]>('GET', '/v1/workspaces'),
   metamodel: (ws: string) => request<Metamodel>('GET', `/v1/workspaces/${ws}/metamodel`),
   me: () => request<{ userId: string; roles: string[]; tenantId: string }>('GET', '/v1/me'),
+  roadmap: (ws: string, scope: string[], lanes: LaneKind) =>
+    request<RoadmapView>('GET', `/v1/workspaces/${ws}/roadmap${qs({ scope, lanes })}`),
 
   listElements: (ws: string, f: ListFilter) =>
     request<ElementPage>('GET', `/v1/workspaces/${ws}/elements${qs({ ...f })}`),

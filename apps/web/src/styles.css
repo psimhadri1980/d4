@@ -1074,3 +1074,303 @@ tbody tr:hover td {
     height: 40px;
   }
 }
+
+/* ── Roadmap Studio ─────────────────────────────────────────────────────── */
+.roadmap {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  height: 100%;
+}
+.roadmap .pane.left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  padding: var(--sp-05);
+  overflow: auto;
+}
+.roadmap .pane.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  overflow: auto;
+}
+.roadmap .pane.right {
+  padding: var(--sp-05);
+  overflow: auto;
+}
+.scope-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+}
+.scope-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-02);
+}
+.scope-group legend {
+  margin-bottom: var(--sp-02);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.scope-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-03);
+  padding: var(--sp-02) 0;
+  cursor: pointer;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-02);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-02);
+  padding: var(--sp-01) var(--sp-02) var(--sp-01) var(--sp-03);
+  border-radius: 12px;
+  background: var(--layer-selected);
+  font-size: 12px;
+}
+.chip button {
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.roadmap-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-02);
+}
+.roadmap-legend span {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-03);
+}
+.swatch {
+  display: inline-block;
+  width: 20px;
+  height: 10px;
+  border-radius: 2px;
+}
+.swatch.bar {
+  background: var(--layer-planning);
+}
+.swatch.planned {
+  border: 1px dashed var(--border-strong);
+}
+.swatch.critical {
+  background: var(--support-error);
+}
+.swatch.milestone {
+  width: 10px;
+  transform: rotate(45deg);
+  background: var(--text-primary);
+}
+.roadmap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-04);
+}
+.roadmap-head .summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-05);
+  color: var(--text-secondary);
+}
+.roadmap-head .summary .warn {
+  color: var(--support-error);
+  font-weight: 600;
+}
+.roadmap-head .actions {
+  display: flex;
+  gap: var(--sp-03);
+}
+.gantt-scroll {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--border-subtle);
+  background: var(--layer-01);
+}
+.gantt {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+.gantt-axis-bg {
+  fill: var(--layer-02);
+}
+.gantt-axis-label,
+.gantt-lane-label {
+  fill: var(--text-secondary);
+}
+.gantt-lane-label {
+  font-weight: 600;
+}
+.gantt-grid {
+  stroke: var(--border-subtle);
+}
+.gantt-grid.strong {
+  stroke: var(--border-strong);
+  stroke-opacity: 0.5;
+}
+.gantt-lane {
+  fill: var(--layer-02);
+}
+.gantt-row {
+  fill: transparent;
+}
+.gantt-row.selected {
+  fill: var(--layer-selected-subtle);
+}
+.gantt-today {
+  stroke: var(--interactive);
+  stroke-dasharray: 3 3;
+}
+.gantt-today-label {
+  fill: var(--interactive);
+  font-size: 11px;
+}
+.gantt-dep {
+  fill: none;
+  stroke: var(--edge-line);
+  stroke-width: 1.2;
+}
+.gantt-dep.critical {
+  stroke: var(--support-error);
+}
+.gantt-arrowhead {
+  fill: var(--edge-line);
+}
+.gantt-item {
+  cursor: pointer;
+  outline: none;
+}
+.gantt-hit {
+  fill: transparent;
+}
+.gantt-item:hover .gantt-hit,
+.gantt-item:focus-visible .gantt-hit {
+  fill: var(--layer-hover);
+}
+.gantt-item:focus-visible .gantt-bar,
+.gantt-item:focus-visible .gantt-milestone {
+  stroke: var(--focus);
+  stroke-width: 2;
+}
+.gantt-label {
+  fill: var(--text-primary);
+}
+.gantt-warn {
+  fill: var(--support-error);
+  font-weight: 700;
+}
+.gantt-bar {
+  fill: var(--layer-planning);
+}
+.gantt-item.st-done .gantt-bar {
+  fill-opacity: 0.45;
+}
+.gantt-item.critical .gantt-bar {
+  fill: var(--support-error);
+}
+.gantt-milestone {
+  fill: var(--text-primary);
+}
+.gantt-item.critical .gantt-milestone {
+  fill: var(--support-error);
+}
+.gantt-planned {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-dasharray: 4 3;
+}
+.gantt-item.selected .gantt-bar,
+.gantt-item.selected .gantt-milestone,
+.gantt-item.lit .gantt-bar,
+.gantt-item.lit .gantt-milestone {
+  stroke: var(--text-primary);
+  stroke-width: 2;
+}
+.conflict-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.conflict-list .item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-04);
+  width: 100%;
+  padding: var(--sp-03) 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.conflict-list .item:hover {
+  background: var(--layer-hover);
+}
+.conflict-list .badge {
+  flex: none;
+  color: var(--support-error);
+  border-color: var(--support-error);
+}
+.badge.critical {
+  color: var(--support-error);
+  border-color: var(--support-error);
+}
+.badge.action-introduce {
+  color: var(--support-success);
+}
+.badge.action-retire {
+  color: var(--support-error);
+}
+.roadmap-item .facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-02) var(--sp-05);
+  margin: var(--sp-04) 0 var(--sp-05);
+}
+.roadmap-item .facts dt {
+  color: var(--text-secondary);
+}
+.roadmap-item .facts dd {
+  margin: 0;
+}
+.roadmap-item h3 {
+  margin-top: var(--sp-05);
+}
+ul.plain {
+  margin: 0 0 var(--sp-03);
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-02);
+}
+@media (max-width: 1100px) {
+  .roadmap {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .roadmap .pane.right {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+}

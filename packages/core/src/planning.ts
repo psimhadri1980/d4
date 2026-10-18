@@ -1,4 +1,4 @@
-import { buildRoadmap, type ChangeAction, type DependencyType, type Roadmap, type RoadmapItem } from './roadmap';
+import { buildRoadmap, type ChangeAction, type DependencyType, type Roadmap, type RoadmapDependency, type RoadmapItem } from './roadmap';
 import type { Element, IsoDate, Relationship } from './types';
 
 /**
@@ -28,6 +28,8 @@ export interface RoadmapChangeView {
 export interface RoadmapView extends Roadmap {
   lanesBy: LaneKind;
   changes: RoadmapChangeView[];
+  /** Dependencies between items in the roadmap (`from` depends on `to`). */
+  dependencies: RoadmapDependency[];
 }
 
 const name = (e: Element | undefined) => (e ? String(e.attrs['name'] ?? e.id) : '');
@@ -87,17 +89,20 @@ export function roadmapFromGraph(g: PlanningGraph, opts: { lanes?: LaneKind; tod
       targetLifecycle: (r.attrs['targetLifecycle'] as string | undefined) ?? null,
     }));
 
-  const roadmap = buildRoadmap({
-    items,
-    dependencies: rels('DEPENDS_ON').map((r) => ({
+  const dependencies: RoadmapDependency[] = rels('DEPENDS_ON')
+    .filter((r) => inScope.has(r.fromId) && inScope.has(r.toId))
+    .map((r) => ({
       from: r.fromId,
       to: r.toId,
-      type: (r.attrs['dependencyType'] as DependencyType | undefined) ?? null,
-      lagDays: r.attrs['lagDays'] == null ? null : Number(r.attrs['lagDays']),
-    })),
+      type: (r.attrs['dependencyType'] as DependencyType | undefined) ?? 'FINISH_START',
+      lagDays: r.attrs['lagDays'] == null ? 0 : Number(r.attrs['lagDays']),
+    }));
+  const roadmap = buildRoadmap({
+    items,
+    dependencies,
     changes,
     milestones: [...milestone].map(([deliverableId, milestoneId]) => ({ deliverableId, milestoneId })),
     today: opts.today,
   });
-  return { ...roadmap, lanesBy, changes };
+  return { ...roadmap, lanesBy, changes, dependencies };
 }

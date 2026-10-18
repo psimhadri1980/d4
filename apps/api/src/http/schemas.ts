@@ -176,6 +176,14 @@ export const RoadmapSchema = z
         targetLifecycle: z.string().nullable(),
       }),
     ),
+    dependencies: z.array(
+      z.object({
+        from: z.string(),
+        to: z.string(),
+        type: z.enum(['FINISH_START', 'START_START', 'FINISH_FINISH', 'START_FINISH']),
+        lagDays: z.number().int(),
+      }),
+    ),
     start: IsoDate.nullable(),
     end: IsoDate.nullable(),
   })
