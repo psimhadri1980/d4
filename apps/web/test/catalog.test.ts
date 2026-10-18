@@ -96,3 +96,15 @@ describe('hopDistances', () => {
     expect(Object.fromEntries(d)).toEqual({ A: 0, B: 1, C: 2, D: 3 });
   });
 });
+
+describe('parseTabs', () => {
+  it('reads tabs from the URL, ignoring junk and duplicates', async () => {
+    const { parseTabs } = await import('../src/pages/Queries');
+    expect(parseTabs('run:A,edit:B,run:A,bogus:C,review:,review:D')).toEqual([
+      { mode: 'run', id: 'A' },
+      { mode: 'edit', id: 'B' },
+      { mode: 'review', id: 'D' },
+    ]);
+    expect(parseTabs(null)).toEqual([]);
+  });
+});

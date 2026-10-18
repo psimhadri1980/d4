@@ -29,9 +29,9 @@ test.describe('sign-in', () => {
 
       // Fresh session, then open a deep link: Keycloak SSO signs in and we land on that page.
       await page.evaluate(() => (globalThis as unknown as { sessionStorage: { clear(): void } }).sessionStorage.clear());
-      await page.goto(`/w/${ws}/catalog`);
-      await expect(page).toHaveURL(new RegExp(`/w/${ws}/catalog$`));
-      await expect(page.getByRole('heading', { name: 'Query catalog' })).toBeVisible();
+      await page.goto(`/w/${ws}/queries`);
+      await expect(page).toHaveURL(new RegExp(`/w/${ws}/queries$`));
+      await expect(page.getByRole('button', { name: /^.?Catalog/ })).toBeVisible();
     });
 
     test('viewer can sign in and sign out', async ({ page }) => {

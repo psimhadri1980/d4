@@ -1,65 +1,19 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { api, can, catalogApi, type QueryGrant, type QueryVersion } from '../api';
+import { useEffect, useId, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { catalogApi, type QueryGrant, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { RemoveQueryButton } from '../components/RemoveQueryButton';
 import { TestRunPanel } from '../components/TestRunPanel';
-import { ChecksList, STATUS_LABEL, StatusBadges, VersionHistory } from './QueryStudio';
+import { ChecksList, STATUS_LABEL, VersionHistory } from './QueryStudio';
 
 /** Roles a steward can grant a query to (mirrors the platform role list). */
 const GRANTABLE_ROLES = ['viewer', 'contributor', 'planner', 'architect', 'query-author', 'query-steward'];
 
 /** Stewards review submissions and manage grants, certification and version lifecycle. */
-export function Stewardship() {
-  const { ws, qid } = useParams();
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me });
-  const list = useQuery({ queryKey: ['catalog', 'stewardship'], queryFn: () => catalogApi.search() });
-
-  if (me.data && !can(me.data.roles).steward) {
-    return <div className="splash">Stewardship is for users with the query-steward role.</div>;
-  }
-
-  const entries = list.data ?? [];
-  const queue = entries.filter((e) => e.openStatus === 'in_review');
-
-  return (
-    <div className="catalog">
-      <aside className="pane left">
-        <h3>Review queue ({queue.length})</h3>
-        <ul className="items">
-          {queue.map((e) => (
-            <li key={e.id} className={e.id === qid ? 'selected' : ''}>
-              <Link to={`/w/${ws}/stewardship/${e.id}`}>
-                <span className="name">{e.title}</span>
-                <StatusBadges entry={e} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-        {!queue.length && <p className="muted small">Nothing waiting for review.</p>}
-        <h3>All queries</h3>
-        {list.error && <ErrorBanner error={list.error} />}
-        <ul className="items">
-          {entries.map((e) => (
-            <li key={e.id} className={e.id === qid ? 'selected' : ''}>
-              <Link to={`/w/${ws}/stewardship/${e.id}`}>
-                <span className="name">{e.title}</span>
-                <StatusBadges entry={e} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </aside>
-      <section className="pane main">
-        {qid ? <StewardPanel key={qid} queryId={qid} /> : <div className="empty">Pick a query to review or manage.</div>}
-      </section>
-    </div>
-  );
-}
-
-function StewardPanel({ queryId }: { queryId: string }) {
+export function StewardPanel({ queryId, onRemoved }: { queryId: string; onRemoved(): void }) {
   const { ws } = useParams();
+  const uid = useId();
   const queryClient = useQueryClient();
   const detail = useQuery({ queryKey: ['catalog-detail', queryId], queryFn: () => catalogApi.detail(queryId) });
   const runs = useQuery({ queryKey: ['executions', queryId], queryFn: () => catalogApi.executions(queryId) });
@@ -130,8 +84,8 @@ function StewardPanel({ queryId }: { queryId: string }) {
           </div>
           {pending.checks && <ChecksList checks={pending.checks} />}
           <div className="field">
-            <label htmlFor="review-note">Note to the author</label>
-            <textarea id="review-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+            <label htmlFor={`${uid}review-note`}>Note to the author</label>
+            <textarea id={`${uid}review-note`} rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           <div className="actions">
             <button className="button primary" onClick={() => void act('Published', () => catalogApi.review(queryId, 'publish', note || undefined))}>
@@ -168,7 +122,7 @@ function StewardPanel({ queryId }: { queryId: string }) {
             </button>
           )}
           <div className="spacer" />
-          {!d.system && <RemoveQueryButton queryId={queryId} title={d.title} versions={d.versions} after={`/w/${ws}/stewardship`} />}
+          {!d.system && <RemoveQueryButton queryId={queryId} title={d.title} versions={d.versions} onRemoved={onRemoved} />}
         </div>
       </div>
 

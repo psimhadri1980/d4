@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { catalogApi, type QueryVersion } from '../api';
 import { ErrorBanner } from './ErrorBanner';
 
@@ -9,15 +8,14 @@ export function RemoveQueryButton({
   queryId,
   title,
   versions,
-  after,
+  onRemoved,
 }: {
   queryId: string;
   title: string;
   versions: QueryVersion[];
-  /** Where to go once removed. */
-  after: string;
+  /** Called once removed (e.g. to close the tab). */
+  onRemoved(): void;
 }) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>(null);
   const archive = versions.some((v) => v.publishedAt);
@@ -31,7 +29,7 @@ export function RemoveQueryButton({
     try {
       await catalogApi.remove(queryId);
       await queryClient.invalidateQueries({ queryKey: ['catalog'] });
-      navigate(after);
+      onRemoved();
     } catch (e) {
       setError(e);
     }

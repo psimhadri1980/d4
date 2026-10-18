@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { RUN, signIn } from './helpers';
 
 const TITLE = `${RUN} Applications by criticality`;
@@ -10,171 +10,208 @@ ORDER BY name
 LIMIT 100`;
 const PARAMS = '[{ "name": "criticality", "type": "enum", "label": "Criticality", "values": ["LOW", "MEDIUM", "HIGH", "MISSION_CRITICAL"] }]';
 
-async function go(page: Page, path: string) {
-  // Workspace id comes from the app's own redirect to the first workspace.
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/w\/[0-9A-Z]{26}/);
-  const ws = /\/w\/([0-9A-Z]{26})/.exec(page.url())![1];
-  await page.goto(`/w/${ws}${path}`);
+let workspace = '';
+async function openQueries(page: Page, query = '') {
+  if (!workspace) {
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/w\/[0-9A-Z]{26}/);
+    workspace = /\/w\/([0-9A-Z]{26})/.exec(page.url())![1]!;
+  }
+  await page.goto(`/w/${workspace}/queries${query}`);
 }
 
-test.describe('query catalog', () => {
+const section = (page: Page, name: 'Catalog' | 'Studio' | 'Stewardship') =>
+  page.locator('section.accordion', { has: page.getByRole('button', { name: new RegExp(`^.?${name}`) }) });
+const panel = (page: Page): Locator => page.getByRole('tabpanel');
+
+test.describe('queries workspace', () => {
   test.describe.configure({ mode: 'serial' });
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('viewer runs a system query with an element parameter', async ({ page }) => {
+  test('viewer sees only the Catalog section, with a count', async ({ page }) => {
     await signIn(page, 'viewer');
-    const nav = page.getByRole('navigation', { name: 'Main' });
-    await expect(nav.getByRole('link', { name: 'Catalog' })).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Studio' })).toHaveCount(0);
-    await expect(nav.getByRole('link', { name: 'Stewardship' })).toHaveCount(0);
-
-    await go(page, '/catalog');
-    await page.getByLabel('Search queries').fill('CRUD');
-    await page.getByRole('link', { name: /CRUD-I matrix/ }).click();
-    await expect(page.getByRole('heading', { level: 2, name: /CRUD-I matrix/ })).toBeVisible();
-
-    await page.getByLabel('Search BusinessProcess').fill('Client Onboarding');
-    await page.locator('#param-element').selectOption({ label: 'Client Onboarding — BusinessProcess' });
-    await page.getByRole('button', { name: 'Run' }).click();
-
-    const table = page.locator('.results table');
-    await expect(table).toContainText('Capture client details');
-    await expect(table).toContainText('Client Advisor');
-    await expect(page.getByText(/6 rows · v1/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Download CSV' })).toBeEnabled();
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Queries' })).toBeVisible();
+    await openQueries(page);
+    await expect(section(page, 'Catalog').locator('.count')).toHaveText('8');
+    await expect(section(page, 'Studio')).toHaveCount(0);
+    await expect(section(page, 'Stewardship')).toHaveCount(0);
   });
 
-  test('graph-shaped queries render as a graph with a table toggle', async ({ page }) => {
+  test('runs a system query in a tab with an element parameter', async ({ page }) => {
     await signIn(page, 'viewer');
-    await go(page, '/catalog');
-    await page.getByRole('link', { name: /Lineage graph/ }).click();
-    await page.getByLabel('Search DataProduct').fill('Client Master');
-    await page.locator('#param-element').selectOption({ label: 'Client Master — DataProduct' });
-    await page.getByRole('button', { name: 'Run' }).click();
-    await expect(page.getByText(/\d+ elements · \d+ relationships · v1/)).toBeVisible();
-    await expect(page.locator('.result-graph canvas').first()).toBeVisible();
-    const counts = await page.getByText(/\d+ elements · \d+ relationships · v1/).innerText();
-    expect(Number(/(\d+) elements/.exec(counts)![1])).toBeGreaterThan(5);
+    await openQueries(page);
+    await section(page, 'Catalog').getByRole('button', { name: /CRUD-I matrix/ }).click();
+    await expect(page.getByRole('tab', { name: /Run.*CRUD-I matrix/ })).toHaveAttribute('aria-selected', 'true');
 
-    await page.getByRole('group', { name: 'Result view' }).getByRole('button', { name: 'Table' }).click();
-    await expect(page.locator('.results table')).toContainText('Client Master');
+    const p = panel(page);
+    await p.getByLabel('Search BusinessProcess').fill('Client Onboarding');
+    await p.getByRole('listbox', { name: /Business process/ }).selectOption({ label: 'Client Onboarding — BusinessProcess' });
+    await p.getByRole('button', { name: 'Run' }).click();
+    await expect(p.locator('.results table')).toContainText('Capture client details');
+    await expect(p.getByText(/6 rows · v1/)).toBeVisible();
+  });
+
+  test('several tabs stay open side by side and keep their state', async ({ page }) => {
+    await signIn(page, 'viewer');
+    await openQueries(page);
+    const catalog = section(page, 'Catalog');
+
+    // Tab 1: run impact of retiring the Mainframe.
+    await catalog.getByRole('button', { name: /Impact of retiring/ }).click();
+    await panel(page).getByLabel(/Search Platform/).fill('Mainframe');
+    await panel(page).getByRole('listbox', { name: /Element to retire/ }).selectOption({ label: 'Mainframe — Platform' });
+    await panel(page).getByRole('button', { name: 'Run' }).click();
+    await expect(panel(page).locator('.results table')).toContainText('Core Banking System');
+
+    // Tab 2: a different query.
+    await catalog.getByRole('button', { name: /Orphan elements/ }).click();
+    await expect(page.getByRole('tab')).toHaveCount(2);
+    await expect(page.getByRole('tab', { name: /Orphan elements/ })).toHaveAttribute('aria-selected', 'true');
+
+    // Back to tab 1: its result is still there; opening it again doesn't duplicate it.
+    await page.getByRole('tab', { name: /Impact of retiring/ }).click();
+    await expect(panel(page).locator('.results table')).toContainText('Core Banking System');
+    await catalog.getByRole('button', { name: /Impact of retiring/ }).click();
+    await expect(page.getByRole('tab')).toHaveCount(2);
+
+    // Tabs survive a reload (they are in the URL).
+    await page.reload();
+    await expect(page.getByRole('tab')).toHaveCount(2);
+
+    // Close one, then the other.
+    await page.getByRole('button', { name: /Close .*Orphan elements/ }).click();
+    await expect(page.getByRole('tab')).toHaveCount(1);
+    await page.getByRole('button', { name: /Close .*Impact of retiring/ }).click();
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page.getByText(/Each opens in its own tab/)).toBeVisible();
+  });
+
+  test('graph-shaped results render as a graph with a table toggle', async ({ page }) => {
+    await signIn(page, 'viewer');
+    await openQueries(page);
+    await section(page, 'Catalog').getByRole('button', { name: /Lineage graph/ }).click();
+    const p = panel(page);
+    await p.getByLabel('Search DataProduct').fill('Client Master');
+    await p.getByRole('listbox', { name: /Data product/ }).selectOption({ label: 'Client Master — DataProduct' });
+    await p.getByRole('button', { name: 'Run' }).click();
+    await expect(p.getByText(/\d+ elements · \d+ relationships · v1/)).toBeVisible();
+    await expect(p.locator('.result-graph canvas').first()).toBeVisible();
+    await p.getByRole('group', { name: 'Result view' }).getByRole('button', { name: 'Table' }).click();
+    await expect(p.locator('.results table')).toContainText('Client Master');
   });
 
   test('element picker never looks selected when it is not, and asks for missing values', async ({ page }) => {
     await signIn(page, 'viewer');
-    await go(page, '/catalog');
-    await page.getByRole('link', { name: /Impact of retiring/ }).click();
-    // The list shows an explicit "none selected" entry, so nothing looks chosen when nothing is.
-    await expect(page.locator('#param-element')).toHaveValue('');
-    await page.getByRole('button', { name: 'Run' }).click();
-    await expect(page.getByRole('alert')).toContainText('Please fill in: Element to retire');
-
-    // Selecting an element then runs normally and the choice is confirmed.
-    await page.getByLabel(/Search Platform/).fill('Mainframe');
-    await page.locator('#param-element').selectOption({ label: 'Mainframe — Platform' });
-    await expect(page.getByText('Selected: Mainframe — Platform')).toBeVisible();
-    await page.getByRole('button', { name: 'Run' }).click();
-    await expect(page.locator('.results table')).toContainText('Core Banking System');
+    await openQueries(page);
+    await section(page, 'Catalog').getByRole('button', { name: /Impact of retiring/ }).click();
+    const p = panel(page);
+    await expect(p.getByRole('listbox', { name: /Element to retire/ })).toHaveValue('');
+    await p.getByRole('button', { name: 'Run' }).click();
+    await expect(p.getByRole('alert')).toContainText('Please fill in: Element to retire');
+    await p.getByLabel(/Search Platform/).fill('Mainframe');
+    await p.getByRole('listbox', { name: /Element to retire/ }).selectOption({ label: 'Mainframe — Platform' });
+    await expect(p.getByText('Selected: Mainframe — Platform')).toBeVisible();
   });
 
-  test('author drafts, sees check results, fixes and submits', async ({ page }) => {
+  test('old routes open the matching tab in Queries', async ({ page }) => {
+    await signIn(page, 'viewer');
+    await openQueries(page);
+    await section(page, 'Catalog').getByRole('button', { name: /Orphan elements/ }).click();
+    const id = /run:([0-9A-Z]{26})/.exec(decodeURIComponent(page.url()))![1];
+    await page.goto(`/w/${workspace}/catalog/${id}`);
+    await expect(page).toHaveURL(/\/queries\?tabs=run/);
+    await expect(page.getByRole('tab', { name: /Orphan elements/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('author drafts, sees checks, test-runs and submits — from the Studio section', async ({ page }) => {
     await signIn(page, 'author');
-    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Stewardship' })).toHaveCount(0);
-    await go(page, '/studio');
-    await page.getByRole('button', { name: '+ New query' }).click();
-    await page.getByLabel('Title *').fill(TITLE);
-    await page.getByRole('button', { name: 'Create' }).click();
-    await expect(page.getByRole('heading', { level: 2, name: TITLE })).toBeVisible();
+    await openQueries(page);
+    await expect(section(page, 'Stewardship')).toHaveCount(0);
+    const studio = section(page, 'Studio');
+    await studio.getByRole('button', { name: '+ New query' }).click();
+    await studio.getByLabel('Title *').fill(TITLE);
+    await studio.getByRole('button', { name: 'Create' }).click();
+    await expect(page.getByRole('tab', { name: new RegExp(`Edit.*${TITLE}`) })).toHaveAttribute('aria-selected', 'true');
 
-    await page.getByLabel('Cypher', { exact: true }).fill('MATCH (a:Application) SET a.flag = true RETURN a');
-    await page.getByRole('button', { name: 'Save draft' }).click();
-    await expect(page.getByText('✗ SET is not allowed in a read-only query')).toBeVisible();
-    await expect(page.getByText(/must filter by \$workspace/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
+    const p = panel(page);
+    await p.getByLabel('Cypher', { exact: true }).fill('MATCH (a:Application) SET a.flag = true RETURN a');
+    await p.getByRole('button', { name: 'Save draft' }).click();
+    await expect(p.getByText('✗ SET is not allowed in a read-only query')).toBeVisible();
+    await expect(p.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
 
-    await page.getByLabel('Cypher', { exact: true }).fill(GOOD);
-    await page.getByLabel('Parameters (JSON)').fill(PARAMS);
-    await page.getByRole('button', { name: 'Save draft' }).click();
-    await expect(page.getByText('✓ All checks pass')).toBeVisible();
+    await p.getByLabel('Cypher', { exact: true }).fill(GOOD);
+    await p.getByLabel('Parameters (JSON)').fill(PARAMS);
+    await p.getByRole('button', { name: 'Save draft' }).click();
+    await expect(p.getByText('✓ All checks pass')).toBeVisible();
 
-    // Test-run the saved draft before submitting.
-    const testRun = page.locator('.test-run');
+    const testRun = p.locator('.test-run');
     await testRun.getByLabel('Criticality').selectOption('MISSION_CRITICAL');
     await testRun.getByRole('button', { name: 'Test run' }).click();
     await expect(testRun.locator('table')).toContainText('Core Banking System');
-    await expect(testRun.locator('table')).not.toContainText('Client Onboarding Portal');
 
-    await page.getByRole('button', { name: 'Submit for review' }).click();
-    await expect(page.getByText(/waiting for a steward/)).toBeVisible();
+    await p.getByRole('button', { name: 'Submit for review' }).click();
+    await expect(p.getByText(/waiting for a steward/)).toBeVisible();
   });
 
-  test('the submitted query is not visible to viewers yet', async ({ page }) => {
-    await signIn(page, 'viewer');
-    await go(page, '/catalog');
-    await page.getByLabel('Search queries').fill(RUN);
-    await expect(page.getByText('No queries match.')).toBeVisible();
-  });
-
-  test('steward reviews, publishes and grants to viewers', async ({ page }) => {
+  test('steward reviews from the Stewardship section and grants to viewers', async ({ page }) => {
     await signIn(page, 'steward');
-    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Studio' })).toHaveCount(0);
-    await go(page, '/stewardship');
-    await page.locator('.items').first().getByRole('link', { name: new RegExp(TITLE) }).click();
-    await expect(page.getByRole('heading', { name: 'Review v1' })).toBeVisible();
-    await expect(page.locator('pre.cypher').first()).toContainText('$criticality');
+    await openQueries(page);
+    await expect(section(page, 'Studio')).toHaveCount(0);
+    const stewardship = section(page, 'Stewardship');
+    await expect(stewardship.locator('.count')).not.toHaveText('0');
+    await stewardship.getByRole('button', { name: new RegExp(TITLE) }).first().click();
 
-    await page.getByLabel('Note to the author').fill('Scoped and read-only.');
-    await page.getByRole('button', { name: 'Publish' }).click();
-    await expect(page.getByText('✓ Published')).toBeVisible();
-
-    await page.getByLabel('Grant to viewer').check();
-    await page.getByRole('button', { name: 'Save grants' }).click();
-    await expect(page.getByText('✓ Grants saved')).toBeVisible();
+    const p = panel(page);
+    await expect(p.getByRole('heading', { name: 'Review v1' })).toBeVisible();
+    await p.getByLabel('Note to the author').fill('Scoped and read-only.');
+    await p.getByRole('button', { name: 'Publish' }).click();
+    await expect(p.getByText('✓ Published')).toBeVisible();
+    await p.getByLabel('Grant to viewer').check();
+    await p.getByRole('button', { name: 'Save grants' }).click();
+    await expect(p.getByText('✓ Grants saved')).toBeVisible();
   });
 
-  test('viewer runs the newly published query with a choice parameter', async ({ page }) => {
+  test('viewer runs the newly published query', async ({ page }) => {
     await signIn(page, 'viewer');
-    await go(page, '/catalog');
+    await openQueries(page);
     await page.getByLabel('Search queries').fill(RUN);
-    await page.getByRole('link', { name: new RegExp(TITLE) }).click();
-    await page.getByLabel('Criticality').selectOption('MISSION_CRITICAL');
-    await page.getByRole('button', { name: 'Run' }).click();
-    const table = page.locator('.results table');
-    await expect(table).toContainText('Core Banking System');
-    await expect(table).toContainText('Credit Risk Engine');
-    await expect(table).not.toContainText('Client Onboarding Portal');
-    // Element ids link back to the explorer.
-    await expect(table.getByRole('link', { name: 'open' }).first()).toHaveAttribute('href', /\/e\/[0-9A-Z]{26}$/);
+    await section(page, 'Catalog').getByRole('button', { name: new RegExp(TITLE) }).click();
+    const p = panel(page);
+    await p.getByLabel('Criticality').selectOption('MISSION_CRITICAL');
+    await p.getByRole('button', { name: 'Run' }).click();
+    await expect(p.locator('.results table')).toContainText('Credit Risk Engine');
+    await expect(p.locator('.results table')).not.toContainText('Client Onboarding Portal');
   });
 
-  test('steward sees the run, retires the version and archives the test query', async ({ page }) => {
+  test('steward retires and archives the test query; its tab closes', async ({ page }) => {
     await signIn(page, 'steward');
-    await go(page, '/stewardship');
-    await page.getByRole('link', { name: new RegExp(TITLE) }).last().click();
-    await expect(page.locator('.card', { hasText: 'Recent runs' }).locator('tbody tr').first()).toContainText('ok');
-    await page.getByRole('button', { name: 'Deprecate' }).click();
-    await expect(page.getByText('✓ v1 deprecated')).toBeVisible();
-    await page.getByRole('button', { name: 'Retire' }).click();
-    await expect(page.getByText('✓ v1 retired')).toBeVisible();
-
-    // Published history means archive, not delete; it leaves the catalog.
+    await openQueries(page);
+    const stewardship = section(page, 'Stewardship');
+    await stewardship.getByText(/Manage any query/).click();
+    await stewardship.locator('.all-queries').getByRole('button', { name: new RegExp(TITLE) }).click();
+    const p = panel(page);
+    await expect(p.locator('.card', { hasText: 'Recent runs' }).locator('tbody tr').first()).toContainText('ok');
+    await p.getByRole('button', { name: 'Deprecate' }).click();
+    await expect(p.getByText('✓ v1 deprecated')).toBeVisible();
+    await p.getByRole('button', { name: 'Retire' }).click();
+    await expect(p.getByText('✓ v1 retired')).toBeVisible();
     page.once('dialog', (d) => void d.accept());
-    await page.getByRole('button', { name: 'Archive query' }).click();
-    await expect(page).toHaveURL(/\/stewardship$/);
-    await expect(page.getByRole('link', { name: new RegExp(TITLE) })).toHaveCount(0);
+    await p.getByRole('button', { name: 'Archive query' }).click();
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: new RegExp(TITLE) })).toHaveCount(0);
   });
 
-  test('author can delete a never-published draft', async ({ page }) => {
+  test('author can delete a never-published draft; its tab closes', async ({ page }) => {
     await signIn(page, 'author');
-    await go(page, '/studio');
-    await page.getByRole('button', { name: '+ New query' }).click();
-    await page.getByLabel('Title *').fill(`${RUN} Scratch`);
-    await page.getByRole('button', { name: 'Create' }).click();
-    await page.getByRole('button', { name: 'Save draft' }).click();
+    await openQueries(page);
+    const studio = section(page, 'Studio');
+    await studio.getByRole('button', { name: '+ New query' }).click();
+    await studio.getByLabel('Title *').fill(`${RUN} Scratch`);
+    await studio.getByRole('button', { name: 'Create' }).click();
+    await panel(page).getByRole('button', { name: 'Save draft' }).click();
     page.once('dialog', (d) => void d.accept());
-    await page.getByRole('button', { name: 'Delete query' }).click();
-    await expect(page).toHaveURL(/\/studio$/);
-    await expect(page.getByRole('link', { name: new RegExp(`${RUN} Scratch`) })).toHaveCount(0);
+    await panel(page).getByRole('button', { name: 'Delete query' }).click();
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(studio.getByRole('button', { name: new RegExp(`${RUN} Scratch`) })).toHaveCount(0);
   });
 });

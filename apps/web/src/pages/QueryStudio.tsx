@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, can, catalogApi, type CatalogEntry, type Checks, type QueryVersion } from '../api';
+import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useParams } from 'react-router-dom';
+import { catalogApi, type CatalogEntry, type Checks, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { RemoveQueryButton } from '../components/RemoveQueryButton';
 import { TestRunPanel } from '../components/TestRunPanel';
@@ -25,40 +25,6 @@ RETURN n.name AS name, n.lifecycle AS lifecycle
 ORDER BY name
 LIMIT 100`;
 
-/** Authors write, check and submit catalog queries. Cypher never runs from here. */
-export function QueryStudio() {
-  const { ws, qid } = useParams();
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me });
-  const list = useQuery({ queryKey: ['catalog', 'studio'], queryFn: () => catalogApi.search() });
-
-  if (me.data && !can(me.data.roles).author) {
-    return <div className="splash">The Query Studio is for users with the query-author role.</div>;
-  }
-
-  return (
-    <div className="catalog">
-      <aside className="pane left">
-        <h3>Query Studio</h3>
-        <NewQueryForm workspaceId={ws!} />
-        {list.error && <ErrorBanner error={list.error} />}
-        <ul className="items">
-          {(list.data ?? []).map((e) => (
-            <li key={e.id} className={e.id === qid ? 'selected' : ''}>
-              <Link to={`/w/${ws}/studio/${e.id}`}>
-                <span className="name">{e.title}</span>
-                <StatusBadges entry={e} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </aside>
-      <section className="pane main">
-        {qid ? <Editor key={qid} queryId={qid} /> : <div className="empty">Pick a query to edit, or create a new one.</div>}
-      </section>
-    </div>
-  );
-}
-
 export function StatusBadges({ entry }: { entry: CatalogEntry }) {
   return (
     <span className="status-badges">
@@ -69,8 +35,9 @@ export function StatusBadges({ entry }: { entry: CatalogEntry }) {
   );
 }
 
-function NewQueryForm({ workspaceId }: { workspaceId: string }) {
-  const navigate = useNavigate();
+/** Creates a catalog entry, then hands its id to the caller (which opens it for editing). */
+export function NewQueryForm({ onCreated }: { onCreated(id: string): void }) {
+  const uid = useId();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -93,7 +60,7 @@ function NewQueryForm({ workspaceId }: { workspaceId: string }) {
       });
       await queryClient.invalidateQueries({ queryKey: ['catalog'] });
       setOpen(false);
-      navigate(`/w/${workspaceId}/studio/${created.id}`);
+      onCreated(created.id);
     } catch (err) {
       setError(err);
     }
@@ -109,16 +76,16 @@ function NewQueryForm({ workspaceId }: { workspaceId: string }) {
   return (
     <form className="card form" onSubmit={(e) => void submit(e)}>
       <div className="field">
-        <label htmlFor="nq-title">Title *</label>
-        <input id="nq-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <label htmlFor={`${uid}nq-title`}>Title *</label>
+        <input id={`${uid}nq-title`} value={title} onChange={(e) => setTitle(e.target.value)} required />
       </div>
       <div className="field">
-        <label htmlFor="nq-slug">Slug</label>
-        <input id="nq-slug" placeholder={suggested} value={slug} onChange={(e) => setSlug(e.target.value)} />
+        <label htmlFor={`${uid}nq-slug`}>Slug</label>
+        <input id={`${uid}nq-slug`} placeholder={suggested} value={slug} onChange={(e) => setSlug(e.target.value)} />
       </div>
       <div className="field">
-        <label htmlFor="nq-tags">Tags</label>
-        <input id="nq-tags" placeholder="comma, separated" value={tags} onChange={(e) => setTags(e.target.value)} />
+        <label htmlFor={`${uid}nq-tags`}>Tags</label>
+        <input id={`${uid}nq-tags`} placeholder="comma, separated" value={tags} onChange={(e) => setTags(e.target.value)} />
       </div>
       <ErrorBanner error={error} />
       <div className="actions">
@@ -133,8 +100,10 @@ function NewQueryForm({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-function Editor({ queryId }: { queryId: string }) {
+/** Authors write, check, test-run and submit a catalog query. */
+export function Editor({ queryId, onRemoved }: { queryId: string; onRemoved(): void }) {
   const { ws } = useParams();
+  const uid = useId();
   const queryClient = useQueryClient();
   const detail = useQuery({ queryKey: ['catalog-detail', queryId], queryFn: () => catalogApi.detail(queryId) });
   const [cypher, setCypher] = useState('');
@@ -222,20 +191,20 @@ function Editor({ queryId }: { queryId: string }) {
         {inReview && <p className="muted">Version {open!.version} is waiting for a steward; it can't be edited until reviewed.</p>}
 
         <div className="field">
-          <label htmlFor="cypher">Cypher</label>
-          <textarea id="cypher" className="code" rows={12} value={cypher} onChange={(e) => setCypher(e.target.value)} disabled={inReview} spellCheck={false} />
+          <label htmlFor={`${uid}cypher`}>Cypher</label>
+          <textarea id={`${uid}cypher`} className="code" rows={12} value={cypher} onChange={(e) => setCypher(e.target.value)} disabled={inReview} spellCheck={false} />
           <small className="muted">Must filter by <code>$workspace</code>; read-only; only allow-listed procedures.</small>
         </div>
         <div className="row">
           <div className="field">
-            <label htmlFor="params">Parameters (JSON)</label>
-            <textarea id="params" className="code" rows={8} value={paramsText} onChange={(e) => setParamsText(e.target.value)} disabled={inReview} spellCheck={false} />
+            <label htmlFor={`${uid}params`}>Parameters (JSON)</label>
+            <textarea id={`${uid}params`} className="code" rows={8} value={paramsText} onChange={(e) => setParamsText(e.target.value)} disabled={inReview} spellCheck={false} />
           </div>
           <div className="field">
             <label>Example</label>
             <pre className="cypher small">{PARAMS_EXAMPLE}</pre>
-            <label htmlFor="shape">Result</label>
-            <select id="shape" value={shape} onChange={(e) => setShape(e.target.value as 'table' | 'graph')} disabled={inReview}>
+            <label htmlFor={`${uid}shape`}>Result</label>
+            <select id={`${uid}shape`} value={shape} onChange={(e) => setShape(e.target.value as 'table' | 'graph')} disabled={inReview}>
               <option value="table">Table</option>
               <option value="graph">Graph</option>
             </select>
@@ -257,7 +226,7 @@ function Editor({ queryId }: { queryId: string }) {
             Submit for review
           </button>
           <div className="spacer" />
-          <RemoveQueryButton queryId={queryId} title={d.title} versions={versions} after={`/w/${ws}/studio`} />
+          <RemoveQueryButton queryId={queryId} title={d.title} versions={versions} onRemoved={onRemoved} />
         </div>
       </div>
       {open && !open.checks?.errors.length && open.checks && (

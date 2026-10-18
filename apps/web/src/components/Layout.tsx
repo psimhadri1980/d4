@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
-import { api, can } from '../api';
+import { api } from '../api';
 import { useAuth } from '../auth';
 
 export function Layout() {
@@ -31,9 +31,7 @@ export function Layout() {
           <NavLink to={`/w/${ws}`} end>
             Explorer
           </NavLink>
-          <NavLink to={`/w/${ws}/catalog`}>Catalog</NavLink>
-          {can(me.data?.roles).author && <NavLink to={`/w/${ws}/studio`}>Studio</NavLink>}
-          {can(me.data?.roles).steward && <NavLink to={`/w/${ws}/stewardship`}>Stewardship</NavLink>}
+          <NavLink to={`/w/${ws}/queries`}>Queries</NavLink>
         </nav>
         <div className="spacer" />
         <Link to={`/w/${ws}/new`} className="button primary">

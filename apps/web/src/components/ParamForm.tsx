@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { api, type QueryParamDef } from '../api';
 import { elementName } from '../model';
 
@@ -41,12 +41,14 @@ export function ParamForm({
   values: ParamValues;
   onChange(v: ParamValues): void;
 }) {
+  // Unique per form: several query tabs can be open at once.
+  const uid = useId();
   if (!defs.length) return <p className="muted small">This query has no parameters.</p>;
   const set = (name: string, v: string | boolean) => onChange({ ...values, [name]: v });
   return (
     <div className="param-form">
       {defs.map((d) => {
-        const id = `param-${d.name}`;
+        const id = `${uid}param-${d.name}`;
         const v = values[d.name];
         const text = typeof v === 'string' ? v : '';
         return (

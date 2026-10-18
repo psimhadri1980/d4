@@ -1,14 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { api } from './api';
 import { useAuth } from './auth';
 import { ErrorBanner } from './components/ErrorBanner';
 import { Layout } from './components/Layout';
-import { Catalog } from './pages/Catalog';
 import { ElementEditor } from './pages/ElementEditor';
 import { Explorer } from './pages/Explorer';
-import { QueryStudio } from './pages/QueryStudio';
-import { Stewardship } from './pages/Stewardship';
+import { Queries, type TabMode } from './pages/Queries';
 
 export function App() {
   const { user, ready, returnTo } = useAuth();
@@ -23,12 +21,11 @@ export function App() {
         <Route path="e/:id" element={<Explorer />} />
         <Route path="new" element={<ElementEditor mode="create" />} />
         <Route path="e/:id/edit" element={<ElementEditor mode="edit" />} />
-        <Route path="catalog" element={<Catalog />} />
-        <Route path="catalog/:qid" element={<Catalog />} />
-        <Route path="studio" element={<QueryStudio />} />
-        <Route path="studio/:qid" element={<QueryStudio />} />
-        <Route path="stewardship" element={<Stewardship />} />
-        <Route path="stewardship/:qid" element={<Stewardship />} />
+        <Route path="queries" element={<Queries />} />
+        {/* Earlier separate screens now open as tabs in Queries. */}
+        <Route path="catalog/:qid?" element={<ToQueries mode="run" />} />
+        <Route path="studio/:qid?" element={<ToQueries mode="edit" />} />
+        <Route path="stewardship/:qid?" element={<ToQueries mode="review" />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -41,4 +38,9 @@ function FirstWorkspace() {
   if (!data) return <div className="splash">Loading workspaces…</div>;
   if (!data.length) return <div className="splash">No workspaces yet.</div>;
   return <Navigate to={`/w/${data[0]!.id}`} replace />;
+}
+
+function ToQueries({ mode }: { mode: TabMode }) {
+  const { ws, qid } = useParams();
+  return <Navigate to={`/w/${ws}/queries${qid ? `?tabs=${mode}:${qid}&active=${mode}:${qid}` : ''}`} replace />;
 }

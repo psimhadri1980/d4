@@ -62,13 +62,15 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
 - **Centre:** the selected element's neighbourhood (depth 1–3), coloured by layer. Layouts: **Radial** (default; the element in the centre, rings by hop distance), **Force** and **Hierarchy**, plus **Fit**. Large graphs stay at a readable zoom; pan to see the rest. Double-click a node to expand it; dashed edges are not valid yet (e.g. a planned hand-over).
 - **Right:** attributes, relationships (add or remove; only types the metamodel allows are offered), and change history.
 - **New element / Edit:** forms come from the metamodel. Lifecycle offers only the allowed moves, and the same validation as the server runs in the browser.
-- **Catalog** (everyone): search the queries you're allowed to run, fill in the parameter form (element pickers, choice lists, dates), run, and download results as CSV. Element ids link back to the explorer.
-- **Studio** (query-author): create queries, edit Cypher and parameters, see check errors and warnings when saving, and submit for review. A steward's send-back note is shown on the draft.
-- **Stewardship** (query-steward): review queue with the submitted Cypher next to the published version, publish or send back with a note, role grants, certification, deprecate, retire or re-publish versions, and recent runs.
+- **Queries** (one page for everything query-related): the left panel is an accordion with a count on each section, and every query you open becomes a closable tab, so you can run, edit and review several at once. Open tabs are kept in the URL, so a reload or a shared link restores them.
+  - **Catalog** (everyone): queries you can run. A Run tab has the parameter form (element pickers, choice lists, dates), results as a table or graph, and CSV download.
+  - **Studio** (query-author): create queries and open Edit tabs: Cypher and parameters, check results on save, test-run the saved draft, submit for review, delete a never-published query.
+  - **Stewardship** (query-steward): the review queue (count = waiting for review) plus "Manage any query". A Review tab shows submitted vs published Cypher, publish or send back, test run, grants, certification, version lifecycle, archive and recent runs.
+  - The old `/catalog`, `/studio` and `/stewardship` links still work and open the matching tab.
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 34 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs 37 Playwright tests in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
