@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, can, catalogApi, type CatalogEntry, type Checks, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { RemoveQueryButton } from '../components/RemoveQueryButton';
 
 export const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft',
@@ -132,6 +133,7 @@ function NewQueryForm({ workspaceId }: { workspaceId: string }) {
 }
 
 function Editor({ queryId }: { queryId: string }) {
+  const { ws } = useParams();
   const queryClient = useQueryClient();
   const detail = useQuery({ queryKey: ['catalog-detail', queryId], queryFn: () => catalogApi.detail(queryId) });
   const [cypher, setCypher] = useState('');
@@ -253,6 +255,8 @@ function Editor({ queryId }: { queryId: string }) {
           >
             Submit for review
           </button>
+          <div className="spacer" />
+          <RemoveQueryButton queryId={queryId} title={d.title} versions={versions} after={`/w/${ws}/studio`} />
         </div>
       </div>
       <VersionHistory versions={versions} />

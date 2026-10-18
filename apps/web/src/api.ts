@@ -238,6 +238,8 @@ export const catalogApi = {
     request<QueryVersion>('POST', `/v1/catalog/${id}/versions/${version}/status`, { status }),
   setGrants: (id: string, grants: QueryGrant[]) => request<QueryGrant[]>('PUT', `/v1/catalog/${id}/grants`, grants),
   executions: (id: string) => request<Execution[]>('GET', `/v1/catalog/${id}/executions`),
+  /** Deletes a never-published entry, or archives one with published history. */
+  remove: (id: string) => request<{ removed: 'deleted' | 'archived' }>('DELETE', `/v1/catalog/${id}`),
 };
 
 /** The current user's roles decide which catalog screens they get. */

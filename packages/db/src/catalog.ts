@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, max, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, max, or, sql } from 'drizzle-orm';
 import { ulid } from '@d4/core';
 import type { DbOrTx } from './client';
 import { queries, queryExecutions, queryGrants, queryVersions, QUERY_STATUSES } from './schema';
@@ -109,7 +109,7 @@ export class QueryCatalogStore {
       .where(inArray(queryVersions.status, ['draft', 'in_review']))
       .as('open');
 
-    const filters = [eq(queries.tenantId, tenantId)];
+    const filters = [eq(queries.tenantId, tenantId), isNull(queries.archivedAt)];
     if (opts.text?.trim()) {
       filters.push(
         sql`query_search_doc(${queries.title}, ${queries.description}, ${queries.tags}) @@ plainto_tsquery('simple', ${opts.text.trim()})`,
@@ -148,6 +148,30 @@ export class QueryCatalogStore {
       publishedVersion: r.publishedVersion ?? null,
       openStatus: (r.openStatus as CatalogEntry['openStatus']) ?? null,
     }));
+  }
+
+  /** True when any version was ever published (its runs and review must stay auditable). */
+  async everPublished(queryId: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ one: sql`1` })
+      .from(queryVersions)
+      .where(and(eq(queryVersions.queryId, queryId), isNotNull(queryVersions.publishedAt)))
+      .limit(1);
+    return !!row;
+  }
+
+  /** Hides an entry from the catalog; versions, grants and run history are kept. */
+  async archive(tenantId: string, id: string): Promise<void> {
+    await this.db
+      .update(queries)
+      .set({ archivedAt: sql`now()` })
+      .where(and(eq(queries.tenantId, tenantId), eq(queries.id, id)));
+  }
+
+  /** Removes an entry that was never published, with its draft versions and grants. */
+  async deleteUnpublished(tenantId: string, id: string): Promise<void> {
+    if (await this.everPublished(id)) throw new CatalogError('entry has published history; archive it instead');
+    await this.db.delete(queries).where(and(eq(queries.tenantId, tenantId), eq(queries.id, id)));
   }
 
   // ── Versions ──────────────────────────────────────────────────────────

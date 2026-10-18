@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, can, catalogApi, type QueryGrant, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { RemoveQueryButton } from '../components/RemoveQueryButton';
 import { ChecksList, STATUS_LABEL, StatusBadges, VersionHistory } from './QueryStudio';
 
 /** Roles a steward can grant a query to (mirrors the platform role list). */
@@ -57,6 +58,7 @@ export function Stewardship() {
 }
 
 function StewardPanel({ queryId }: { queryId: string }) {
+  const { ws } = useParams();
   const queryClient = useQueryClient();
   const detail = useQuery({ queryKey: ['catalog-detail', queryId], queryFn: () => catalogApi.detail(queryId) });
   const runs = useQuery({ queryKey: ['executions', queryId], queryFn: () => catalogApi.executions(queryId) });
@@ -162,6 +164,8 @@ function StewardPanel({ queryId }: { queryId: string }) {
               {d.certified ? 'Remove certification' : 'Certify'}
             </button>
           )}
+          <div className="spacer" />
+          {!d.system && <RemoveQueryButton queryId={queryId} title={d.title} versions={d.versions} after={`/w/${ws}/stewardship`} />}
         </div>
       </div>
 

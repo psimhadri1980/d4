@@ -207,6 +207,22 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
       expect(res.status).toBe(422);
     });
 
+    it('deletes never-published entries and archives published ones', async () => {
+      const scratch = (await h.call('POST', '/v1/catalog', author, { slug: 'scratch-pad', title: 'Scratch pad' })).body;
+      await h.call('PUT', `/v1/catalog/${scratch.id}/draft`, author, { cypher: GOOD, params: PARAMS });
+      expect((await h.call('DELETE', `/v1/catalog/${scratch.id}`, viewer)).status).toBe(403);
+      expect((await h.call('DELETE', `/v1/catalog/${scratch.id}`, author)).body).toEqual({ removed: 'deleted' });
+      expect((await h.call('GET', `/v1/catalog/${scratch.id}`, steward)).status).toBe(404);
+
+      // The criticality query was published earlier: archived, then gone from lists and runs.
+      expect((await h.call('DELETE', `/v1/catalog/${id}`, steward)).body).toEqual({ removed: 'archived' });
+      expect((await h.call('GET', '/v1/catalog', steward)).body.map((q: any) => q.slug)).not.toContain('apps-by-criticality');
+      expect((await h.call('POST', `/v1/workspaces/${ws()}/catalog/${id}/run`, viewer, {})).status).toBe(404);
+
+      const system = await bySlug('orphan-elements');
+      expect((await h.call('DELETE', `/v1/catalog/${system.id}`, steward)).status).toBe(409);
+    });
+
     it('protects system queries from tenant edits', async () => {
       const q = await bySlug('lifecycle-risk');
       expect((await h.call('PUT', `/v1/catalog/${q.id}/draft`, author, { cypher: GOOD })).status).toBe(409);

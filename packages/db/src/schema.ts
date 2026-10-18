@@ -210,6 +210,8 @@ export const queries = pgTable(
     certified: boolean('certified').notNull().default(false),
     ownerId: text('owner_id').notNull(),
     createdAt: createdAt(),
+    /** Archived entries are hidden from the catalog but kept, with their versions, for audit. */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
   },
   (t) => ({ slug: uniqueIndex('queries_tenant_slug').on(t.tenantId, t.slug) }),
 );

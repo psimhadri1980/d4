@@ -274,6 +274,14 @@ export function buildOpenApiDocument(): OpenApiDocument {
     responses: { 200: json(CatalogEntry, 'Updated'), ...writeErrors },
   });
   route({
+    method: 'delete',
+    path: `${cat}/{id}`,
+    tags: ['Query Catalog'],
+    summary: 'Remove an entry (steward or owning author): deleted if never published, otherwise archived',
+    request: { params: z.object({ id: qid }) },
+    responses: { 200: json(z.object({ removed: z.enum(['deleted', 'archived']) }), 'Removed'), ...writeErrors },
+  });
+  route({
     method: 'put',
     path: `${cat}/{id}/draft`,
     tags: ['Query Catalog'],

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
@@ -62,6 +62,12 @@ export class CatalogController {
   @Patch(':id')
   update(@CurrentPrincipal() p: Principal, @Param('id') id: string, @Body() body: unknown) {
     return this.catalog.updateMeta(p, id, parse(MetaBody, body));
+  }
+
+  /** Deletes a never-published entry, or archives one with published history. */
+  @Delete(':id')
+  remove(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
+    return this.catalog.remove(p, id);
   }
 
   @Put(':id/draft')

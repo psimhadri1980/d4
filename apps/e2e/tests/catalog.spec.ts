@@ -115,7 +115,7 @@ test.describe('query catalog', () => {
     await expect(table.getByRole('link', { name: 'open' }).first()).toHaveAttribute('href', /\/e\/[0-9A-Z]{26}$/);
   });
 
-  test('steward sees the run, then deprecates and retires the test query', async ({ page }) => {
+  test('steward sees the run, retires the version and archives the test query', async ({ page }) => {
     await signIn(page, 'steward');
     await go(page, '/stewardship');
     await page.getByRole('link', { name: new RegExp(TITLE) }).last().click();
@@ -124,5 +124,24 @@ test.describe('query catalog', () => {
     await expect(page.getByText('✓ v1 deprecated')).toBeVisible();
     await page.getByRole('button', { name: 'Retire' }).click();
     await expect(page.getByText('✓ v1 retired')).toBeVisible();
+
+    // Published history means archive, not delete; it leaves the catalog.
+    page.once('dialog', (d) => void d.accept());
+    await page.getByRole('button', { name: 'Archive query' }).click();
+    await expect(page).toHaveURL(/\/stewardship$/);
+    await expect(page.getByRole('link', { name: new RegExp(TITLE) })).toHaveCount(0);
+  });
+
+  test('author can delete a never-published draft', async ({ page }) => {
+    await signIn(page, 'author');
+    await go(page, '/studio');
+    await page.getByRole('button', { name: '+ New query' }).click();
+    await page.getByLabel('Title *').fill(`${RUN} Scratch`);
+    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('button', { name: 'Save draft' }).click();
+    page.once('dialog', (d) => void d.accept());
+    await page.getByRole('button', { name: 'Delete query' }).click();
+    await expect(page).toHaveURL(/\/studio$/);
+    await expect(page.getByRole('link', { name: new RegExp(`${RUN} Scratch`) })).toHaveCount(0);
   });
 });

@@ -149,6 +149,23 @@ export class CatalogService {
     return this.store().grants(id);
   }
 
+  /**
+   * Removes an entry: never-published entries are deleted outright; entries with published
+   * history are archived (hidden, with versions and run log kept for audit).
+   */
+  async remove(p: Principal, id: string): Promise<{ removed: 'deleted' | 'archived' }> {
+    const entry = await this.entry(p, id);
+    this.require(isSteward(p) || (isAuthor(p) && entry.ownerId === p.userId), 'query-steward or the owning author');
+    if (entry.system) throw new ConflictException('System queries are managed by the platform');
+    const store = this.store();
+    if (await store.everPublished(id)) {
+      await store.archive(p.tenantId, id);
+      return { removed: 'archived' };
+    }
+    await store.deleteUnpublished(p.tenantId, id);
+    return { removed: 'deleted' };
+  }
+
   async executions(p: Principal, id: string) {
     const entry = await this.entry(p, id);
     this.require(isSteward(p) || (isAuthor(p) && entry.ownerId === p.userId), 'query-steward or the owning author');
@@ -159,7 +176,7 @@ export class CatalogService {
 
   async entry(p: Principal, id: string): Promise<QueryRow> {
     const entry = await this.store().get(p.tenantId, id);
-    if (!entry) throw new NotFoundException(`Query '${id}' not found`);
+    if (!entry || entry.archivedAt) throw new NotFoundException(`Query '${id}' not found`);
     return entry;
   }
 

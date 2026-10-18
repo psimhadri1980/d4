@@ -108,6 +108,24 @@ describe.skipIf(!ADMIN_URL)('query catalog store (Postgres)', () => {
     expect(log[0]).toMatchObject({ status: 'ok', rowCount: 3 });
   });
 
+  it('deletes never-published entries and archives published ones', async () => {
+    const draftOnly = await store.create(LOCAL_TENANT, { slug: 'scratch', title: 'Scratch' }, 'author-1');
+    await store.saveDraft(draftOnly.id, draft('MATCH (n) RETURN n LIMIT 1'), 'author-1');
+    expect(await store.everPublished(draftOnly.id)).toBe(false);
+    await store.deleteUnpublished(LOCAL_TENANT, draftOnly.id);
+    expect(await store.get(LOCAL_TENANT, draftOnly.id)).toBeUndefined();
+    expect(await store.versions(draftOnly.id)).toEqual([]);
+
+    const impact = (await store.bySlug(LOCAL_TENANT, 'impact'))!;
+    expect(await store.everPublished(impact.id)).toBe(true);
+    await expect(store.deleteUnpublished(LOCAL_TENANT, impact.id)).rejects.toThrow(/archive it instead/);
+    await store.archive(LOCAL_TENANT, impact.id);
+    expect((await store.search(LOCAL_TENANT)).map((q) => q.slug)).not.toContain('impact');
+    // History is kept.
+    expect((await store.get(LOCAL_TENANT, impact.id))?.archivedAt).toBeInstanceOf(Date);
+    expect((await store.versions(impact.id)).length).toBeGreaterThan(0);
+  });
+
   it('rejects invalid statuses at the database level', async () => {
     await expect(
       db.insert(schema.queryVersions).values({
