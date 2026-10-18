@@ -2,6 +2,9 @@
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #eef1f5;
+  --list-text: #3a4452;
+  --list-hover: rgba(28, 36, 48, 0.035);
+  --list-selected: rgba(31, 111, 235, 0.07);
   --border: #d9dee5;
   --text: #1c2430;
   --muted: #5d6877;
@@ -36,6 +39,9 @@
     --bg: #11151b;
     --surface: #1a2029;
     --surface-2: #232b36;
+    --list-text: #c9d1dc;
+    --list-hover: rgba(255, 255, 255, 0.03);
+    --list-selected: rgba(76, 141, 255, 0.1);
     --border: #2f3a47;
     --text: #e3e8ef;
     --muted: #93a0b0;
@@ -288,8 +294,7 @@ button.link.danger {
   text-decoration: none;
 }
 .items li.selected a {
-  background: var(--surface-2);
-  outline: 1px solid var(--accent);
+  background: var(--list-selected);
 }
 .items .name {
   overflow: hidden;
@@ -712,20 +717,29 @@ th {
   gap: 8px;
   width: 100%;
   text-align: left;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border: 0;
   border-radius: 6px;
   background: none;
-  color: var(--text);
+  color: var(--list-text);
   font: inherit;
+  font-size: 13px;
+  font-weight: 350;
+  letter-spacing: 0.005em;
+  line-height: 1.35;
   cursor: pointer;
 }
+.queries .items li .item .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .queries .items li .item:hover {
-  background: var(--surface-2);
+  background: var(--list-hover);
 }
 .queries .items li.selected .item {
-  background: var(--surface-2);
-  outline: 1px solid var(--accent);
+  background: var(--list-selected);
+  color: var(--text);
 }
 .all-queries summary {
   cursor: pointer;
