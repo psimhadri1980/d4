@@ -3,7 +3,7 @@
  * Usage: node dist/scripts/apply-schema.js [tenantId]   (defaults to the local dev tenant `t_local`)
  */
 import neo4j from 'neo4j-driver';
-import { applySchema } from '@d4/cypher';
+import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { createDb, TenantStore } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { loadConfig } from '../config';
@@ -22,7 +22,7 @@ async function main() {
     const session = driver.session({ defaultAccessMode: neo4j.session.WRITE });
     try {
       const n = await applySchema(session, new MetamodelRegistry(loadStarterMetamodel()));
-      await session.run('CALL db.awaitIndexes(120)');
+      await awaitSchemaOnline(session);
       console.log(`Applied ${n} schema statements to tenant '${tenantId}'.`);
     } finally {
       await session.close();

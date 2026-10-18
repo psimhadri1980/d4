@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import neo4j, { type Driver } from 'neo4j-driver';
 import { parseModelDocument, toImportInput } from '@d4/codecs';
 import { ModelService, planImport, roadmapFromGraph, ulid, type CommandContext } from '@d4/core';
-import { applySchema, bindParams, checkReadOnly, loadPack, type SystemQuery } from '@d4/cypher';
+import { applySchema, awaitSchemaOnline, bindParams, checkReadOnly, loadPack, type SystemQuery } from '@d4/cypher';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { GraphQueries, Neo4jModelRepository, neo4jExplainer, type SessionProvider } from '../src';
 
@@ -40,7 +40,7 @@ describe.skipIf(!URL)('system query pack on the UBS sample', () => {
       driver.session({ defaultAccessMode: mode === 'READ' ? neo4j.session.READ : neo4j.session.WRITE });
     const s = await sessions('WRITE');
     await applySchema(s, reg);
-    await s.run('CALL db.awaitIndexes(120)');
+    await awaitSchemaOnline(s);
     await s.close();
 
     const repo = new Neo4jModelRepository(reg, sessions, { withEvents: async (_e, write) => write() });

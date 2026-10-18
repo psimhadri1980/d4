@@ -3,7 +3,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
 import neo4j from 'neo4j-driver';
 import { Client } from 'pg';
-import { applySchema } from '@d4/cypher';
+import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { createDb, runMigrations, seedLocal, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
@@ -50,7 +50,7 @@ export async function startHarness(): Promise<Harness> {
   const driver = neo4j.driver(NEO!, neo4j.auth.basic('neo4j', NEO_PASSWORD));
   const s = driver.session();
   await applySchema(s, new MetamodelRegistry(loadStarterMetamodel()));
-  await s.run('CALL db.awaitIndexes(120)');
+  await awaitSchemaOnline(s);
   await s.close();
   await driver.close();
 

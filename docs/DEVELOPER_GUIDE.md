@@ -405,7 +405,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`auth.tsx`) |
 | Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in compose; start in stages (see §3) |
 | Explorer tests opened "Client Master contract v2" | Fresh full-text index scored the longer name higher | Exact name matches rank first; tests pick by exact name |
-| Neo4j and API test suites time out on a brand-new Neo4j | Both apply the full schema concurrently | Rerun once the schema exists (open item: make `applySchema` concurrency-tolerant) |
+| Neo4j and API test suites time out on a brand-new Neo4j | `CALL db.awaitIndexes(120)` is one transaction, killed by the 30 s server timeout while ~100 indexes populate; concurrent appliers also collided | `awaitSchemaOnline` polls `SHOW INDEXES` in short queries; `applySchema` treats "already exists" from a concurrent applier as success and retries transient lock errors |
 | Neo4j container exits 137 during tests or builds | Docker VM out of memory | Neo4j heap 640m / page cache 256m / transaction cap 256m, container cap 1.8 GB; test container 1.5 GB with `--concurrency=2`; Docker Desktop at 6 GB |
 | Reviews fail with "fingerprint mismatch" | Postgres `jsonb` reorders keys | `canonicalJson` sorts keys before hashing |
 | Relationship lookup by id takes ~5 s | One seek per relationship type (UNION of 90+) | Cross-type full-text index on `r.id` |
@@ -448,7 +448,6 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 - Dedicated tests for `packages/graph/src/catalog-runner.ts`: timeout and row cap.
 - Browser tests in CI (needs the full stack in the pipeline).
 - Batched (`UNWIND`) graph writes for large imports.
-- `applySchema` tolerance for concurrent "already exists" during parallel setups.
 - Write-class catalog queries (`kind: write`) are modelled but not executable.
 - Licensed UBS font to replace the Source Sans 3 stand-in (`--font-sans`).
-- Next phase: planning and roadmaps (Phase 3 in PLAN.md).
+- Phase 3d–3e: time travel and scenarios, matrices and decision records (PLAN.md).

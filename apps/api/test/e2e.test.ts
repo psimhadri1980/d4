@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { parseModelDocument } from '@d4/codecs';
-import { applySchema } from '@d4/cypher';
+import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { createDb, RoleStore, runMigrations, seedLocal, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
@@ -61,7 +61,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
     const driver = neo4j.driver(NEO!, neo4j.auth.basic('neo4j', NEO_PASSWORD));
     const s = driver.session();
     await applySchema(s, new MetamodelRegistry(loadStarterMetamodel()));
-    await s.run('CALL db.awaitIndexes(120)');
+    await awaitSchemaOnline(s);
     await s.close();
     await driver.close();
 

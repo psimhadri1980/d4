@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import neo4j, { type Driver } from 'neo4j-driver';
-import { applySchema } from '@d4/cypher';
+import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { DomainError, ModelService, ulid, type CommandContext, type DomainEvent } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { checkReadOnly } from '@d4/cypher';
@@ -51,7 +51,7 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
     // Idempotent; makes the suite work against a fresh Neo4j (e.g. CI) as well as the dev stack.
     const s = await sessions('WRITE');
     await applySchema(s, reg);
-    await s.run('CALL db.awaitIndexes(120)');
+    await awaitSchemaOnline(s);
     await s.close();
 
     logged = [];

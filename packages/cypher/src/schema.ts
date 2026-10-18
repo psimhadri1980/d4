@@ -71,18 +71,74 @@ export interface CypherRunner {
   ): PromiseLike<{ records: { get(key: string): unknown }[] } | undefined | void>;
 }
 
-/** Applies all schema statements and drops relationship-id indexes for outdated type lists. */
-export async function applySchema(runner: CypherRunner, reg: MetamodelRegistry): Promise<number> {
+export interface SchemaOptions {
+  /** Attempts per statement for transient errors (lock contention with a concurrent applier). */
+  attempts?: number;
+  /** Injectable for tests. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const codeOf = (e: unknown) => String((e as { code?: unknown } | null)?.code ?? '');
+
+/** Another process created the same rule first: the end state is what we wanted. */
+const ALREADY_EXISTS = /Schema\.(EquivalentSchemaRuleAlreadyExists|IndexAlreadyExists|ConstraintAlreadyExists)$/;
+const TRANSIENT = /^Neo\.TransientError\./;
+
+async function runDdl(runner: CypherRunner, stmt: string, opts: Required<SchemaOptions>) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await runner.run(stmt);
+    } catch (e) {
+      const code = codeOf(e);
+      if (ALREADY_EXISTS.test(code)) return undefined;
+      if (!TRANSIENT.test(code) || attempt >= opts.attempts) throw e;
+      await opts.sleep(100 * 2 ** (attempt - 1));
+    }
+  }
+}
+
+/**
+ * Applies all schema statements and drops relationship-id indexes for outdated type lists.
+ * Safe to run from several processes at once (tests, API start-up, the schema job): rules a
+ * concurrent applier created first count as success, and lock contention is retried.
+ */
+export async function applySchema(runner: CypherRunner, reg: MetamodelRegistry, options: SchemaOptions = {}): Promise<number> {
+  const opts = { attempts: options.attempts ?? 6, sleep: options.sleep ?? wait };
   const stmts = schemaStatements(reg);
   // Schema statements cannot share a transaction with each other in Neo4j; run them one by one.
-  for (const s of stmts) await runner.run(s);
+  for (const s of stmts) await runDdl(runner, s, opts);
 
   const res = await runner.run(
     'SHOW INDEXES YIELD name WHERE name STARTS WITH $prefix AND name <> $current RETURN name',
     { prefix: RELATIONSHIP_ID_INDEX_PREFIX, current: relationshipIdIndexName(reg) },
   );
   for (const rec of res?.records ?? []) {
-    await runner.run(`DROP INDEX ${String(rec.get('name')).replace(/[^a-z0-9_]/g, '')} IF EXISTS`);
+    await runDdl(runner, `DROP INDEX ${String(rec.get('name')).replace(/[^a-z0-9_]/g, '')} IF EXISTS`, opts);
   }
   return stmts.length;
+}
+
+/**
+ * Waits until every index is ONLINE. Polls in short transactions instead of one long
+ * `db.awaitIndexes` call, which the server's transaction timeout (30 s locally) would kill while
+ * a fresh database populates its indexes.
+ */
+export async function awaitSchemaOnline(
+  runner: CypherRunner,
+  options: { timeoutMs?: number; pollMs?: number; sleep?: (ms: number) => Promise<void>; now?: () => number } = {},
+): Promise<void> {
+  const { timeoutMs = 300_000, pollMs = 500, sleep = wait, now = Date.now } = options;
+  const deadline = now() + timeoutMs;
+  for (;;) {
+    const res = await runner.run("SHOW INDEXES YIELD name, state WHERE state <> 'ONLINE' RETURN name, state");
+    const pending = (res?.records ?? []).map((r) => ({ name: String(r.get('name')), state: String(r.get('state')) }));
+    const failed = pending.filter((p) => p.state === 'FAILED');
+    if (failed.length) throw new Error(`Neo4j indexes failed to build: ${failed.map((f) => f.name).join(', ')}`);
+    if (!pending.length) return;
+    if (now() >= deadline) {
+      throw new Error(`Neo4j indexes still populating after ${timeoutMs / 1000} s: ${pending.map((p) => p.name).join(', ')}`);
+    }
+    await sleep(pollMs);
+  }
 }
