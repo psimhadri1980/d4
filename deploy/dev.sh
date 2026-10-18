@@ -17,7 +17,7 @@ node_env() {
   PNPM_VERSION=$(sed -nE 's/.*"packageManager": *"pnpm@([^"]+)".*/\1/p' ../package.json)
 }
 pn() { (cd .. && npx -y "pnpm@$PNPM_VERSION" "$@"); }
-port_5173_owner() { lsof -nP -iTCP:5173 -sTCP:LISTEN -Fc 2>/dev/null | sed -n 's/^c//p' | head -1; }
+port_5173_owner() { { lsof -nP -iTCP:5173 -sTCP:LISTEN -Fc 2>/dev/null || true; } | sed -n 's/^c//p' | head -1; }
 
 case "${1:-help}" in
   up)       dc up -d --build --wait web && "$SELF" status ;;
