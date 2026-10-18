@@ -25,6 +25,56 @@ export const typeDefs = /* GraphQL */ `
     elements(filter: ElementFilter, first: Int, after: String): ElementConnection!
     element(id: ID!): Element
     relationship(id: ID!): Relationship
+    "Scheduled roadmap for deliverables in scope (see REST /roadmap). lanes: initiative | division | status | type | milestone | none."
+    roadmap(scope: [ID!]!, lanes: String, today: String): Roadmap!
+  }
+
+  type Roadmap {
+    order: [ID!]!
+    items: [RoadmapItem!]!
+    criticalPath: [ID!]!
+    conflicts: [RoadmapConflict!]!
+    lanes: [RoadmapLane!]!
+    lanesBy: String!
+    changes: [RoadmapChange!]!
+    start: String
+    end: String
+  }
+
+  type RoadmapItem {
+    id: ID!
+    name: String!
+    kind: String!
+    start: String
+    end: String
+    status: String
+    lane: String
+    earliestStart: String!
+    earliestEnd: String!
+    durationDays: Int!
+    slackDays: Int!
+    critical: Boolean!
+  }
+
+  type RoadmapConflict {
+    kind: String!
+    itemIds: [ID!]!
+    message: String!
+    days: Int
+  }
+
+  type RoadmapLane {
+    name: String!
+    itemIds: [ID!]!
+  }
+
+  type RoadmapChange {
+    deliverableId: ID!
+    elementId: ID!
+    elementName: String!
+    elementType: String!
+    action: String!
+    targetLifecycle: String
   }
 
   type Metamodel {

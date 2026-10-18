@@ -25,6 +25,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
   let handle: DbHandle;
   let app: NestFastifyApplication;
   let workspaceId: string;
+  let sampleIds: Record<string, string> = {};
   let sign: (sub: string, roles: string[], tenant?: string) => Promise<string>;
 
   const call = async (
@@ -261,6 +262,12 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       readFileSync(join(__dirname, '..', '..', '..', 'samples', 'ubs-banking.yaml'), 'utf8'),
     );
 
+    it('validates roadmap requests', async () => {
+      const token = await sign('planner-0', ['viewer']);
+      expect((await call('GET', `${ws()}/roadmap`, token)).status).toBe(400);
+      expect((await call('GET', `${ws()}/roadmap?scope=x&lanes=bogus`, token)).status).toBe(400);
+    });
+
     it('dry-runs without writing and needs only read access', async () => {
       const viewer = await sign('viewer-io', ['viewer']);
       const res = await call('POST', `${ws()}/import?dryRun=true`, viewer, sample);
@@ -277,6 +284,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(first.status).toBe(200);
       expect(first.body).toMatchObject({ ok: true, applied: true });
       expect(first.body!['relationships'].created).toBe(sample.relationships.length);
+      sampleIds = first.body!['keyToId'];
 
       const again = await call('POST', `${ws()}/import`, token, sample);
       expect(again.body).toMatchObject({ ok: true, applied: false });
@@ -315,6 +323,18 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(clash.body!['issues'].map((i: any) => i.ruleId)).toContain('single-master-per-data-product');
       const shadow = await call('GET', `${ws()}/elements?q=shadow`, token);
       expect(shadow.body!['items']).toEqual([]);
+    });
+
+    it('builds a roadmap over REST, with lanes and conflicts', async () => {
+      const token = await sign('planner-1', ['viewer']);
+      const res = await call('GET', `${ws()}/roadmap?scope=${sampleIds['ds-legacy-client']}&lanes=status&today=2026-10-18`, token);
+      expect(res.status).toBe(200);
+      const names = (ids: string[]) => ids.map((id) => res.body!['items'].find((i: any) => i.id === id).name);
+      expect(names(res.body!['criticalPath'])).toEqual(['Client master cut-over', 'Decommission legacy client database']);
+      expect(res.body!['lanes'].map((l: any) => l.name).sort()).toEqual(['Milestones', 'NOT_STARTED']);
+      expect(res.body!['changes'].map((c: any) => c.action)).toEqual(['RETIRE', 'RETIRE']);
+      const empty = await call('GET', `${ws()}/roadmap?scope=nope`, token);
+      expect(empty.body).toMatchObject({ items: [], conflicts: [], start: null });
     });
 
     it('exports a document that re-imports unchanged', async () => {
@@ -369,6 +389,29 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(
         customer.connections.map((c: any) => `${c.direction}:${c.relationship.attrs.role}:${c.relationship.from.name}`).sort(),
       ).toEqual(['IN:APPROVED_DISTRIBUTOR:Lake', 'IN:MASTER:MDM Hub']);
+    });
+
+    it('serves a scheduled roadmap for a scope', async () => {
+      const token = await sign('analyst-3', ['viewer']);
+      const res = await gql(
+        token,
+        `query ($ws: ID!, $scope: [ID!]!) {
+           workspace(id: $ws) {
+             roadmap(scope: $scope, lanes: "initiative", today: "2026-10-18") {
+               start end lanesBy criticalPath
+               lanes { name }
+               items { name critical slackDays earliestStart }
+               conflicts { kind days }
+             }
+           }
+         }`,
+        { ws: workspaceId, scope: [sampleIds['init-client-data']] },
+      );
+      expect(res.body!['errors']).toBeUndefined();
+      const r = res.body!['data'].workspace.roadmap;
+      expect(r).toMatchObject({ start: '2026-10-01', end: '2027-12-31', lanesBy: 'initiative' });
+      expect(r.items).toHaveLength(8);
+      expect(r.conflicts.map((c: any) => c.kind)).toEqual(['dependency-violated', 'misses-milestone']);
     });
 
     it('maps domain and access errors to codes', async () => {

@@ -146,6 +146,12 @@ describe('conflicts', () => {
     expect(kinds).not.toContain('past-due:closed');
   });
 
+  it('flags a deliverable that finishes after its milestone', () => {
+    const r = buildRoadmap({ ...sample, milestones: [{ deliverableId: 'migrate', milestoneId: 'cutover' }, { deliverableId: 'build', milestoneId: 'mdm-live' }] });
+    const m = r.conflicts.filter((c) => c.kind === 'misses-milestone');
+    expect(m).toEqual([expect.objectContaining({ itemIds: ['migrate', 'cutover'], days: 29 })]);
+  });
+
   it('handles an empty plan', () => {
     expect(buildRoadmap({ items: [], dependencies: [] })).toMatchObject({ order: [], criticalPath: [], start: null, end: null });
   });

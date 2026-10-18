@@ -1,4 +1,4 @@
-import type { Element, ModelSnapshot, Relationship } from '@d4/core';
+import type { Element, ModelSnapshot, PlanningGraph, Relationship } from '@d4/core';
 import { layerLabel, type MetamodelRegistry } from '@d4/metamodel';
 import { ident, propsToElement, propsToRelationship } from './mapping';
 import { relationshipByIdQuery, toRelationship, type SessionProvider } from './repository';
@@ -47,6 +47,8 @@ export interface Subgraph {
 
 export const MAX_PAGE = 200;
 export const MAX_DEPTH = 3;
+export const MAX_SCOPE_ROOTS = 50;
+export const MAX_PLANNING_ITEMS = 2000;
 
 /** Read-only queries backing the REST and GraphQL read endpoints. */
 export class GraphQueries {
@@ -196,6 +198,90 @@ export class GraphQueries {
         propsToRelationship(r['p'] as Row, r['t'] as string, r['f'] as string, r['o'] as string),
       ),
       truncated: row['truncated'] === true,
+    };
+  }
+
+  /**
+   * Planning items for a roadmap scope. Each root contributes:
+   * - itself, if it is a deliverable or milestone;
+   * - deliverables and milestones it OWNS or CONTAINS, transitively (division → initiative → deliverable);
+   * - deliverables that CHANGE it, or CHANGE an element it OWNS;
+   * - the milestones those deliverables are PART_OF.
+   * Then the transitive DEPENDS_ON prerequisites of all of those, so the schedule is complete.
+   */
+  async planningGraph(ws: string, rootIds: string[]): Promise<PlanningGraph> {
+    const roots = [...new Set(rootIds)].slice(0, MAX_SCOPE_ROOTS);
+    const live = 'all(r IN relationships(p) WHERE r.deleted = false) AND all(x IN nodes(p) WHERE x.deleted = false)';
+    const seeds = await this.read(
+      `UNWIND $roots AS rid
+       MATCH (root:Element {id: rid}) WHERE root.workspaceId = $ws AND root.deleted = false
+       CALL {
+         WITH root
+         MATCH p = (root)-[:OWNS|CONTAINS*0..5]->(d:Element)
+         WHERE (d:Deliverable OR d:Milestone) AND ${live}
+         RETURN d
+         UNION
+         WITH root
+         MATCH p = (d:Deliverable)-[:CHANGES]->(:Element)<-[:OWNS*0..1]-(root)
+         WHERE ${live}
+         RETURN d
+       }
+       WITH DISTINCT d
+       CALL {
+         WITH d
+         RETURN d AS s
+         UNION
+         WITH d
+         MATCH (d)-[r:PART_OF_MILESTONE]->(m:Milestone)
+         WHERE r.deleted = false AND m.deleted = false
+         RETURN m AS s
+       }
+       WITH DISTINCT s
+       MATCH p = (s)-[:DEPENDS_ON*0..20]->(x:Element)
+       WHERE ${live}
+       RETURN DISTINCT x.id AS id
+       LIMIT toInteger($max)`,
+      { ws, roots, max: MAX_PLANNING_ITEMS },
+    );
+    const ids = seeds.map((r) => r['id'] as string);
+    if (!ids.length) return { items: [], relationships: [], related: [] };
+
+    const [items, rels] = await Promise.all([
+      this.read(
+        `MATCH (n:Element) WHERE n.id IN $ids AND n.workspaceId = $ws
+         RETURN properties(n) AS p, CASE WHEN n:Milestone THEN 'milestone' ELSE 'deliverable' END AS kind
+         ORDER BY n.id`,
+        { ws, ids },
+      ),
+      this.read(
+        `MATCH (n:Element) WHERE n.id IN $ids AND n.workspaceId = $ws
+         MATCH (n)-[r:DEPENDS_ON|CHANGES|PART_OF_MILESTONE]->(m:Element)
+         WHERE r.deleted = false AND m.deleted = false
+         RETURN properties(r) AS p, type(r) AS t, n.id AS f, m.id AS o, properties(m) AS mp
+         UNION ALL
+         MATCH (n:Element) WHERE n.id IN $ids AND n.workspaceId = $ws
+         MATCH (c:Element)-[r:CONTAINS]->(n)
+         WHERE r.deleted = false AND c.deleted = false
+         RETURN properties(r) AS p, type(r) AS t, c.id AS f, n.id AS o, properties(c) AS mp
+         UNION ALL
+         MATCH (n:Element) WHERE n.id IN $ids AND n.workspaceId = $ws
+         OPTIONAL MATCH (c:Element)-[:CONTAINS]->(n) WHERE c.deleted = false
+         WITH DISTINCT coalesce(c, n) AS owned
+         MATCH (o:Element)-[r:OWNS]->(owned)
+         WHERE r.deleted = false AND o.deleted = false
+         RETURN properties(r) AS p, type(r) AS t, o.id AS f, owned.id AS o, properties(o) AS mp`,
+        { ws, ids },
+      ),
+    ]);
+    const related = new Map<string, Element>();
+    for (const r of rels) {
+      const e = propsToElement(r['mp'] as Row);
+      related.set(e.id, e);
+    }
+    return {
+      items: items.map((r) => ({ element: propsToElement(r['p'] as Row), kind: r['kind'] as 'deliverable' | 'milestone' })),
+      relationships: rels.map((r) => propsToRelationship(r['p'] as Row, r['t'] as string, r['f'] as string, r['o'] as string)),
+      related: [...related.values()],
     };
   }
 

@@ -42,6 +42,8 @@ export interface RoadmapInput {
   items: RoadmapItem[];
   dependencies: RoadmapDependency[];
   changes?: RoadmapChange[];
+  /** Deliverables that must be finished by a milestone (PART_OF_MILESTONE). */
+  milestones?: { deliverableId: string; milestoneId: string }[];
   /** Used for "past due" checks. Defaults to no such checks. */
   today?: IsoDate;
 }
@@ -61,6 +63,7 @@ export type ConflictKind =
   | 'dependency-violated'
   | 'change-after-retirement'
   | 'duplicate-introduction'
+  | 'misses-milestone'
   | 'past-due'
   | 'done-before-predecessor';
 
@@ -257,7 +260,11 @@ export function buildRoadmap(input: RoadmapInput): Roadmap {
     };
   });
 
-  conflicts.push(...changeConflicts(input.changes ?? [], es, ef, name), ...statusConflicts(input, deps, ef, name));
+  conflicts.push(
+    ...milestoneConflicts(input, es, ef, dur, name),
+    ...changeConflicts(input.changes ?? [], es, ef, name),
+    ...statusConflicts(input, deps, ef, name),
+  );
 
   return {
     order,
@@ -322,6 +329,30 @@ function criticalChain(
     chain.unshift(cur);
   }
   return chain;
+}
+
+/** A deliverable's last day must be on or before its milestone's date. */
+function milestoneConflicts(
+  input: RoadmapInput,
+  es: Map<string, number>,
+  ef: Map<string, number>,
+  dur: Map<string, number>,
+  name: (id: string) => string,
+): RoadmapConflict[] {
+  const out: RoadmapConflict[] = [];
+  for (const { deliverableId: d, milestoneId: m } of input.milestones ?? []) {
+    if (!es.has(d) || !es.has(m) || dur.get(d) === 0) continue;
+    const late = ef.get(d)! - 1 - es.get(m)!;
+    if (late > 0) {
+      out.push({
+        kind: 'misses-milestone',
+        itemIds: [d, m],
+        days: late,
+        message: `${name(d)} finishes ${late} day${late === 1 ? '' : 's'} after ${name(m)}`,
+      });
+    }
+  }
+  return out;
 }
 
 function changeConflicts(

@@ -6,7 +6,9 @@ import { WorkspaceStore } from '@d4/db';
 import type { AttributeDef, MetamodelRegistry } from '@d4/metamodel';
 import { AuthService } from '../auth/auth.service';
 import type { Principal } from '../auth/identity';
-import { toErrorResponse } from '../http/errors';
+import { parse, toErrorResponse } from '../http/errors';
+import { RoadmapQuery } from '../http/schemas';
+import { roadmapFor } from '../model/roadmap.controller';
 import { Database } from '../infra/database.service';
 import { ModelFactory, type ModelHandles } from '../model/model.factory';
 import { WorkspaceAccess, type WorkspaceScope } from '../model/workspace-access.service';
@@ -142,6 +144,10 @@ export class GraphqlService {
           (await (await this.scope(ctx, ws.id)).queries.getElement(ws.id, args.id)) ?? null,
         relationship: async (ws: WorkspaceRow, args: { id: string }, ctx: Ctx) =>
           (await (await this.scope(ctx, ws.id)).queries.getRelationship(ws.id, args.id)) ?? null,
+        roadmap: async (ws: WorkspaceRow, args: { scope: string[]; lanes?: string; today?: string }, ctx: Ctx) => {
+          const q = parse(RoadmapQuery, { scope: args.scope.join(','), lanes: args.lanes ?? undefined, today: args.today ?? undefined });
+          return roadmapFor(await this.scope(ctx, ws.id), ws.id, q.scope, { lanes: q.lanes, today: q.today });
+        },
       },
 
       Element: {

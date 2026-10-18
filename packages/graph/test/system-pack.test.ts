@@ -3,10 +3,10 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import neo4j, { type Driver } from 'neo4j-driver';
 import { parseModelDocument, toImportInput } from '@d4/codecs';
-import { ModelService, planImport, ulid, type CommandContext } from '@d4/core';
+import { ModelService, planImport, roadmapFromGraph, ulid, type CommandContext } from '@d4/core';
 import { applySchema, bindParams, checkReadOnly, loadPack, type SystemQuery } from '@d4/cypher';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
-import { Neo4jModelRepository, neo4jExplainer, type SessionProvider } from '../src';
+import { GraphQueries, Neo4jModelRepository, neo4jExplainer, type SessionProvider } from '../src';
 
 const URL = process.env.D4_TEST_NEO4J_URL;
 const PASSWORD = process.env.D4_TEST_NEO4J_PASSWORD ?? 'd4-local-dev';
@@ -145,5 +145,48 @@ describe.skipIf(!URL)('system query pack on the UBS sample', () => {
       expect.arrayContaining(['Legacy Client Database (RETIRE)', 'Legacy Client Administration (RETIRE)']),
     );
     expect(decommission['dependsOn']).toEqual(['Client master cut-over']);
+  });
+
+  describe('planning scope', () => {
+    const names = (g: { items: { element: { attrs: Record<string, unknown> } }[] }) =>
+      g.items.map((i) => i.element.attrs['name']).sort();
+
+    it('an initiative scope holds its deliverables and their prerequisites', async () => {
+      const g = await new GraphQueries(reg, sessions).planningGraph(ctx.workspaceId, [keyToId['init-client-data']!]);
+      expect(names(g)).toEqual([
+        'Build Client MDM Hub',
+        'Client master cut-over',
+        'Decommission legacy client database',
+        'Launch client data quality dashboard',
+        'MDM Hub live',
+        'Migrate client master to MDM Hub',
+        'Publish Client Master contract v2',
+        'Re-point onboarding to MDM Hub',
+      ]);
+      const r = roadmapFromGraph(g);
+      expect(r.lanes.map((l) => l.name).sort()).toEqual(['Client Data Consolidation', 'Milestones']);
+      expect(r.conflicts.map((c) => [c.kind, c.days])).toEqual([
+        ['dependency-violated', 30],
+        ['misses-milestone', 29],
+      ]);
+      expect(r.end).toBe('2027-12-31');
+    });
+
+    it('an element scope finds the deliverables that change it, with prerequisite milestones', async () => {
+      const g = await new GraphQueries(reg, sessions).planningGraph(ctx.workspaceId, [keyToId['ds-legacy-client']!]);
+      expect(names(g)).toEqual(['Client master cut-over', 'Decommission legacy client database']);
+      const r = roadmapFromGraph(g, { lanes: 'status' });
+      expect(r.criticalPath.length).toBe(2);
+      expect(r.changes.map((c) => `${c.elementName}:${c.action}`)).toEqual(
+        expect.arrayContaining(['Legacy Client Database:RETIRE', 'Legacy Client Administration:RETIRE']),
+      );
+    });
+
+    it('a division scope reaches owned initiatives and lanes by division', async () => {
+      const g = await new GraphQueries(reg, sessions).planningGraph(ctx.workspaceId, [keyToId['div-gf']!]);
+      expect(g.items.length).toBe(8);
+      expect(roadmapFromGraph(g, { lanes: 'division' }).lanes.map((l) => l.name)).toEqual(expect.arrayContaining(['Group Functions']));
+      expect((await new GraphQueries(reg, sessions).planningGraph(ctx.workspaceId, [keyToId['plat-mainframe']!])).items).toEqual([]);
+    });
   });
 });

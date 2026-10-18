@@ -1,5 +1,6 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { LANE_KINDS } from '@d4/core';
 
 // Adds `.openapi()` to zod schemas; must run before any schema below is defined.
 extendZodWithOpenApi(z);
@@ -78,6 +79,16 @@ export const NeighbourhoodQuery = z.object({
   limit: z.coerce.number().int().min(1).max(2000).optional(),
 });
 
+export const RoadmapQuery = z.object({
+  scope: z
+    .string()
+    .transform((s) => s.split(',').map((v) => v.trim()).filter(Boolean))
+    .pipe(z.array(z.string()).min(1).max(50))
+    .openapi({ description: 'Comma-separated element ids: initiatives, divisions, deliverables or any element that is changed' }),
+  lanes: z.enum(LANE_KINDS).optional().openapi({ description: 'Swim-lane grouping (default initiative)' }),
+  today: IsoDate.optional().openapi({ description: 'Reference date for past-due checks (default: today)' }),
+});
+
 // ── Responses (documentation) ───────────────────────────────────────────
 
 const System = {
@@ -129,6 +140,46 @@ export const EventSchema = z
     data: z.record(z.unknown()),
   })
   .openapi('Event');
+
+export const RoadmapSchema = z
+  .object({
+    order: z.array(z.string()),
+    items: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        kind: z.enum(['deliverable', 'milestone']),
+        start: IsoDate.nullable(),
+        end: IsoDate.nullable(),
+        status: z.string().nullable().optional(),
+        lane: z.string().nullable().optional(),
+        earliestStart: IsoDate,
+        earliestEnd: IsoDate,
+        durationDays: z.number().int(),
+        slackDays: z.number().int(),
+        critical: z.boolean(),
+      }),
+    ),
+    criticalPath: z.array(z.string()),
+    conflicts: z.array(
+      z.object({ kind: z.string(), itemIds: z.array(z.string()), message: z.string(), days: z.number().int().optional() }),
+    ),
+    lanes: z.array(z.object({ name: z.string(), itemIds: z.array(z.string()) })),
+    lanesBy: z.enum(LANE_KINDS),
+    changes: z.array(
+      z.object({
+        deliverableId: z.string(),
+        elementId: z.string(),
+        elementName: z.string(),
+        elementType: z.string(),
+        action: z.enum(['INTRODUCE', 'MODIFY', 'RETIRE']),
+        targetLifecycle: z.string().nullable(),
+      }),
+    ),
+    start: IsoDate.nullable(),
+    end: IsoDate.nullable(),
+  })
+  .openapi('Roadmap');
 
 export const ErrorSchema = z
   .object({

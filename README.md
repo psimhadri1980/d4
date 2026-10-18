@@ -95,7 +95,7 @@ The stack needs about 3.3 GB, and the browser tests add about 1 GB. On a 4 GB Do
 
 | Interface | Where | Use |
 |---|---|---|
-| REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history |
+| REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap |
 | GraphQL | `POST /graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
 
 All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/dev.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).

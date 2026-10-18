@@ -16,6 +16,8 @@ import {
   SubgraphSchema,
   UpdateBody,
   z,
+  RoadmapQuery,
+  RoadmapSchema,
 } from './schemas';
 
 const json = (schema: z.ZodTypeAny, description: string) => ({
@@ -120,6 +122,17 @@ export function buildOpenApiDocument(): OpenApiDocument {
     tags: ['Elements'],
     request: { params: z.object({ ws, id }) },
     responses: { 200: json(z.array(EventSchema), 'Change events, oldest first'), ...errors },
+  });
+
+  // Roadmaps
+  route({
+    method: 'get',
+    path: '/v1/workspaces/{ws}/roadmap',
+    tags: ['Roadmaps'],
+    description:
+      'Deliverables and milestones in scope (contained, owned or changing the scope elements, plus their prerequisites), scheduled with slack, critical path, lanes and conflicts.',
+    request: { params: z.object({ ws }), query: RoadmapQuery },
+    responses: { 200: json(RoadmapSchema, 'Scheduled roadmap'), ...errors },
   });
 
   // Relationships

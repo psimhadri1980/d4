@@ -126,7 +126,12 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - 3c: Roadmap Studio in the web app: Gantt with lanes by any aspect, dependency arrows, critical path, conflict list, CSV/Mermaid export
   - 3d: time travel and scenarios: as-of graph, scenario branches, side-by-side diff
   - 3e: matrices (CRUD-I, capability × application, data-store roles, lifecycle heat-map) and decision records
-- **3a done:** roadmap engine with 12 tests over the sample client-master plan and edge cases.
+- **3a done:** roadmap engine with 13 tests over the sample client-master plan and edge cases.
+- **3b done:**
+  - `GraphQueries.planningGraph`: scope roots (initiative, division, deliverable or any changed element) → contained/owned deliverables and milestones, deliverables that change the root or what it owns, their milestones, and transitive `DEPENDS_ON` prerequisites
+  - `roadmapFromGraph` in `@d4/core`: lanes by initiative, division, status, type or milestone; change list; new `misses-milestone` conflict
+  - `GET /v1/workspaces/{ws}/roadmap` (OpenAPI) and GraphQL `Workspace.roadmap`
+  - on the sample: migrate is 30 days too early and misses cut-over by 29 days; critical path is cut-over → decommission
 
 ---
 

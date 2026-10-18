@@ -16,6 +16,7 @@ import { Database } from './infra/database.service';
 import { TenantGraphService } from './infra/tenant-graph.service';
 import { ElementsController } from './model/elements.controller';
 import { ModelFactory } from './model/model.factory';
+import { RoadmapController } from './model/roadmap.controller';
 import { RelationshipsController } from './model/relationships.controller';
 import { TransferController } from './model/transfer.controller';
 import { WorkspaceAccess } from './model/workspace-access.service';
@@ -28,6 +29,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     WorkspacesController,
     ElementsController,
     RelationshipsController,
+    RoadmapController,
     TransferController,
     CatalogController,
     CatalogRunController,
