@@ -181,6 +181,21 @@ services:
     cpus: 1.0
     restart: unless-stopped
 
+  renderer:
+    build: { context: .., dockerfile: Dockerfile, target: renderer }
+    image: d4-renderer:local
+    environment:
+      <<: *api-env
+    depends_on:
+      neo4j-schema: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      s3-init: { condition: service_completed_successfully }
+    # Chromium: memory for one render at a time (RENDER_CONCURRENCY=1).
+    mem_limit: 768m
+    cpus: 1.0
+    shm_size: 256m
+    restart: unless-stopped
+
   web:
     build: { context: .., dockerfile: Dockerfile, target: web }
     image: d4-web:local

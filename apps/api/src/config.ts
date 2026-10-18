@@ -27,6 +27,7 @@ const Env = z.object({
   S3_BUCKET: z.string().default('d4-exports'),
   /** Queue name; tests use their own so a running worker does not take their jobs. */
   JOB_QUEUE: optional(z.string()),
+  RENDER_QUEUE: optional(z.string()),
 });
 export type AppConfig = z.infer<typeof Env>;
 

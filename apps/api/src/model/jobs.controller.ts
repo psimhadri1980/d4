@@ -1,6 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Query, Res } from '@nestjs/common';
 import { JobStore, type JobRow } from '@d4/db';
-import { inputKey, type TabularJobInput } from '@d4/jobs';
+import { inputKey, RenderParams, type TabularJobInput } from '@d4/jobs';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
@@ -29,7 +29,7 @@ export function jobView(j: JobRow) {
     params,
     result: j.result,
     error: j.error,
-    artifact: j.kind === 'export' && j.status === 'succeeded' && j.artifactName ? { name: j.artifactName, type: j.artifactType, bytes: j.artifactBytes } : null,
+    artifact: j.kind !== 'import-tabular' && j.status === 'succeeded' && j.artifactName ? { name: j.artifactName, type: j.artifactType, bytes: j.artifactBytes } : null,
     attempts: j.attempts,
     createdBy: j.createdBy,
     createdAt: j.createdAt.toISOString(),
@@ -66,6 +66,23 @@ export class JobsController {
       params: { ...q, format: q.format ?? 'yaml' },
       createdBy: p.userId,
     });
+    await queue.enqueue({ tenantId: scope.tenantId, jobId: job.id });
+    return jobView(job);
+  }
+
+  /** A picture of a roadmap or a graph view: SVG, PNG or PDF (rendered with Chromium). */
+  @Post('render')
+  @HttpCode(202)
+  async render(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+    const params = parse(RenderParams, body);
+    const scope = await this.access.resolve(p, ws, 'read');
+    const { queries } = this.models.for(scope);
+    if (params.target === 'graph') {
+      await resolveView(queries, scope.registry, scope.workspaceId, params);
+      if (!(await queries.getElement(scope.workspaceId, params.root))) throw new NotFoundException(`Element '${params.root}' not found`);
+    }
+    const queue = this.infra.renderQueue;
+    const job = await new JobStore(this.database.db).create(scope.tenantId, { workspaceId: scope.workspaceId, kind: 'render', params, createdBy: p.userId });
     await queue.enqueue({ tenantId: scope.tenantId, jobId: job.id });
     return jobView(job);
   }
@@ -112,7 +129,7 @@ export class JobsController {
   @Get(':id/artifact')
   async artifact(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Res({ passthrough: true }) reply: Reply) {
     const job = await this.visible(p, ws, id);
-    if (job.kind !== 'export' || job.status !== 'succeeded' || !job.artifactKey) {
+    if (job.kind === 'import-tabular' || job.status !== 'succeeded' || !job.artifactKey) {
       throw new NotFoundException(`Job '${id}' has no file to download`);
     }
     const body = await this.infra.artifacts.get(job.artifactKey);

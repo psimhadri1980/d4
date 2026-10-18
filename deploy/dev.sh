@@ -48,7 +48,7 @@ case "${1:-help}" in
     pn turbo run build --filter '@d4/api^...'
     API_PORT=3100 POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_URI=bolt://localhost:7687 \
       NEO4J_USER=neo4j NEO4J_PASSWORD=d4-local-dev OIDC_ISSUER=http://localhost:8080/realms/d4 OIDC_AUDIENCE=d4-api \
-      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local \
+      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local \
       pn --filter @d4/api exec tsx watch src/main.ts ;;
   # Job worker on local Node for api-local's queue (d4-jobs-local), using the Docker data stores.
   worker-local)
@@ -69,6 +69,14 @@ case "${1:-help}" in
     # With D4_API_URL (as given to web-local), test setup also talks to that API.
     dc --profile tools run --rm --build --no-deps -e E2E_WEB_TARGET=host.docker.internal:5173 \
       -e E2E_API_URL="${D4_API_URL:-http://localhost:3000}" e2e "${@:2}" ;;
+  # Renderer for api-local's render queue (d4-render-local). Chromium needs the Playwright image,
+  # so this builds the renderer image from the current tree and runs it once, not as the service.
+  renderer-local)
+    dc build renderer
+    docker run --rm --name d4-renderer-local --add-host host.docker.internal:host-gateway \
+      -e POSTGRES_URL=postgres://d4:d4-local-dev@host.docker.internal:5432/d4 -e NEO4J_URI=bolt://host.docker.internal:7687 \
+      -e NEO4J_PASSWORD=d4-local-dev -e REDIS_URL=redis://host.docker.internal:6379 -e S3_ENDPOINT=http://host.docker.internal:8333 \
+      -e RENDER_QUEUE=d4-render-local d4-renderer:local ;;
   # Builds and (re)starts the web container from the current tree, e.g. after committing.
   web-deploy)
     owner=$(port_5173_owner)
@@ -96,5 +104,5 @@ case "${1:-help}" in
       | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
     curl -fsS -H "Authorization: Bearer $TOKEN" localhost:3000/v1/me && echo ;;
   *)
-    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy|api-local|worker-local" ;;
+    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy|api-local|worker-local|renderer-local" ;;
 esac

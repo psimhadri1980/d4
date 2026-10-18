@@ -30,6 +30,15 @@ WORKDIR /repo/apps/worker
 HEALTHCHECK --interval=10s --retries=6 CMD wget -qO- http://127.0.0.1:3002/healthz || exit 1
 CMD ["node", "dist/main.js"]
 
+# Renderer: PNG/PDF with headless Chromium. Playwright's image has the browser for
+# playwright-core 1.47.2; the app comes from the build stage (pure JS dependencies).
+FROM mcr.microsoft.com/playwright:v1.47.2-jammy AS renderer
+ENV NODE_ENV=production
+COPY --from=build /repo /repo
+WORKDIR /repo/apps/renderer
+HEALTHCHECK --interval=10s --retries=6 CMD wget -qO- http://127.0.0.1:3003/healthz || exit 1
+CMD ["node", "dist/main.js"]
+
 # Static web app (built above) served by nginx.
 FROM nginx:1.27-alpine AS web
 COPY deploy/web/nginx.conf /etc/nginx/conf.d/default.conf

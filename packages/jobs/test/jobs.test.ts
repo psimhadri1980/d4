@@ -58,7 +58,8 @@ describe.skipIf(!PG || !NEO)('job processing (Postgres + Neo4j)', () => {
 
     deps = { db: handle.db, graphs: { sessions: () => sessions }, artifacts: new MemoryArtifactStore() };
     store = new JobStore(handle.db);
-  });
+    // Database, schema and sample import: slower than a unit test, especially on a busy machine.
+  }, 60_000);
 
   afterAll(async () => {
     if (driver) {
@@ -114,6 +115,30 @@ describe.skipIf(!PG || !NEO)('job processing (Postgres + Neo4j)', () => {
     const reg = await new MetamodelStore(handle.db).registryForWorkspace(LOCAL_TENANT, ws);
     const [kafka] = (await new GraphQueries(reg, sessions).listElements(ws, { search: 'job kafka' })).items;
     expect(kafka).toMatchObject({ type: 'Platform', createdBy: 'importer-7', attrs: { name: 'Job Kafka', platformType: 'streaming' } });
+  });
+
+  it('renders a roadmap as SVG, and PNG/PDF through the rasterizer', async () => {
+    const reg = await new MetamodelStore(handle.db).registryForWorkspace(LOCAL_TENANT, ws);
+    const [init] = (await new GraphQueries(reg, sessions).listElements(ws, { types: ['Initiative'] })).items;
+    const svgJob = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'render', params: { target: 'roadmap', format: 'svg', scope: [init!.id] }, createdBy: 'u1' });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: svgJob.id }, deps);
+    const svg = await store.get(LOCAL_TENANT, svgJob.id);
+    expect(svg).toMatchObject({ status: 'succeeded', artifactName: 'roadmap-client-data-consolidation.svg', artifactType: 'image/svg+xml' });
+    expect(new TextDecoder().decode(await deps.artifacts.get(svg!.artifactKey!))).toMatch(/^<\?xml[\s\S]*<svg[\s\S]*Migrate client master/);
+
+    const pages: { html: string; format: string; width: number }[] = [];
+    const withChrome: JobDeps = { ...deps, rasterize: async (html, o) => (pages.push({ html, format: o.format, width: o.width }), new Uint8Array([0x25, 0x50, 0x44, 0x46])) };
+    const [client] = (await new GraphQueries(reg, sessions).listElements(ws, { search: 'client master', types: ['DataProduct'] })).items;
+    const pdfJob = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'render', params: { target: 'graph', format: 'pdf', root: client!.id, asOf: '2027-08-01' }, createdBy: 'u1' });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: pdfJob.id }, withChrome);
+    expect(await store.get(LOCAL_TENANT, pdfJob.id)).toMatchObject({ status: 'succeeded', artifactName: 'client-master-2027-08-01.pdf', artifactType: 'application/pdf', artifactBytes: 4 });
+    expect(pages).toEqual([expect.objectContaining({ format: 'pdf', width: 1123 })]);
+    expect(pages[0]!.html).toContain('<svg');
+
+    // Sent to a worker without Chromium: fails at once instead of retrying.
+    const misrouted = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'render', params: { target: 'graph', format: 'png', root: client!.id }, createdBy: 'u1' });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: misrouted.id }, deps, { made: 0, max: 3 });
+    expect(await store.get(LOCAL_TENANT, misrouted.id)).toMatchObject({ status: 'failed', error: 'PNG and PDF renders need the renderer service' });
   });
 
   it.skipIf(!REDIS)('goes through the Redis queue to a worker', async () => {

@@ -6,12 +6,15 @@ import type { ArtifactStore } from './artifacts';
 import { ExportParams, exportSnapshot, renderExport } from './export';
 import { modelHandles } from './model-handles';
 import type { JobMessage } from './queue';
+import { RenderParams, renderPicture, renderSvg, type Rasterize } from './render';
 import { runTabularImport } from './tabular-import';
 
 export interface JobDeps {
   db: Db;
   graphs: { sessions(tenantId: string): SessionProvider };
   artifacts: ArtifactStore;
+  /** PNG/PDF conversion; only the renderer service has it. */
+  rasterize?: Rasterize;
 }
 
 /** What an import job keeps in the artefact store until it runs. */
@@ -58,6 +61,19 @@ async function run(job: JobRow, deps: JobDeps, store: JobStore) {
     const bytes = await deps.artifacts.put(key, file.body, file.contentType);
     return {
       result: { format: p.format ?? 'yaml', elements: file.elements, relationships: file.relationships },
+      artifact: { key, name: file.filename, type: file.contentType, bytes },
+    };
+  }
+
+  if (job.kind === 'render') {
+    const p = RenderParams.parse(job.params);
+    const { svg, title } = await renderSvg(handles.queries, registry, ws, p);
+    await progress(40);
+    const file = await renderPicture(svg, title, p, deps.rasterize);
+    const key = outputKey(job.id, file.filename);
+    const bytes = await deps.artifacts.put(key, file.body, file.contentType);
+    return {
+      result: { target: p.target, format: p.format, title, width: Math.round(svg.width), height: Math.round(svg.height) },
       artifact: { key, name: file.filename, type: file.contentType, bytes },
     };
   }

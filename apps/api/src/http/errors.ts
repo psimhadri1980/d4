@@ -31,7 +31,9 @@ export function toErrorResponse(e: unknown): { status: number; body: ErrorBody }
       },
     };
   }
-  if (e instanceof ZodError) {
+  // By shape as well as class: zod 3.25 ships CJS and ESM builds, and packages loaded different
+  // ways (e.g. src vs dist under vitest) can see different ZodError classes.
+  if (isZodError(e)) {
     return {
       status: 400,
       body: {
@@ -79,6 +81,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
 }
 
 /** Parses input with a zod schema; failures become 400 responses via the filter. */
+function isZodError(e: unknown): e is ZodError {
+  return e instanceof ZodError || (e instanceof Error && e.name === 'ZodError' && Array.isArray((e as ZodError).issues));
+}
+
 export function parse<O>(schema: ZodType<O, ZodTypeDef, unknown>, input: unknown): O {
   return schema.parse(input);
 }

@@ -124,6 +124,31 @@ importers:
         specifier: ^2.5.0
         version: 2.9.1
 
+  apps/renderer:
+    dependencies:
+      '@d4/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@d4/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
+      '@fontsource/source-sans-3':
+        specifier: ^5.1.0
+        version: 5.3.1
+      playwright-core:
+        specifier: 1.47.2
+        version: 1.47.2
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@d4/render':
+        specifier: workspace:*
+        version: link:../../packages/render
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.15
+
   apps/web:
     dependencies:
       '@d4/core':
@@ -132,6 +157,9 @@ importers:
       '@d4/metamodel':
         specifier: workspace:*
         version: link:../../packages/metamodel
+      '@d4/render':
+        specifier: workspace:*
+        version: link:../../packages/render
       '@fontsource/ibm-plex-mono':
         specifier: ^5.1.0
         version: 5.3.0
@@ -304,6 +332,9 @@ importers:
       '@d4/metamodel':
         specifier: workspace:*
         version: link:../metamodel
+      '@d4/render':
+        specifier: workspace:*
+        version: link:../render
       bullmq:
         specifier: ^5.13.2
         version: 5.81.5
@@ -332,6 +363,19 @@ importers:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
+
+  packages/render:
+    dependencies:
+      '@d4/core':
+        specifier: workspace:*
+        version: link:../core
+      '@d4/metamodel':
+        specifier: workspace:*
+        version: link:../metamodel
+    devDependencies:
+      '@d4/codecs':
+        specifier: workspace:*
+        version: link:../codecs
 
 packages:
 

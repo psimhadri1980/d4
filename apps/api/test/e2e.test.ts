@@ -562,6 +562,12 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const found = (await call('GET', `${ws()}/elements?q=queued%20kafka`, viewer)).body!['items'];
       expect(found[0]).toMatchObject({ createdBy: expect.any(String), attrs: { name: 'Queued Kafka' } });
       expect((await call('GET', `${ws()}/jobs/${imp.body!['id']}/artifact`, architect)).status).toBe(404);
+
+      // Renders go to the render queue; validate before queueing.
+      expect((await call('POST', `${ws()}/jobs/render`, viewer, { target: 'graph', format: 'png', root: 'nope' })).status).toBe(404);
+      expect((await call('POST', `${ws()}/jobs/render`, viewer, { target: 'graph', format: 'gif', root: sampleIds['dp-client'] })).status).toBe(400);
+      const render = await call('POST', `${ws()}/jobs/render`, viewer, { target: 'roadmap', format: 'svg', scope: [sampleIds['init-client-data']] });
+      expect(render).toMatchObject({ status: 202, body: { kind: 'render', status: 'queued' } });
     });
 
     it('exports a document that re-imports unchanged', async () => {

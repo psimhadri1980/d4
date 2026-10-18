@@ -302,6 +302,16 @@ export function buildOpenApiDocument(): OpenApiDocument {
     },
   });
 
+  const jobPath = '/v1/workspaces/{ws}/jobs';
+  const JobSchema = z.object({ id: z.string(), kind: z.enum(['export', 'import-tabular', 'render']), status: z.enum(['queued', 'running', 'succeeded', 'failed']), progress: z.number(), params: z.record(z.unknown()), result: z.record(z.unknown()).nullable(), error: z.string().nullable(), artifact: z.object({ name: z.string(), type: z.string().nullable(), bytes: z.number().nullable() }).nullable(), attempts: z.number(), createdBy: z.string(), createdAt: z.string(), startedAt: z.string().nullable(), finishedAt: z.string().nullable() }).openapi('Job');
+  const jobId = z.string().openapi({ param: { name: 'id', in: 'path' } });
+  route({ method: 'post', path: `${jobPath}/export`, tags: ['Jobs'], summary: 'Start an export in the background (same parameters as GET /export)', request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: ExportQuery } } } }, responses: { 202: json(JobSchema, 'Queued job'), ...errors } });
+  route({ method: 'post', path: `${jobPath}/import-tabular`, tags: ['Jobs'], summary: 'Start a spreadsheet import in the background (write access unless dryRun=true)', request: { params: z.object({ ws }), query: z.object({ dryRun: z.enum(['true', 'false']).optional() }), body: { content: { 'application/json': { schema: TabularImportBody } } } }, responses: { 202: json(JobSchema, 'Queued job'), ...writeErrors } });
+  route({ method: 'post', path: `${jobPath}/render`, tags: ['Jobs'], summary: 'Render a roadmap or a graph view to SVG, PNG or PDF', request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: z.record(z.unknown()).openapi({ description: '{ target: "roadmap", format, scope[], lanes?, zoom?, paper? } or { target: "graph", format, root, depth?, asOf?, scenario?, paper? }' }) } } } }, responses: { 202: json(JobSchema, 'Queued job'), ...errors } });
+  route({ method: 'get', path: jobPath, tags: ['Jobs'], summary: 'Your jobs in the workspace (admins: ?all=true for everyone’s)', request: { params: z.object({ ws }), query: z.object({ all: z.enum(['true', 'false']).optional(), limit: z.coerce.number().optional() }) }, responses: { 200: json(z.array(JobSchema), 'Jobs, newest first'), ...errors } });
+  route({ method: 'get', path: `${jobPath}/{id}`, tags: ['Jobs'], request: { params: z.object({ ws, id: jobId }) }, responses: { 200: json(JobSchema, 'Job'), ...errors } });
+  route({ method: 'get', path: `${jobPath}/{id}/artifact`, tags: ['Jobs'], summary: 'Download the file an export or render job produced', request: { params: z.object({ ws, id: jobId }) }, responses: { 200: { description: 'The file' }, ...errors } });
+
   // Query Catalog
   const qid = z.string().openapi({ param: { name: 'id', in: 'path' } });
   const versionParam = z.string().openapi({ param: { name: 'version', in: 'path' } });

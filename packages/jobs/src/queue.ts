@@ -1,6 +1,8 @@
 import { Queue, Worker, type ConnectionOptions, type Job } from 'bullmq';
 
 export const JOB_QUEUE = 'd4-jobs';
+/** Renders (PNG/PDF) go to their own queue, consumed by the renderer service with Chromium. */
+export const RENDER_QUEUE = 'd4-render';
 /** Attempts per job (the first run plus retries) for transient failures. */
 export const JOB_ATTEMPTS = 3;
 

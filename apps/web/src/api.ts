@@ -127,7 +127,7 @@ export interface TabularImportResult {
 
 export interface Job {
   id: string;
-  kind: 'export' | 'import-tabular';
+  kind: 'export' | 'import-tabular' | 'render';
   status: 'queued' | 'running' | 'succeeded' | 'failed';
   progress: number;
   params: Record<string, unknown>;
@@ -194,6 +194,7 @@ export const api = {
     request<Job>('POST', `/v1/workspaces/${ws}/jobs/export`, body),
   createImportJob: (ws: string, files: Upload[], mappings: { table: string; mapping: TableMapping }[], dryRun: boolean) =>
     request<Job>('POST', `/v1/workspaces/${ws}/jobs/import-tabular${dryRun ? '?dryRun=true' : ''}`, { files, mappings }),
+  createRenderJob: (ws: string, body: Record<string, unknown>) => request<Job>('POST', `/v1/workspaces/${ws}/jobs/render`, body),
   jobs: (ws: string) => request<Job[]>('GET', `/v1/workspaces/${ws}/jobs`),
   jobFile: (ws: string, id: string) => requestFile(`/v1/workspaces/${ws}/jobs/${id}/artifact`),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>

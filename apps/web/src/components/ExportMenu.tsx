@@ -13,6 +13,8 @@ const FORMATS: { value: string; label: string }[] = [
   { value: 'yaml', label: 'Model as code (YAML)' },
   { value: 'cypher', label: 'Cypher script' },
 ];
+/** Pictures of the graph on screen, rendered in the background. */
+const PICTURES = ['pdf', 'png', 'svg'];
 
 /**
  * Exports what is on screen (the selected element's neighbourhood at the current depth) or the
@@ -34,6 +36,11 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
     setError(null);
     setQueued(false);
     try {
+      if (format.startsWith('picture:')) {
+        await api.createRenderJob(workspaceId, { target: 'graph', format: format.slice(8), root: elementId, depth, ...viewQuery(view) });
+        setQueued(true);
+        return;
+      }
       if (background) {
         await api.createExportJob(workspaceId, { format, ...viewQuery(view), ...(scoped && { scope: [elementId!], depth }) });
         setQueued(true);
@@ -63,11 +70,20 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
       </label>
       <select id={formatId} value={format} onChange={(e) => setFormat(e.target.value)}>
         <option value="">— choose a format —</option>
-        {FORMATS.map((f) => (
-          <option key={f.value} value={f.value}>
-            {f.label}
-          </option>
-        ))}
+        <optgroup label="Data">
+          {FORMATS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Picture of this graph (background)">
+          {PICTURES.map((f) => (
+            <option key={f} value={`picture:${f}`} disabled={!elementId}>
+              {f.toUpperCase()}
+            </option>
+          ))}
+        </optgroup>
       </select>
       <label className="sr-only" htmlFor={whatId}>
         What to export
@@ -82,7 +98,7 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
         <input type="checkbox" checked={background} onChange={(e) => setBackground(e.target.checked)} /> In background
       </label>
       <button className="button small" onClick={() => void run()} disabled={!format || busy}>
-        {busy ? 'Exporting…' : background ? 'Start' : 'Download'}
+        {busy ? 'Exporting…' : background || format.startsWith('picture:') ? 'Start' : 'Download'}
       </button>
       {queued && (
         <span className="small" role="status">

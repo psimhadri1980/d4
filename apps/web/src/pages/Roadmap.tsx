@@ -45,6 +45,7 @@ export function Roadmap() {
   const [selected, setSelected] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string[]>([]);
   const lanesId = useId();
+  const [picture, setPicture] = useState<unknown>(null);
 
   const set = (k: string, v: string | null) => {
     const p = new URLSearchParams(params);
@@ -115,6 +116,7 @@ export function Roadmap() {
           </div>
         )}
         {roadmap.error && <ErrorBanner error={roadmap.error} />}
+        {picture != null && picture !== 'started' && <ErrorBanner error={picture} />}
         {scope.length > 0 && !r && !roadmap.error && <p className="muted">Scheduling…</p>}
         {r && !r.items.length && (
           <div className="empty">
@@ -141,6 +143,27 @@ export function Roadmap() {
                 <button className="button small" onClick={() => download('roadmap.mmd', roadmapToMermaid(r), 'text/plain')}>
                   Export Mermaid
                 </button>
+                <span className="picture-actions" role="group" aria-label="Picture">
+                  <span className="muted small">Picture:</span>
+                  {(['pdf', 'png', 'svg'] as const).map((f) => (
+                    <button
+                      key={f}
+                      className="button small ghost"
+                      onClick={() =>
+                        void api
+                          .createRenderJob(ws!, { target: 'roadmap', format: f, scope, lanes, zoom, today: today() })
+                          .then(() => setPicture('started'), (e: unknown) => setPicture(e))
+                      }
+                    >
+                      {f.toUpperCase()}
+                    </button>
+                  ))}
+                </span>
+                {picture === 'started' && (
+                  <span className="small" role="status">
+                    Started. <Link to={`/w/${ws}/jobs`}>See Jobs</Link>
+                  </span>
+                )}
               </div>
             </div>
 

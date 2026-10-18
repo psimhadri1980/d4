@@ -299,7 +299,7 @@ export const jobs = pgTable(
     id: text('id').primaryKey(),
     tenantId: text('tenant_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
-    kind: text('kind', { enum: ['export', 'import-tabular'] }).notNull(),
+    kind: text('kind', { enum: ['export', 'import-tabular', 'render'] }).notNull(),
     status: text('status', { enum: ['queued', 'running', 'succeeded', 'failed'] }).notNull().default('queued'),
     params: jsonb('params').notNull(),
     /** 0–100. */
