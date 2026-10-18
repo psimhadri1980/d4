@@ -43,6 +43,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T;
 }
 
+/** Downloads a file response (exports): the body and the server's file name. */
+async function requestFile(path: string): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(`${config.apiUrl}${path}`, { headers: await authHeader() });
+  if (!res.ok) {
+    const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new ApiError(res.status, String(json['error'] ?? res.status), String(json['message'] ?? res.statusText), (json['issues'] as string[] | undefined) ?? []);
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'export';
+  return { blob: await res.blob(), filename: name };
+}
+
 export interface Workspace {
   id: string;
   slug: string;
@@ -130,6 +141,8 @@ export const api = {
   matrix: (ws: string, kind: MatrixKind, view: ViewParams = {}) =>
     request<Matrix & { truncated: boolean }>('GET', `/v1/workspaces/${ws}/matrix/${kind}${qs({ ...view })}`),
   decisions: (ws: string, view: ViewParams = {}) => request<DecisionRecord[]>('GET', `/v1/workspaces/${ws}/decisions${qs({ ...view })}`),
+  exportFile: (ws: string, format: string, opts: ViewParams & { scope?: string[]; depth?: number } = {}) =>
+    requestFile(`/v1/workspaces/${ws}/export${qs({ format, ...opts, depth: opts.depth })}`),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>
     request<ModelDiffView>(
       'GET',

@@ -1793,3 +1793,13 @@ table.matrix tbody tr:hover .row-head {
     padding: var(--sp-04);
   }
 }
+
+.export-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-03);
+}
+.export-menu select {
+  width: auto;
+}

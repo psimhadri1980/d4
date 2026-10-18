@@ -1,5 +1,6 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { EXPORT_FORMATS } from '@d4/codecs';
 import { LANE_KINDS, MATRIX_KINDS } from '@d4/core';
 
 // Adds `.openapi()` to zod schemas; must run before any schema below is defined.
@@ -88,6 +89,20 @@ export const NeighbourhoodQuery = z.object({
   depth: z.coerce.number().int().min(1).max(3).optional(),
   type: csv,
   limit: z.coerce.number().int().min(1).max(2000).optional(),
+});
+
+export const ExportQuery = z.object({
+  ...View,
+  format: z.enum(EXPORT_FORMATS).optional().openapi({
+    description: 'yaml | json | elements-csv | relationships-csv | mermaid | archimate | cypher. Omitted: the model document as JSON.',
+  }),
+  scope: z
+    .string()
+    .transform((s) => s.split(',').map((v) => v.trim()).filter(Boolean))
+    .pipe(z.array(z.string()).max(50))
+    .optional()
+    .openapi({ description: 'Element ids: export their neighbourhood instead of the whole workspace' }),
+  depth: z.coerce.number().int().min(1).max(3).optional(),
 });
 
 export const MatrixParams = z.object({

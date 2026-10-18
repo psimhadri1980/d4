@@ -1,5 +1,12 @@
 import { Command, CommanderError } from 'commander';
-import { CodecError, parseModelDocument, stringifyModelDocument, toImportInput, validateModelDocument } from '@d4/codecs';
+import {
+  CodecError,
+  EXPORT_FORMATS,
+  parseModelDocument,
+  stringifyModelDocument,
+  toImportInput,
+  validateModelDocument,
+} from '@d4/codecs';
 import { planImport } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry, parseMetamodel } from '@d4/metamodel';
 
@@ -46,6 +53,26 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
       throw new ApiError(`${res.status} ${String(body['error'] ?? '')}: ${String(body['message'] ?? res.statusText)}${issues}`);
     }
     return body as T;
+  };
+
+  /** For file exports: the body as text. */
+  const apiText = async (path: string): Promise<string> => {
+    const base = (io.env['D4_API_URL'] ?? 'http://localhost:3000').replace(/\/$/, '');
+    const token = io.env['D4_TOKEN'];
+    if (!token) throw new ApiError('D4_TOKEN is not set (deploy/dev.sh token prints one for local dev)');
+    const res = await io.fetch(`${base}${path}`, { headers: { authorization: `Bearer ${token}` } });
+    const text = await res.text();
+    if (!res.ok) {
+      const body = (() => {
+        try {
+          return JSON.parse(text) as Record<string, unknown>;
+        } catch {
+          return {};
+        }
+      })();
+      throw new ApiError(`${res.status} ${String(body['error'] ?? '')}: ${String(body['message'] ?? res.statusText)}`);
+    }
+    return text;
   };
 
   const resolveWorkspace = async (ref: string): Promise<string> => {
@@ -109,18 +136,40 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
 
   program
     .command('export')
-    .description('Export a workspace as a model document.')
+    .description('Export a workspace: model document (yaml, json) or another format.')
     .requiredOption('-w, --workspace <slug-or-id>', 'source workspace')
     .option('-o, --out <file>', 'write to a file instead of stdout')
-    .option('--format <format>', 'yaml or json', 'yaml')
-    .action(async (opts: { workspace: string; out?: string; format: string }) => {
-      if (opts.format !== 'yaml' && opts.format !== 'json') throw new ApiError(`unknown format '${opts.format}'`);
+    .option('--format <format>', EXPORT_FORMATS.join(' | '), 'yaml')
+    .option('--as-of <date>', 'only items valid on this date (YYYY-MM-DD)')
+    .option('--scenario <id>', 'the baseline plus this scenario')
+    .option('--scope <ids>', 'comma-separated element ids: export their neighbourhood')
+    .option('--depth <n>', 'neighbourhood depth for --scope (1-3)')
+    .action(async (opts: { workspace: string; out?: string; format: string; asOf?: string; scenario?: string; scope?: string; depth?: string }) => {
+      if (!(EXPORT_FORMATS as readonly string[]).includes(opts.format)) {
+        throw new ApiError(`unknown format '${opts.format}' (one of: ${EXPORT_FORMATS.join(', ')})`);
+      }
       const ws = await resolveWorkspace(opts.workspace);
-      const doc = validateModelDocument(await api(`/v1/workspaces/${ws}/export`));
-      const text = stringifyModelDocument(doc, opts.format);
+      const params = new URLSearchParams();
+      if (opts.asOf) params.set('asOf', opts.asOf);
+      if (opts.scenario) params.set('scenario', opts.scenario);
+      if (opts.scope) params.set('scope', opts.scope);
+      if (opts.depth) params.set('depth', opts.depth);
+      const filtered = params.size > 0;
+
+      let text: string;
+      let summary: string;
+      if (opts.format === 'yaml' || opts.format === 'json') {
+        const doc = validateModelDocument(await api(`/v1/workspaces/${ws}/export${filtered ? `?${params}` : ''}`));
+        text = stringifyModelDocument(doc, opts.format);
+        summary = `${doc.elements.length} elements and ${doc.relationships.length} relationships`;
+      } else {
+        params.set('format', opts.format);
+        text = await apiText(`/v1/workspaces/${ws}/export?${params}`);
+        summary = `${opts.format} (${text.length} characters)`;
+      }
       if (opts.out) {
         await io.writeFile(opts.out, text);
-        io.out(`✓ wrote ${doc.elements.length} elements and ${doc.relationships.length} relationships to ${opts.out}\n`);
+        io.out(`✓ wrote ${summary} to ${opts.out}\n`);
       } else {
         io.out(text);
       }

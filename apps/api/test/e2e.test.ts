@@ -430,6 +430,33 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(g.body!['data'].workspace.decisions[0].options.find((o: any) => o.chosen).name).toBe('Introduce a dedicated client MDM hub');
     });
 
+    it('exports in other formats, for a scope and a view', async () => {
+      const token = await sign('exporter-1', ['viewer']);
+      const raw = async (q: string) => {
+        const res = await app.inject({ method: 'GET', url: `${ws()}/export?${q}`, headers: { authorization: `Bearer ${token}` } });
+        return { status: res.statusCode, type: String(res.headers['content-type']), disposition: String(res.headers['content-disposition']), body: res.body };
+      };
+      const mermaid = await raw('format=mermaid');
+      expect(mermaid).toMatchObject({ status: 200, type: 'text/plain; charset=utf-8' });
+      expect(mermaid.disposition).toMatch(/attachment; filename="default\.mmd"/);
+      expect(mermaid.body).toMatch(/^---\ntitle: /);
+
+      const archi = await raw('format=archimate');
+      expect(archi.type).toContain('application/xml');
+      expect(archi.body).toContain('xsi:type="ApplicationComponent"');
+
+      // Scoped to Client Master's neighbourhood on a date: only the master valid then.
+      const csv = await raw(`format=relationships-csv&scope=${sampleIds['dp-client']}&asOf=2027-08-01`);
+      expect(csv.disposition).toContain('default-2027-08-01.relationships.csv');
+      const holds = csv.body.split('\n').filter((l) => l.includes(',HOLDS,') && l.includes(',MASTER'));
+      expect(holds).toHaveLength(1);
+      expect(holds[0]).toContain('Client MDM Hub');
+
+      const yaml = await raw('format=yaml');
+      expect(yaml.body).toMatch(/^apiVersion: d4\/v1/);
+      expect((await raw('format=pdf')).status).toBe(400);
+    });
+
     it('exports a document that re-imports unchanged', async () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);

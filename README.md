@@ -71,6 +71,7 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
   - The old `/catalog`, `/studio` and `/stewardship` links still work and open the matching tab.
 - **As of / Scenario** (Explorer toolbar): view the model on a date, or a scenario on top of the baseline. Applies to the list, graph and details until reset; a notice shows while active. With a scenario selected, new relationships are added to that scenario.
 - **Compare**: two views side by side (dates and/or scenarios): elements added and removed, relationships added, removed and changed (e.g. a store going from MASTER to REPLICA). The URL holds both sides, so a comparison can be shared.
+- **Export** (Explorer toolbar): the graph on screen or the whole workspace as Mermaid, ArchiMate Open Exchange XML, elements/relationships CSV, model-as-code YAML or a Cypher script, in the current as-of date and scenario.
 - **Matrices**: CRUD-I (process steps × data), capability × application (cells show TIME class), data store roles, and a lifecycle heat-map. Each has findings (e.g. data nothing creates, products without a master, capabilities without applications) and CSV export, and follows the as-of date and scenario.
 - **Decisions**: the ADR log, newest first, with search and status filter. A record shows context, options (chosen and considered), consequences, the elements it decides and what it supersedes; findings flag gaps such as an accepted decision without a chosen option. "New decision" opens the editor with the type preselected.
 - **Roadmap** (everyone): pick a scope (initiatives, divisions, or search for any element that deliverables change) and see a Gantt chart with lanes (by initiative, division, status, type or milestone), week/month/quarter zoom, dependency arrows, the critical path in red, and dashed outlines where the plan is earlier than its dependencies allow. Conflicts are listed below the chart; picking one, or a bar, shows planned vs earliest dates, slack, dependencies and the elements it changes. Export as CSV or Mermaid. Scope, lanes and zoom are kept in the URL.
@@ -83,7 +84,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 50 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs 53 Playwright tests in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
@@ -91,6 +92,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 - a read-only viewer being refused
 - graph readability: for each layout and depth, no overlapping nodes, minimum node spacing, at most 2% of label pairs colliding, and the graph spread across the canvas
 - time and scenarios: as-of views, a scenario overlay, Compare between dates and against a scenario
+- exports (Mermaid of the graph on screen, ArchiMate of the workspace, CSV as of a date)
 - matrices (CRUD-I, data store roles over time, capability × application, lifecycle) and the decision log
 - the Roadmap Studio: scope, lanes, zoom, conflicts, item details, reload and Mermaid export
 - the Query Catalog end to end: viewer runs a system query; author drafts (checks shown), fixes and submits; steward publishes and grants; viewer runs the new query; steward deprecates and retires it
@@ -132,7 +134,11 @@ deploy/dev.sh sample                                    # import samples/ubs-ban
 deploy/dev.sh cli validate samples/ubs-banking.yaml     # offline check against the starter metamodel
 deploy/dev.sh cli import my-model.yaml -w default --dry-run
 deploy/dev.sh cli export -w default -o exports/default.yaml
+deploy/dev.sh cli export -w default --format archimate -o exports/default.archimate.xml
+deploy/dev.sh cli export -w default --format mermaid --as-of 2027-08-01 -o exports/default.mmd
 ```
+
+Export formats: `yaml`, `json`, `elements-csv`, `relationships-csv`, `mermaid`, `archimate` (Open Exchange 3.1, opens in Archi), `cypher` (a re-runnable `MERGE` script). `--as-of`, `--scenario` and `--scope <ids> --depth <n>` narrow what is exported.
 
 `samples/ubs-banking.yaml` is **illustrative**. Its legal entity and divisions follow UBS's public reporting structure, but all systems, data stores, processes, decisions and plans are invented.
 

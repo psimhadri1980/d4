@@ -64,6 +64,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D32 | 2026-10-19 | Optional local Node for the web app: Vite on the host (:5173) against API/Keycloak in Docker, with `web-local`, `web-check`, `e2e-local`; `web-deploy` puts committed changes back into the container. Docker stays the source of truth for CI and other packages | Web iterations in seconds instead of image rebuilds; the dev build also catches StrictMode-only bugs |
 | D33 | 2026-10-19 | Model views: reads default to the baseline (items without `scenarioId`) and ignore validity; `asOf` keeps items valid on that date (half-open periods); a scenario view is the baseline plus that scenario, where a scenario relationship of a type between two elements replaces the baseline's relationships of that type between them. Elements are additive. Diffs match by id and pair replaced relationships as changes | Lets a scenario re-date a hand-over without touching the baseline; one rule implemented twice (`applyView` in `@d4/core`, `inView`/`relInView` in Cypher) and tested for agreement |
 | D34 | 2026-10-19 | Matrices and the decision log are computed in `@d4/core` from a scoped fetch (only the relationship types a matrix needs, in the model view; lifecycle counts aggregated in Cypher). Each matrix carries findings; overlapping-master checks use validity periods so a planned hand-over is not flagged. Decisions stay ordinary `Decision` elements (no separate store) | Pure, testable shaping; bounded queries instead of whole-workspace snapshots; ADRs are edited with the same metamodel-driven forms as everything else |
+| D35 | 2026-10-19 | Export formats are pure functions in `@d4/codecs` (CSV, Mermaid, ArchiMate Open Exchange 3.1, Cypher script) over a snapshot, served by the existing export endpoint with `format`, `scope`/`depth` and the model view. ArchiMate uses specific relationship types only where the meaning is unambiguous (Realization, Composition, Triggering, Access, Assignment); the rest are Association named after the D4 type, and unmapped element types are skipped and listed | Deterministic, testable files with no new dependencies; imports into Archi and similar tools without being rejected for invalid relationship combinations |
 
 ## Status
 
@@ -152,6 +153,13 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - fixed the Roadmap scope search squeezing names into the layer-dot column
   - 9 core, 4 Neo4j, 1 API and 4 browser tests
 - **Phase 3 (Planning) complete.**
+- **Phase 4 plan:**
+  - 4a: export formats (CSV, Mermaid, ArchiMate, Cypher) with scope and view; Explorer export control; CLI formats
+  - 4b: Excel and CSV import with column mapping, dry run and a validation report (adds `exceljs`)
+  - 4c: worker (BullMQ on Redis) for long imports/exports with artefacts in S3
+  - 4d: renderer (headless Chromium) for PDF/PNG of graph views and roadmaps
+  - 4e: scheduled reports
+- **4a done:** `@d4/codecs` exports with 7 tests; `GET /v1/workspaces/{ws}/export?format=&scope=&depth=&asOf=&scenario=` (file download with name; CORS exposes `content-disposition`); Explorer "Export" control (this graph or the whole workspace, in the current view); `d4 export --format … --as-of … --scope …`; 1 API, 1 CLI and 2 browser tests
 
 ---
 

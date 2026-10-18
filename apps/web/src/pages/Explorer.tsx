@@ -9,6 +9,7 @@ import { GraphCanvas, type GraphLayout } from '../components/GraphCanvas';
 import { useRegistry } from '../model';
 import { useView, viewQuery } from '../view';
 import { ViewBar, ViewNotice } from '../components/ViewBar';
+import { ExportMenu } from '../components/ExportMenu';
 
 /**
  * Three panes: find elements (left), see them in context (graph), inspect and change (right).
@@ -100,6 +101,8 @@ export function Explorer() {
         </div>
         <div className="toolbar secondary">
           <ViewBar workspaceId={ws!} />
+          <div className="spacer" />
+          <ExportMenu workspaceId={ws!} elementId={id} depth={depth} view={modelView} />
         </div>
         <ViewNotice workspaceId={ws!} />
         {hood.error && <ErrorBanner error={hood.error} />}

@@ -18,7 +18,8 @@ function harness(responses: Record<string, unknown> = {}) {
       calls.push({ url, init });
       const path = new URL(url).pathname;
       const body = responses[path];
-      return new Response(JSON.stringify(body ?? { error: 'NOT_FOUND', message: 'nope' }), {
+      // Strings are file bodies (exports); everything else is JSON.
+      return new Response(typeof body === 'string' ? body : JSON.stringify(body ?? { error: 'NOT_FOUND', message: 'nope' }), {
         status: body ? 200 : 404,
       });
     }) as typeof fetch,
@@ -101,6 +102,16 @@ describe('d4 import / export', () => {
     });
     expect(await runCli(['export', '-w', 'WS1', '-o', 'out.yaml'], h.io)).toBe(0);
     expect(h.files.get('out.yaml')).toMatch(/key: platform-k8s/);
+  });
+
+  it('exports other formats as files, passing view and scope', async () => {
+    const h = harness({ ...workspaces, '/v1/workspaces/WS1/export': 'flowchart LR\n  n1["K8s"]\n' });
+    expect(await runCli(['export', '-w', 'WS1', '--format', 'mermaid', '--as-of', '2027-01-01', '--scope', 'A,B', '-o', 'g.mmd'], h.io)).toBe(0);
+    expect(h.files.get('g.mmd')).toBe('flowchart LR\n  n1["K8s"]\n');
+    const url = new URL(h.calls.at(-1)!.url);
+    expect(Object.fromEntries(url.searchParams)).toEqual({ asOf: '2027-01-01', scope: 'A,B', format: 'mermaid' });
+    expect(await runCli(['export', '-w', 'WS1', '--format', 'pdf'], h.io)).toBe(1);
+    expect(h.err.join('')).toMatch(/unknown format 'pdf' \(one of: yaml, json, elements-csv/);
   });
 
   it('needs a token for API commands', async () => {

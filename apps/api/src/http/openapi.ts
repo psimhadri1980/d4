@@ -24,6 +24,7 @@ import {
   MatrixSchema,
   DecisionSchema,
   ViewArgsSchema,
+  ExportQuery,
 } from './schemas';
 
 const json = (schema: z.ZodTypeAny, description: string) => ({
@@ -239,8 +240,22 @@ export function buildOpenApiDocument(): OpenApiDocument {
     method: 'get',
     path: '/v1/workspaces/{ws}/export',
     tags: ['Model as code'],
-    request: { params: z.object({ ws }) },
-    responses: { 200: json(ModelDocumentSchema, 'The workspace as a model document'), ...errors },
+    description:
+      'The workspace (or the neighbourhood of `scope` elements) in a view. Without `format`: the model document as JSON. With `format`: a file download (YAML, JSON, CSV, Mermaid, ArchiMate Open Exchange XML or a Cypher script).',
+    request: { params: z.object({ ws }), query: ExportQuery },
+    responses: {
+      200: {
+        description: 'The model document (JSON), or the file for `format`',
+        content: {
+          'application/json': { schema: ModelDocumentSchema },
+          'text/csv': { schema: z.string() },
+          'text/plain': { schema: z.string() },
+          'application/xml': { schema: z.string() },
+          'application/yaml': { schema: z.string() },
+        },
+      },
+      ...errors,
+    },
   });
 
   // Query Catalog
