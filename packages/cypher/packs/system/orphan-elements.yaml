@@ -1,0 +1,18 @@
+slug: orphan-elements
+title: Orphan elements
+description: Elements with no relationships at all, optionally limited to some types.
+tags: [quality, housekeeping]
+resultShape: table
+defaultRoles: [viewer, contributor, planner, architect]
+params:
+  - name: types
+    type: string[]
+    label: Only these types (optional)
+cypher: |
+  MATCH (n:Element)
+  WHERE n.workspaceId = $workspace AND n.deleted = false
+    AND ($types IS NULL OR size($types) = 0 OR any(l IN labels(n) WHERE l IN $types))
+    AND NOT EXISTS { MATCH (n)-[r]-() WHERE r.deleted = false }
+  RETURN n.id AS id, n.name AS name, n.type AS type, n.lifecycle AS lifecycle
+  ORDER BY type, name
+  LIMIT 200

@@ -169,6 +169,7 @@ relationships:
   - { type: OWNS, from: div-ncl, to: app-legacy-admin }
   - { type: OWNS, from: team-dpe, to: ds-mdm }
   - { type: OWNS, from: team-dpe, to: ds-lake }
+  - { type: OWNS, from: team-dpe, to: plat-events }
   - { type: ACCOUNTABLE_FOR, from: role-data-owner, to: dp-client, attrs: { raci: ACCOUNTABLE } }
   - { type: ACCOUNTABLE_FOR, from: role-data-steward, to: dp-client, attrs: { raci: RESPONSIBLE } }
   - { type: ACCOUNTABLE_FOR, from: team-cdo, to: dom-client, attrs: { raci: RESPONSIBLE } }

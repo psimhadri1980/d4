@@ -208,6 +208,9 @@ importers:
       '@d4/metamodel':
         specifier: workspace:*
         version: link:../metamodel
+      yaml:
+        specifier: ^2.5.0
+        version: 2.9.1
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -248,6 +251,10 @@ importers:
       neo4j-driver:
         specifier: ^5.24.0
         version: 5.28.3
+    devDependencies:
+      '@d4/codecs':
+        specifier: workspace:*
+        version: link:../codecs
 
   packages/metamodel:
     dependencies:

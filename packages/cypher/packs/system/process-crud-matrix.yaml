@@ -1,0 +1,23 @@
+slug: process-crud-matrix
+title: CRUD-I matrix for a business process
+description: >
+  For each step of a business process, which data products it creates, reads, updates,
+  inactivates or deletes, and who performs the step.
+tags: [business, data, process]
+resultShape: table
+defaultRoles: [viewer, contributor, planner, architect]
+params:
+  - name: element
+    type: element
+    required: true
+    label: Business process
+    elementTypes: [BusinessProcess]
+cypher: |
+  MATCH (bp:BusinessProcess {id: $element})-[hs:HAS_STEP]->(st:ProcessStep)
+  WHERE bp.workspaceId = $workspace AND hs.deleted = false AND st.deleted = false
+  OPTIONAL MATCH (st)-[a:ACTS_ON]->(dp) WHERE a.deleted = false AND dp.deleted = false
+  OPTIONAL MATCH (st)-[pb:PERFORMED_BY]->(actor) WHERE pb.deleted = false AND actor.deleted = false
+  RETURN hs.seq AS seq, st.name AS step, actor.name AS performedBy,
+         dp.name AS dataProduct, a.op AS operation
+  ORDER BY seq, dataProduct
+  LIMIT 500

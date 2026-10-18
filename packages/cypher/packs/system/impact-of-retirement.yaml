@@ -1,0 +1,27 @@
+slug: impact-of-retirement
+title: Impact of retiring an element
+description: >
+  Everything within three hops that runs on, uses, is fed by or depends on the chosen platform,
+  application or data store: applications, data products, process steps and capabilities that
+  would be affected if it were retired.
+tags: [impact, technology, planning]
+resultShape: table
+defaultRoles: [viewer, contributor, planner, architect]
+params:
+  - name: element
+    type: element
+    required: true
+    label: Element to retire
+    elementTypes: [Platform, Application, DataStore, InfrastructureNode]
+cypher: |
+  MATCH (x:Element {id: $element})
+  WHERE x.workspaceId = $workspace AND x.deleted = false
+  MATCH p = (x)-[rels*1..3]-(a:Element)
+  WHERE a.workspaceId = $workspace AND a.deleted = false AND a <> x
+    AND all(r IN rels WHERE r.deleted = false AND type(r) IN
+      ['RUNS_ON', 'USES', 'HOLDS', 'FEEDS', 'SUPPORTS_STEP', 'REALIZES', 'ACTS_ON',
+       'DEPLOYED_IN', 'HOSTED_ON', 'HAS_STEP', 'SUPPORTS', 'CONSUMES', 'INTEGRATES_WITH'])
+  WITH a, min(length(p)) AS hops
+  RETURN a.id AS id, a.name AS name, a.type AS type, a.lifecycle AS lifecycle, hops
+  ORDER BY hops, type, name
+  LIMIT 200

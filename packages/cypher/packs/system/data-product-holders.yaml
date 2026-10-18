@@ -1,0 +1,28 @@
+slug: data-product-holders
+title: Where a data product lives (master, golden copy, distributors)
+description: >
+  The data stores holding a data product and their role (master, golden copy, approved
+  distributor, replica, consumer cache) with validity periods. Optionally only what is valid on
+  a given date, e.g. to see the master before and after a planned hand-over.
+tags: [data, lineage, governance]
+resultShape: table
+defaultRoles: [viewer, contributor, planner, architect]
+params:
+  - name: element
+    type: element
+    required: true
+    label: Data product
+    elementTypes: [DataProduct]
+  - name: asOf
+    type: date
+    label: Valid on (optional)
+cypher: |
+  MATCH (s:DataStore)-[h:HOLDS]->(p:DataProduct {id: $element})
+  WHERE p.workspaceId = $workspace AND h.deleted = false AND s.deleted = false
+    AND ($asOf IS NULL OR ((h.validFrom IS NULL OR h.validFrom <= $asOf)
+                       AND (h.validTo IS NULL OR $asOf < h.validTo)))
+  RETURN s.name AS store, h.role AS role, h.validFrom AS validFrom, h.validTo AS validTo,
+         s.category AS category
+  ORDER BY CASE h.role WHEN 'MASTER' THEN 0 WHEN 'GOLDEN_COPY' THEN 1
+                       WHEN 'APPROVED_DISTRIBUTOR' THEN 2 ELSE 3 END, store, validFrom
+  LIMIT 100

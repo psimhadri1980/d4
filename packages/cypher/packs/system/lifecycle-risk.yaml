@@ -1,0 +1,20 @@
+slug: lifecycle-risk
+title: Active elements linked to deprecated or retired ones
+description: >
+  Elements that are live or being delivered but are connected (runs on, uses, supports, holds,
+  consumes, derives from, integrates with) to something deprecated or retired.
+tags: [risk, lifecycle, technology]
+resultShape: table
+defaultRoles: [viewer, contributor, planner, architect]
+params: []
+cypher: |
+  MATCH (a:Element)-[r]-(b:Element)
+  WHERE a.workspaceId = $workspace AND a.deleted = false AND b.deleted = false AND r.deleted = false
+    AND a.lifecycle IN ['LIVE', 'IN_DEVELOPMENT', 'PLANNED']
+    AND b.lifecycle IN ['DEPRECATED', 'RETIRED']
+    AND type(r) IN ['RUNS_ON', 'USES', 'BUILT_ON', 'DEPLOYED_IN', 'HOSTED_ON', 'SUPPORTS_STEP',
+                    'HOLDS', 'CONSUMES', 'DERIVED_FROM', 'INTEGRATES_WITH']
+  RETURN a.name AS element, a.type AS type, a.lifecycle AS lifecycle, type(r) AS via,
+         b.name AS linkedTo, b.type AS linkedType, b.lifecycle AS linkedLifecycle
+  ORDER BY linkedTo, element
+  LIMIT 200

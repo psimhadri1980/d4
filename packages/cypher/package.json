@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "packs"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@d4/metamodel": "workspace:*",
+    "yaml": "^2.5.0",
     "zod": "^3.23.8"
   }
 }

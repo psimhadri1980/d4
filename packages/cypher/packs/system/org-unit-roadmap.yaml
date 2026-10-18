@@ -1,0 +1,28 @@
+slug: org-unit-roadmap
+title: Roadmap for a division or team
+description: >
+  Deliverables in initiatives the organisation unit owns, or that change elements it owns, with
+  dates, status, what they change and what they depend on.
+tags: [planning, roadmap]
+resultShape: table
+defaultRoles: [viewer, contributor, planner, architect]
+params:
+  - name: element
+    type: element
+    required: true
+    label: Division or team
+    elementTypes: [OrgUnit, Team]
+cypher: |
+  MATCH (d:Element {id: $element})
+  WHERE d.workspaceId = $workspace AND d.deleted = false
+  MATCH (del:Deliverable)
+  WHERE del.workspaceId = $workspace AND del.deleted = false
+    AND (EXISTS { MATCH (d)-[o:OWNS]->(:Initiative)-[c:CONTAINS]->(del) WHERE o.deleted = false AND c.deleted = false }
+      OR EXISTS { MATCH (d)-[o:OWNS]->(t)<-[ch:CHANGES]-(del) WHERE o.deleted = false AND ch.deleted = false })
+  OPTIONAL MATCH (del)-[ch:CHANGES]->(t) WHERE ch.deleted = false AND t.deleted = false
+  WITH del, collect(DISTINCT t.name + ' (' + ch.action + ')') AS changes
+  OPTIONAL MATCH (del)-[dep:DEPENDS_ON]->(pre) WHERE dep.deleted = false AND pre.deleted = false
+  RETURN del.name AS deliverable, del.plannedStart AS plannedStart, del.plannedEnd AS plannedEnd,
+         del.status AS status, changes, collect(DISTINCT pre.name) AS dependsOn
+  ORDER BY plannedStart, deliverable
+  LIMIT 200

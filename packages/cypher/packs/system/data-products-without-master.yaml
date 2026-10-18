@@ -1,0 +1,24 @@
+slug: data-products-without-master
+title: Data products without a master
+description: >
+  Data products (not retired) that have no data store holding them as MASTER on the given date
+  (today by default). Gaps here usually mean unclear data ownership.
+tags: [data, governance, quality]
+resultShape: table
+defaultRoles: [viewer, contributor, planner, architect]
+params:
+  - name: asOf
+    type: date
+    label: Valid on (default today)
+cypher: |
+  WITH coalesce($asOf, toString(date())) AS day
+  MATCH (p:DataProduct)
+  WHERE p.workspaceId = $workspace AND p.deleted = false AND coalesce(p.lifecycle, '') <> 'RETIRED'
+    AND NOT EXISTS {
+      MATCH (:DataStore)-[h:HOLDS]->(p)
+      WHERE h.deleted = false AND h.role = 'MASTER'
+        AND (h.validFrom IS NULL OR h.validFrom <= day) AND (h.validTo IS NULL OR day < h.validTo)
+    }
+  RETURN p.id AS id, p.name AS name, p.lifecycle AS lifecycle
+  ORDER BY name
+  LIMIT 200

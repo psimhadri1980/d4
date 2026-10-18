@@ -19,5 +19,8 @@
     "@d4/cypher": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "neo4j-driver": "^5.24.0"
+  },
+  "devDependencies": {
+    "@d4/codecs": "workspace:*"
   }
 }
