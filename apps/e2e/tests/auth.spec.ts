@@ -38,7 +38,9 @@ test.describe('sign-in', () => {
       await signIn(page, 'viewer');
       await expect(page.getByText('viewer', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Sign out' }).click();
-      await expect(page).toHaveURL(/localhost:(8080|5173)/);
+      // Sign-out ends on the Keycloak login (logout → app → sign-in redirect); wait for the whole
+      // chain before navigating, or the next goto races it and is aborted.
+      await expect(page).toHaveURL(/localhost:8080\/realms\/d4\/protocol\/openid-connect\/auth/);
       await page.goto('/');
       await expect(page).toHaveURL(/localhost:8080\/realms\/d4\//);
     });
