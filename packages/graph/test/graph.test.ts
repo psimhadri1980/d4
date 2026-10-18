@@ -14,6 +14,7 @@ describe('luceneQuery', () => {
   it('escapes operators and prefix-matches each term', () => {
     expect(luceneQuery('Customer  data')).toBe('+customer* +data*');
     expect(luceneQuery('a:b (c)')).toBe('+a\\:b* +\\(c\\)*');
+    expect(luceneQuery('Early cut-over a/b')).toBe('+early* +cut* +over* +a* +b*');
   });
 });
 
@@ -160,6 +161,10 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
     expect(orgUnits.items.map((e) => e.type)).toContain('Division');
     const tech = await q.listElements(ctx.workspaceId, { layer: 'Technology' });
     expect(tech.items.every((e) => e.type === 'Platform')).toBe(true);
+
+    // Hyphenated names are found by their hyphenated spelling.
+    await svc.createElement(ctx, { type: 'Platform', attrs: { name: 'Cut-over Runner' } });
+    expect((await q.listElements(ctx.workspaceId, { search: 'cut-over' })).items.map((e) => e.attrs['name'])).toEqual(['Cut-over Runner']);
 
     const found = await q.listElements(ctx.workspaceId, { search: 'paym' });
     expect(found.items.map((e) => e.attrs['name']).sort()).toEqual(['Payments Gateway', 'Payments Hub']);

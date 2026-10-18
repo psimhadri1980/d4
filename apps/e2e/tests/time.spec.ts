@@ -50,8 +50,8 @@ test.describe('time and scenarios', () => {
   test.afterAll(async () => {
     // Scenario relationships join sample elements, so they are removed explicitly.
     for (const r of rels) await api(`/v1/workspaces/${ws}/relationships/${r.id}?expectedVersion=${r.version}`, { method: 'DELETE' });
-    const s = await find(ws, `${RUN} Early cut-over`).catch(() => null);
-    if (s) await api(`/v1/workspaces/${ws}/elements/${s.id}?expectedVersion=${s.version}`, { method: 'DELETE' });
+    // By id: never depend on search to clean up.
+    if (scenario) await api(`/v1/workspaces/${ws}/elements/${scenario.id}?expectedVersion=${scenario.version}`, { method: 'DELETE' });
   });
 
   test('Explorer shows the model as of a date and can reset', async ({ page }) => {

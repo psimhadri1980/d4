@@ -405,11 +405,15 @@ export class GraphQueries {
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.trunc(n)));
 
-/** Turns free text into a safe Lucene query: escaped terms, each matched as a prefix, all required. */
+/**
+ * Turns free text into a safe Lucene query: escaped terms, each matched as a prefix, all required.
+ * Hyphens and slashes separate terms, as the index's analyzer splits "cut-over" into "cut" and
+ * "over"; a prefix query is not analyzed, so "cut-over*" would never match.
+ */
 export function luceneQuery(text: string): string {
   return text
     .trim()
-    .split(/\s+/)
+    .split(/[\s\-/]+/)
     .filter(Boolean)
     .slice(0, 10)
     .map((term) => `+${term.replace(/[+\-&|!(){}[\]^"~*?:\\/]/g, '\\$&').toLowerCase()}*`)
