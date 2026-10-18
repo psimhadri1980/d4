@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import neo4j, { type Driver } from 'neo4j-driver';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
-import { DomainError, ModelService, ulid, type CommandContext, type DomainEvent } from '@d4/core';
+import { applyView, DomainError, ModelService, ulid, type CommandContext, type DomainEvent } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { checkReadOnly } from '@d4/cypher';
 import { GraphQueries, luceneQuery, Neo4jModelRepository, neo4jExplainer, type EventSink, type SessionProvider } from '../src';
@@ -188,6 +188,47 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
 
     const lonely = await svc.createElement(ctx, { type: 'Division', attrs: { name: 'Empty' } });
     expect(await q.neighbourhood(ctx.workspaceId, lonely.id)).toMatchObject({ elements: [], relationships: [] });
+  });
+
+  it('filters reads by date and scenario, with scenario relationships replacing the baseline', async () => {
+    const vctx: CommandContext = { workspaceId: ctx.workspaceId, actor: 'tester' };
+    const dp = await svc.createElement(vctx, { type: 'DataProduct', attrs: { name: 'View Product' } });
+    const legacy = await svc.createElement(vctx, { type: 'DataStore', attrs: { name: 'View Legacy' } });
+    const mdm = await svc.createElement(vctx, { type: 'DataStore', attrs: { name: 'View MDM' }, validFrom: '2027-01-01' });
+    const fast = await svc.createElement(vctx, { type: 'Scenario', attrs: { name: 'View Fast' } });
+    const cache = await svc.createElement(vctx, { type: 'DataStore', attrs: { name: 'View Cache' }, scenarioId: fast.id });
+    const holds = (fromId: string, role: string, p: { validFrom?: string; validTo?: string; scenarioId?: string } = {}) =>
+      svc.createRelationship(vctx, { type: 'HOLDS', fromId, toId: dp.id, attrs: { role }, ...p });
+    await holds(legacy.id, 'MASTER', { validTo: '2027-07-01' });
+    await holds(mdm.id, 'MASTER', { validFrom: '2027-07-01' });
+    await holds(legacy.id, 'MASTER', { validTo: '2027-04-01', scenarioId: fast.id });
+    await holds(mdm.id, 'MASTER', { validFrom: '2027-04-01', scenarioId: fast.id });
+    await holds(cache.id, 'CONSUMER_CACHE', { scenarioId: fast.id });
+
+    const names = (list: { attrs: Record<string, unknown> }[]) => list.map((e) => String(e.attrs['name'])).sort();
+    const listed = async (view: { asOf?: string; scenarioId?: string }) =>
+      names((await q.listElements(ctx.workspaceId, { search: 'view' }, {}, view)).items);
+    expect(await listed({})).toEqual(['View Fast', 'View Legacy', 'View MDM', 'View Product']);
+    expect(await listed({ asOf: '2026-12-01' })).toEqual(['View Fast', 'View Legacy', 'View Product']);
+    expect(await listed({ scenarioId: fast.id })).toContain('View Cache');
+
+    const masters = async (view: { asOf?: string; scenarioId?: string }) =>
+      (await q.connections(ctx.workspaceId, dp.id, { direction: 'IN', types: ['HOLDS'] }, view))
+        .filter((c) => c.relationship.attrs['role'] === 'MASTER')
+        .map((c) => c.other.attrs['name']);
+    expect(await masters({ asOf: '2027-05-01' })).toEqual(['View Legacy']);
+    expect(await masters({ asOf: '2027-05-01', scenarioId: fast.id })).toEqual(['View MDM']);
+
+    const hood = await q.neighbourhood(ctx.workspaceId, dp.id, { view: { asOf: '2027-05-01', scenarioId: fast.id } });
+    expect(names(hood!.elements)).toEqual(['View Cache', 'View MDM']);
+
+    // The Cypher view and the pure one in @d4/core agree.
+    for (const view of [{ asOf: '2027-05-01' }, { asOf: '2027-05-01', scenarioId: fast.id }, { asOf: '2027-08-01', scenarioId: fast.id }]) {
+      const viaCypher = await q.snapshot(ctx.workspaceId, view);
+      const viaCore = applyView(await q.snapshot(ctx.workspaceId), view);
+      expect(viaCypher.relationships.map((r) => r.id).sort()).toEqual(viaCore.relationships.map((r) => r.id).sort());
+      expect(viaCypher.elements.map((e) => e.id).sort()).toEqual(viaCore.elements.map((e) => e.id).sort());
+    }
   });
 
   it('rejects unknown types in queries instead of interpolating them', async () => {

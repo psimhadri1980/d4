@@ -17,6 +17,8 @@ interface Props {
   layout?: GraphLayout;
   /** Bumped by the parent to re-fit the view (e.g. a "Fit" button). */
   fitSignal?: number;
+  /** Date the graph is viewed at; relationships starting later are drawn dashed. Default: today. */
+  asOf?: string;
 }
 
 export type GraphLayout = 'radial' | 'force' | 'hierarchy';
@@ -154,6 +156,7 @@ export function GraphCanvas({
   onExpand,
   layout = 'radial',
   fitSignal = 0,
+  asOf,
 }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const cy = useRef<Core | null>(null);
@@ -192,7 +195,7 @@ export function GraphCanvas({
   useEffect(() => {
     const instance = cy.current;
     if (!instance) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = asOf || new Date().toISOString().slice(0, 10);
     const defs: ElementDefinition[] = [
       ...elements.map((e) => ({
         group: 'nodes' as const,
@@ -227,7 +230,7 @@ export function GraphCanvas({
       instance.layout(layoutOptions(layout, root, root ? hopDistances(root, relationships) : new Map(), elements.length)).run();
       keepReadable(instance, root);
     }
-  }, [elements, relationships, registry, layout, selectedId]);
+  }, [elements, relationships, registry, layout, selectedId, asOf]);
 
   useEffect(() => {
     const instance = cy.current;

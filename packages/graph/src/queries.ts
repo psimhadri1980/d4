@@ -1,9 +1,26 @@
-import type { Element, ModelSnapshot, PlanningGraph, Relationship } from '@d4/core';
+import type { Element, ModelSnapshot, ModelView, PlanningGraph, Relationship } from '@d4/core';
 import { layerLabel, type MetamodelRegistry } from '@d4/metamodel';
 import { ident, propsToElement, propsToRelationship } from './mapping';
 import { relationshipByIdQuery, toRelationship, type SessionProvider } from './repository';
 
 type Row = Record<string, unknown>;
+
+/**
+ * Cypher predicate for "visible in the view" (see `visibleIn` in @d4/core): baseline items plus
+ * the view's scenario, valid on `$asOf` when given. Parameters: `$asOf`, `$scenario`.
+ */
+export const inView = (x: string) =>
+  `(${x}.scenarioId IS NULL OR ${x}.scenarioId = $scenario) AND ($asOf IS NULL OR ((${x}.validFrom IS NULL OR ${x}.validFrom <= $asOf) AND (${x}.validTo IS NULL OR $asOf < ${x}.validTo)))`;
+
+/**
+ * `inView` for a relationship, plus scenario replacement: a baseline relationship is hidden when
+ * the view's scenario has a relationship of the same type between the same two elements.
+ */
+export const relInView = (r: string) =>
+  `${inView(r)} AND NOT ($scenario IS NOT NULL AND ${r}.scenarioId IS NULL AND EXISTS {
+     MATCH (rs)-[o]->(re) WHERE rs = startNode(${r}) AND re = endNode(${r})
+       AND type(o) = type(${r}) AND o.scenarioId = $scenario AND o.deleted = false })`;
+const viewParams = (v: ModelView = {}) => ({ asOf: v.asOf ?? null, scenario: v.scenarioId ?? null });
 
 export interface ElementFilter {
   /** Node types; supertypes match their subtypes (labels include ancestors). */
@@ -57,7 +74,7 @@ export class GraphQueries {
     private readonly sessions: SessionProvider,
   ) {}
 
-  async listElements(ws: string, filter: ElementFilter = {}, page: Page = {}): Promise<ElementPage> {
+  async listElements(ws: string, filter: ElementFilter = {}, page: Page = {}, view: ModelView = {}): Promise<ElementPage> {
     const first = clamp(page.first ?? 50, 1, MAX_PAGE);
     const where = [
       'n.workspaceId = $ws',
@@ -65,6 +82,7 @@ export class GraphQueries {
       '($types IS NULL OR any(l IN labels(n) WHERE l IN $types))',
       '($layer IS NULL OR $layer IN labels(n))',
       '($lifecycle IS NULL OR n.lifecycle IN $lifecycle)',
+      inView('n'),
     ].join(' AND ');
     const params: Row = {
       ws,
@@ -72,6 +90,7 @@ export class GraphQueries {
       layer: filter.layer ? layerLabel(filter.layer) : null,
       lifecycle: filter.lifecycle?.length ? filter.lifecycle : null,
       limit: first + 1,
+      ...viewParams(view),
     };
 
     let cypher: string;
@@ -104,17 +123,21 @@ export class GraphQueries {
   }
 
   /** Every live element and relationship in the workspace (export, import planning). */
-  async snapshot(ws: string): Promise<ModelSnapshot> {
+  async snapshot(ws: string, view?: ModelView): Promise<ModelSnapshot> {
+    // Without a view: every live item, all scenarios and periods (export, import planning).
+    const nv = view ? `AND ${inView('n')}` : '';
+    const rv = view ? `AND ${relInView('r')} AND ${inView('a')} AND ${inView('b')}` : '';
+    const params = { ws, ...viewParams(view) };
     const [elements, relationships] = await Promise.all([
       this.read(
-        'MATCH (n:Element) WHERE n.workspaceId = $ws AND n.deleted = false RETURN properties(n) AS p ORDER BY n.id',
-        { ws },
+        `MATCH (n:Element) WHERE n.workspaceId = $ws AND n.deleted = false ${nv} RETURN properties(n) AS p ORDER BY n.id`,
+        params,
       ),
       this.read(
         `MATCH (a:Element)-[r]->(b:Element)
-         WHERE a.workspaceId = $ws AND r.workspaceId = $ws AND r.deleted = false
+         WHERE a.workspaceId = $ws AND r.workspaceId = $ws AND r.deleted = false ${rv}
          RETURN properties(r) AS p, type(r) AS t, a.id AS f, b.id AS o ORDER BY r.id`,
-        { ws },
+        params,
       ),
     ]);
     return {
@@ -132,7 +155,7 @@ export class GraphQueries {
     return rel && !rel.deleted ? rel : undefined;
   }
 
-  async connections(ws: string, id: string, filter: RelationshipFilter = {}): Promise<Connection[]> {
+  async connections(ws: string, id: string, filter: RelationshipFilter = {}, view: ModelView = {}): Promise<Connection[]> {
     const types = (filter.types ?? []).map((t) => ident(this.knownRel(t)));
     const typeExpr = types.length ? `:${types.join('|')}` : '';
     const pattern =
@@ -144,11 +167,11 @@ export class GraphQueries {
     const rows = await this.read(
       `MATCH (n:Element {id: $id}) WHERE n.workspaceId = $ws
        MATCH ${pattern}
-       WHERE r.deleted = false AND m.deleted = false
+       WHERE r.deleted = false AND m.deleted = false AND ${relInView('r')} AND ${inView('m')}
        RETURN properties(r) AS rp, type(r) AS t, startNode(r).id AS f, endNode(r).id AS o, properties(m) AS mp
        ORDER BY t, m.name
        LIMIT 1000`,
-      { ws, id },
+      { ws, id, ...viewParams(view) },
     );
     return rows.map((row) => ({
       relationship: propsToRelationship(row['rp'] as Row, row['t'] as string, row['f'] as string, row['o'] as string),
@@ -160,7 +183,7 @@ export class GraphQueries {
   async neighbourhood(
     ws: string,
     id: string,
-    opts: { depth?: number; types?: string[]; limit?: number } = {},
+    opts: { depth?: number; types?: string[]; limit?: number; view?: ModelView } = {},
   ): Promise<Subgraph | undefined> {
     const depth = clamp(opts.depth ?? 1, 1, MAX_DEPTH);
     const limit = clamp(opts.limit ?? 500, 1, 2000);
@@ -172,7 +195,8 @@ export class GraphQueries {
        CALL {
          WITH root
          OPTIONAL MATCH p = (root)-[rels${typeExpr}*1..${depth}]-(m:Element)
-         WHERE all(r IN rels WHERE r.deleted = false) AND all(x IN nodes(p) WHERE x.deleted = false)
+         WHERE all(r IN rels WHERE r.deleted = false AND ${relInView('r')})
+           AND all(x IN nodes(p) WHERE x.deleted = false AND ${inView('x')})
          WITH p LIMIT toInteger($limit) + 1
          RETURN collect(p) AS paths
        }
@@ -183,7 +207,7 @@ export class GraphQueries {
               size(paths) > toInteger($limit) AS truncated,
               [r IN rs | {p: properties(r), t: type(r), f: startNode(r).id, o: endNode(r).id}] AS rels,
               reduce(acc = [], r IN rs | acc + [properties(startNode(r)), properties(endNode(r))]) AS nodes`,
-      { ws, id, limit },
+      { ws, id, limit, ...viewParams(opts.view) },
     );
     const row = rows[0];
     if (!row) return undefined;

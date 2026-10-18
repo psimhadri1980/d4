@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { api } from '../api';
 import { elementName, layerOf, layerVar, typesByLayer } from '../model';
+import { useView, viewQuery } from '../view';
 import { ErrorBanner } from './ErrorBanner';
 
 interface Props {
@@ -25,8 +26,9 @@ export function ElementList({ registry, workspaceId, selectedId }: Props) {
     return () => clearTimeout(t);
   }, [text]);
 
+  const vq = viewQuery(useView().view);
   const list = useInfiniteQuery({
-    queryKey: ['elements', workspaceId, q, layer, type],
+    queryKey: ['elements', workspaceId, q, layer, type, vq],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       api.listElements(workspaceId, {
@@ -35,7 +37,7 @@ export function ElementList({ registry, workspaceId, selectedId }: Props) {
         type: type ? [type] : undefined,
         first: 50,
         after: pageParam,
-      }),
+      }, vq),
     // Search results are ranked and not cursor-paged.
     getNextPageParam: (last) => (!q && last.hasMore ? (last.endCursor ?? undefined) : undefined),
   });

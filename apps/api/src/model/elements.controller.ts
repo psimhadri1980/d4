@@ -11,6 +11,7 @@ import {
   UpdateBody,
 } from '../http/schemas';
 import { ModelFactory } from './model.factory';
+import { resolveView } from './view';
 import { WorkspaceAccess, type Access } from './workspace-access.service';
 
 @Controller('v1/workspaces/:ws/elements')
@@ -24,10 +25,12 @@ export class ElementsController {
   async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
     const q = parse(ListElementsQuery, query);
     const { queries, scope } = await this.open(p, ws, 'read');
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, q);
     return queries.listElements(
       scope.workspaceId,
       { types: q.type, layer: q.layer, lifecycle: q.lifecycle, search: q.q },
       { first: q.first, after: q.after },
+      view,
     );
   }
 
@@ -81,7 +84,8 @@ export class ElementsController {
   ) {
     const q = parse(ConnectionsQuery, query);
     const { queries, scope } = await this.open(p, ws, 'read');
-    return queries.connections(scope.workspaceId, id, { direction: q.direction, types: q.type });
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, q);
+    return queries.connections(scope.workspaceId, id, { direction: q.direction, types: q.type }, view);
   }
 
   @Get(':id/neighbourhood')
@@ -97,6 +101,7 @@ export class ElementsController {
       depth: q.depth,
       types: q.type,
       limit: q.limit,
+      view: await resolveView(queries, scope.registry, scope.workspaceId, q),
     });
     if (!sub) throw new NotFoundException(`Element '${id}' not found`);
     return sub;

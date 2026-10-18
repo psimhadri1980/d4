@@ -1,4 +1,4 @@
-import type { Element, LaneKind, Relationship, RoadmapView } from '@d4/core';
+import type { Element, LaneKind, ModelDiff, Relationship, RoadmapView } from '@d4/core';
 import type { Metamodel } from '@d4/metamodel';
 import { userManager } from './auth';
 import { config } from './config';
@@ -78,6 +78,14 @@ export interface DomainEvent {
   data: Record<string, unknown>;
 }
 
+/** `asOf` (YYYY-MM-DD) and `scenario` (Scenario element id); omitted = ignore validity / baseline. */
+export interface ViewParams {
+  asOf?: string;
+  scenario?: string;
+}
+
+export type ModelDiffView = ModelDiff & { names: Record<string, string> };
+
 export interface ListFilter {
   type?: string[];
   layer?: string;
@@ -112,13 +120,18 @@ export const api = {
   roadmap: (ws: string, scope: string[], lanes: LaneKind) =>
     request<RoadmapView>('GET', `/v1/workspaces/${ws}/roadmap${qs({ scope, lanes })}`),
 
-  listElements: (ws: string, f: ListFilter) =>
-    request<ElementPage>('GET', `/v1/workspaces/${ws}/elements${qs({ ...f })}`),
+  listElements: (ws: string, f: ListFilter, view: ViewParams = {}) =>
+    request<ElementPage>('GET', `/v1/workspaces/${ws}/elements${qs({ ...f, ...view })}`),
   element: (ws: string, id: string) => request<Element>('GET', `/v1/workspaces/${ws}/elements/${id}`),
-  connections: (ws: string, id: string) =>
-    request<Connection[]>('GET', `/v1/workspaces/${ws}/elements/${id}/relationships`),
-  neighbourhood: (ws: string, id: string, depth: number) =>
-    request<Subgraph>('GET', `/v1/workspaces/${ws}/elements/${id}/neighbourhood${qs({ depth, limit: 800 })}`),
+  connections: (ws: string, id: string, view: ViewParams = {}) =>
+    request<Connection[]>('GET', `/v1/workspaces/${ws}/elements/${id}/relationships${qs({ ...view })}`),
+  neighbourhood: (ws: string, id: string, depth: number, view: ViewParams = {}) =>
+    request<Subgraph>('GET', `/v1/workspaces/${ws}/elements/${id}/neighbourhood${qs({ depth, limit: 800, ...view })}`),
+  diff: (ws: string, from: ViewParams, to: ViewParams) =>
+    request<ModelDiffView>(
+      'GET',
+      `/v1/workspaces/${ws}/diff${qs({ fromAsOf: from.asOf, fromScenario: from.scenario, toAsOf: to.asOf, toScenario: to.scenario })}`,
+    ),
   history: (ws: string, id: string) => request<DomainEvent[]>('GET', `/v1/workspaces/${ws}/elements/${id}/history`),
 
   createElement: (ws: string, body: { type: string; attrs: Record<string, unknown>; validFrom?: string | null; validTo?: string | null }) =>
@@ -130,7 +143,15 @@ export const api = {
 
   createRelationship: (
     ws: string,
-    body: { type: string; fromId: string; toId: string; attrs?: Record<string, unknown>; validFrom?: string | null; validTo?: string | null },
+    body: {
+      type: string;
+      fromId: string;
+      toId: string;
+      attrs?: Record<string, unknown>;
+      validFrom?: string | null;
+      validTo?: string | null;
+      scenarioId?: string | null;
+    },
   ) => request<Relationship>('POST', `/v1/workspaces/${ws}/relationships`, body),
   deleteRelationship: (ws: string, id: string, expectedVersion: number) =>
     request<void>('DELETE', `/v1/workspaces/${ws}/relationships/${id}${qs({ expectedVersion })}`),

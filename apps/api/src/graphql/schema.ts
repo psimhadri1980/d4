@@ -22,11 +22,14 @@ export const typeDefs = /* GraphQL */ `
     name: String!
     description: String
     metamodel: Metamodel!
-    elements(filter: ElementFilter, first: Int, after: String): ElementConnection!
+    "asOf: only items valid on that date. scenario: the baseline plus that Scenario element's items."
+    elements(filter: ElementFilter, first: Int, after: String, asOf: String, scenario: ID): ElementConnection!
     element(id: ID!): Element
     relationship(id: ID!): Relationship
     "Scheduled roadmap for deliverables in scope (see REST /roadmap). lanes: initiative | division | status | type | milestone | none."
     roadmap(scope: [ID!]!, lanes: String, today: String): Roadmap!
+    "Differences between two views (dates and/or scenarios)."
+    diff(from: ViewInput, to: ViewInput): ModelDiff!
   }
 
   type Roadmap {
@@ -62,6 +65,35 @@ export const typeDefs = /* GraphQL */ `
     itemIds: [ID!]!
     message: String!
     days: Int
+  }
+
+  input ViewInput {
+    asOf: String
+    scenario: ID
+  }
+
+  type ModelDiff {
+    elements: ElementDiff!
+    relationships: RelationshipDiff!
+    "Element id → name for the ends of every relationship listed."
+    names: JSON!
+  }
+
+  type ElementDiff {
+    added: [Element!]!
+    removed: [Element!]!
+  }
+
+  type RelationshipDiff {
+    added: [Relationship!]!
+    removed: [Relationship!]!
+    changed: [RelationshipChange!]!
+  }
+
+  type RelationshipChange {
+    before: Relationship!
+    after: Relationship!
+    fields: JSON!
   }
 
   type RoadmapDependency {
@@ -163,8 +195,8 @@ export const typeDefs = /* GraphQL */ `
     createdBy: String!
     updatedAt: String!
     updatedBy: String!
-    connections(direction: Direction = BOTH, types: [String!]): [Connection!]!
-    neighbourhood(depth: Int = 1, types: [String!], limit: Int = 500): Subgraph!
+    connections(direction: Direction = BOTH, types: [String!], asOf: String, scenario: ID): [Connection!]!
+    neighbourhood(depth: Int = 1, types: [String!], limit: Int = 500, asOf: String, scenario: ID): Subgraph!
     history: [Event!]!
   }
 

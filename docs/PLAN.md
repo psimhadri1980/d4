@@ -62,6 +62,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D30 | 2026-10-19 | Web UI follows IBM Carbon principles (productive type scale, 8 px grid, layered greys, dark UI shell, field-style inputs, contained tabs, categorical layer palette) with light (White/G10) and dark (G100) themes plus a System/Light/Dark picker; **Source Sans 3** (OFL) stands in for the licensed UBS brand font, IBM Plex Mono for code | Consistent, accessible look; the brand font can be dropped in later via `--font-sans` without other changes |
 | D31 | 2026-10-18 | Roadmap engine is dependency-free in `@d4/core`: whole-day dates, deliverables inclusive `[start, end]`, milestones as points; planned dates are "not earlier than" constraints and dependency pushes are reported as conflicts, never written back | Pure, testable in Node and the browser; the plan stays the user's, the engine only explains it |
 | D32 | 2026-10-19 | Optional local Node for the web app: Vite on the host (:5173) against API/Keycloak in Docker, with `web-local`, `web-check`, `e2e-local`; `web-deploy` puts committed changes back into the container. Docker stays the source of truth for CI and other packages | Web iterations in seconds instead of image rebuilds; the dev build also catches StrictMode-only bugs |
+| D33 | 2026-10-19 | Model views: reads default to the baseline (items without `scenarioId`) and ignore validity; `asOf` keeps items valid on that date (half-open periods); a scenario view is the baseline plus that scenario, where a scenario relationship of a type between two elements replaces the baseline's relationships of that type between them. Elements are additive. Diffs match by id and pair replaced relationships as changes | Lets a scenario re-date a hand-over without touching the baseline; one rule implemented twice (`applyView` in `@d4/core`, `inView`/`relInView` in Cypher) and tested for agreement |
 
 ## Status
 
@@ -137,6 +138,12 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - Roadmap page in the web app (`/w/:ws/roadmap?scope=…&lanes=…&zoom=…`): scope picker (initiatives, divisions, element search), SVG Gantt with lanes, week/month/quarter zoom, today line, dependency arrows, critical path, planned-vs-earliest outlines, conflict list, item details (dates, slack, dependencies, changes) and CSV/Mermaid export
   - roadmap responses now include the dependencies between items
   - 3 web unit tests (exports, Gantt geometry) and 2 browser tests
+- **3d done:**
+  - `ModelView` (`asOf`, `scenarioId`) with `visibleIn`, `applyView` and `diffModels` in `@d4/core`; the same rule in Cypher (`inView`, `relInView`) on element lists, connections, neighbourhoods and snapshots
+  - REST: `asOf` and `scenario` on element list, relationships and neighbourhood; `GET /v1/workspaces/{ws}/diff`; GraphQL arguments and `Workspace.diff`; unknown scenarios → 404, non-Scenario ids → 400
+  - web: Explorer "As of" and "Scenario" pickers (kept per tab), a notice while not on today's baseline, scenario badges, new relationships go into the selected scenario, dashed edges relative to the view date; Compare page with swap and shareable URL
+  - 4 core, 1 Neo4j, 2 API and 4 browser tests
+  - follow-up: deleting a Scenario should remove its items
 
 ---
 

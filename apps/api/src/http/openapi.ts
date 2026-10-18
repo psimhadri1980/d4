@@ -18,6 +18,8 @@ import {
   z,
   RoadmapQuery,
   RoadmapSchema,
+  DiffQuery,
+  DiffSchema,
 } from './schemas';
 
 const json = (schema: z.ZodTypeAny, description: string) => ({
@@ -133,6 +135,16 @@ export function buildOpenApiDocument(): OpenApiDocument {
       'Deliverables and milestones in scope (contained, owned or changing the scope elements, plus their prerequisites), scheduled with slack, critical path, lanes and conflicts.',
     request: { params: z.object({ ws }), query: RoadmapQuery },
     responses: { 200: json(RoadmapSchema, 'Scheduled roadmap'), ...errors },
+  });
+
+  route({
+    method: 'get',
+    path: '/v1/workspaces/{ws}/diff',
+    tags: ['Time and scenarios'],
+    description:
+      'Differences between two views of the workspace (dates and/or scenarios): elements added and removed, relationships added, removed and replaced (same type between the same two elements).',
+    request: { params: z.object({ ws }), query: DiffQuery },
+    responses: { 200: json(DiffSchema, 'Differences, from → to'), ...errors },
   });
 
   // Relationships

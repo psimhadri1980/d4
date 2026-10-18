@@ -12,3 +12,4 @@ export * from './rules';
 export * from './types';
 export * from './validate-model';
 export * from './validity';
+export * from './views';

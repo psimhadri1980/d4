@@ -337,6 +337,72 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(empty.body).toMatchObject({ items: [], conflicts: [], start: null });
     });
 
+    it('reads the model as of a date and compares two dates', async () => {
+      const token = await sign('planner-2', ['viewer']);
+      const client = sampleIds['dp-client'];
+      const holders = async (asOf: string) =>
+        (await call('GET', `${ws()}/elements/${client}/relationships?direction=IN&type=HOLDS&asOf=${asOf}`, token)).body!
+          .map((c: any) => `${c.other.attrs.name}:${c.relationship.attrs.role}`)
+          .sort();
+      const undated = ['Group Data Lake:APPROVED_DISTRIBUTOR', 'Wealth CRM Store:CONSUMER_CACHE'];
+      expect(await holders('2027-01-01')).toEqual(['Client MDM Hub:GOLDEN_COPY', ...undated, 'Legacy Client Database:MASTER'].sort());
+      expect(await holders('2027-08-01')).toEqual(['Client MDM Hub:MASTER', ...undated, 'Legacy Client Database:REPLICA'].sort());
+
+      const diff = await call('GET', `${ws()}/diff?fromAsOf=2027-01-01&toAsOf=2027-08-01`, token);
+      expect(diff.status).toBe(200);
+      const changed = diff.body!['relationships'].changed.map(
+        (c: any) => `${diff.body!['names'][c.before.fromId]}:${c.before.attrs.role}→${c.after.attrs.role}`,
+      );
+      expect(changed.sort()).toEqual(['Client MDM Hub:GOLDEN_COPY→MASTER', 'Legacy Client Database:MASTER→REPLICA']);
+
+      expect((await call('GET', `${ws()}/diff?fromAsOf=2027-01-01&toAsOf=2027-01-01`, token)).status).toBe(400);
+      expect((await call('GET', `${ws()}/diff?toScenario=nope`, token)).status).toBe(404);
+      const notScenario = await call('GET', `${ws()}/diff?toScenario=${client}`, token);
+      expect(notScenario.body).toMatchObject({ error: 'VALIDATION', message: expect.stringContaining('not a Scenario') });
+    });
+
+    it('overlays a scenario that brings the hand-over forward', async () => {
+      const architect = await sign('planner-3', ['architect']);
+      const viewer = await sign('planner-4', ['viewer']);
+      const scenario = await call('POST', `${ws()}/elements`, architect, { type: 'Scenario', attrs: { name: 'Early cut-over' } });
+      const sid = scenario.body!['id'];
+      const holds = (from: string, role: string, p: object) =>
+        call('POST', `${ws()}/relationships`, architect, {
+          type: 'HOLDS', fromId: sampleIds[from], toId: sampleIds['dp-client'], attrs: { role }, scenarioId: sid, ...p,
+        });
+      expect((await holds('ds-legacy-client', 'MASTER', { validTo: '2027-04-01' })).status).toBe(201);
+      expect((await holds('ds-mdm', 'MASTER', { validFrom: '2027-04-01' })).status).toBe(201);
+
+      const master = async (q: string) =>
+        (await call('GET', `${ws()}/elements/${sampleIds['dp-client']}/relationships?direction=IN&type=HOLDS&${q}`, viewer)).body!
+          .filter((c: any) => c.relationship.attrs.role === 'MASTER')
+          .map((c: any) => c.other.attrs.name);
+      expect(await master('asOf=2027-05-01')).toEqual(['Legacy Client Database']);
+      expect(await master(`asOf=2027-05-01&scenario=${sid}`)).toEqual(['Client MDM Hub']);
+
+      const res = await gql(
+        viewer,
+        `query ($ws: ID!, $s: ID!) {
+           workspace(id: $ws) {
+             diff(from: { asOf: "2027-05-01" }, to: { asOf: "2027-05-01", scenario: $s }) {
+               names
+               relationships { added { fromId attrs } removed { fromId attrs } changed { fields } }
+             }
+           }
+         }`,
+        { ws: workspaceId, s: sid },
+      );
+      expect(res.body!['errors']).toBeUndefined();
+      const d = res.body!['data'].workspace.diff;
+      const rows = (list: any[]) => list.map((r) => `${d.names[r.fromId]}:${r.attrs.role}`).sort();
+      // Legacy's master has already ended in the scenario; MDM's GOLDEN_COPY becomes MASTER.
+      expect(rows(d.relationships.added)).toEqual([]);
+      expect(rows(d.relationships.removed)).toEqual(['Legacy Client Database:MASTER']);
+      expect(d.relationships.changed.map((c: any) => c.fields.find((f: any) => f.field === 'role'))).toEqual([
+        { field: 'role', before: 'GOLDEN_COPY', after: 'MASTER' },
+      ]);
+    });
+
     it('exports a document that re-imports unchanged', async () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);

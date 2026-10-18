@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { api, type Connection } from '../api';
+import { useView, viewQuery } from '../view';
 import { elementName, layerOf, layerVar } from '../model';
 import { ErrorBanner } from './ErrorBanner';
 import { RelationshipForm } from './RelationshipForm';
@@ -22,7 +23,9 @@ export function ElementDetails({ registry, workspaceId: ws, elementId: id }: Pro
   const [error, setError] = useState<unknown>(null);
 
   const element = useQuery({ queryKey: ['element', ws, id], queryFn: () => api.element(ws, id) });
-  const connections = useQuery({ queryKey: ['connections', ws, id], queryFn: () => api.connections(ws, id) });
+  const { view } = useView();
+  const vq = viewQuery(view);
+  const connections = useQuery({ queryKey: ['connections', ws, id, vq], queryFn: () => api.connections(ws, id, vq) });
   const history = useQuery({ queryKey: ['history', ws, id], queryFn: () => api.history(ws, id) });
 
   const refresh = () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[1] === ws });
@@ -139,6 +142,11 @@ export function ElementDetails({ registry, workspaceId: ws, elementId: id }: Pro
                     <span className="muted small">
                       {' '}
                       ({c.relationship.validFrom ?? '…'} → {c.relationship.validTo ?? '…'})
+                    </span>
+                  )}
+                  {c.relationship.scenarioId && (
+                    <span className="badge scenario" title="Belongs to the selected scenario">
+                      scenario
                     </span>
                   )}
                   <button className="link danger" title="Remove relationship" onClick={() => void unlink(c)}>

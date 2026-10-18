@@ -59,7 +59,16 @@ export const UpdateBody = z
 
 export const DeleteQuery = z.object({ expectedVersion: z.coerce.number().int().positive() });
 
+/** Which state of the model to read (see ModelView): a date and/or a scenario. */
+const View = {
+  asOf: IsoDate.optional().openapi({ description: 'Only items valid on this date' }),
+  scenario: z.string().optional().openapi({ description: 'Scenario element id: the baseline plus this scenario' }),
+};
+
+export const ViewArgsSchema = z.object(View);
+
 export const ListElementsQuery = z.object({
+  ...View,
   type: csv.openapi({ description: 'Element types (supertypes include subtypes)' }),
   layer: z.string().optional(),
   lifecycle: csv,
@@ -69,15 +78,29 @@ export const ListElementsQuery = z.object({
 });
 
 export const ConnectionsQuery = z.object({
+  ...View,
   direction: z.enum(['OUT', 'IN', 'BOTH']).optional(),
   type: csv,
 });
 
 export const NeighbourhoodQuery = z.object({
+  ...View,
   depth: z.coerce.number().int().min(1).max(3).optional(),
   type: csv,
   limit: z.coerce.number().int().min(1).max(2000).optional(),
 });
+
+export const DiffQuery = z
+  .object({
+    fromAsOf: IsoDate.optional(),
+    fromScenario: z.string().optional(),
+    toAsOf: IsoDate.optional(),
+    toScenario: z.string().optional(),
+  })
+  .refine((q) => q.fromAsOf !== q.toAsOf || q.fromScenario !== q.toScenario, {
+    message: 'from and to must differ in date or scenario',
+  })
+  .openapi({ description: 'Each side is a view: a date (default: ignore validity) and/or a scenario (default: baseline)' });
 
 export const RoadmapQuery = z.object({
   scope: z
@@ -188,6 +211,19 @@ export const RoadmapSchema = z
     end: IsoDate.nullable(),
   })
   .openapi('Roadmap');
+
+const Changed = z.object({
+  before: RelationshipSchema,
+  after: RelationshipSchema,
+  fields: z.array(z.object({ field: z.string(), before: z.unknown(), after: z.unknown() })),
+});
+export const DiffSchema = z
+  .object({
+    elements: z.object({ added: z.array(ElementSchema), removed: z.array(ElementSchema) }),
+    relationships: z.object({ added: z.array(RelationshipSchema), removed: z.array(RelationshipSchema), changed: z.array(Changed) }),
+    names: z.record(z.string()).openapi({ description: 'Element id → name for every element the relationships mention' }),
+  })
+  .openapi('ModelDiff');
 
 export const ErrorSchema = z
   .object({

@@ -69,6 +69,8 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
   - **Studio** (query-author): create queries and open Edit tabs: Cypher and parameters, check results on save, test-run the saved draft, submit for review, delete a never-published query.
   - **Stewardship** (query-steward): the review queue (count = waiting for review) plus "Manage any query". A Review tab shows submitted vs published Cypher, publish or send back, test run, grants, certification, version lifecycle, archive and recent runs.
   - The old `/catalog`, `/studio` and `/stewardship` links still work and open the matching tab.
+- **As of / Scenario** (Explorer toolbar): view the model on a date, or a scenario on top of the baseline. Applies to the list, graph and details until reset; a notice shows while active. With a scenario selected, new relationships are added to that scenario.
+- **Compare**: two views side by side (dates and/or scenarios): elements added and removed, relationships added, removed and changed (e.g. a store going from MASTER to REPLICA). The URL holds both sides, so a comparison can be shared.
 - **Roadmap** (everyone): pick a scope (initiatives, divisions, or search for any element that deliverables change) and see a Gantt chart with lanes (by initiative, division, status, type or milestone), week/month/quarter zoom, dependency arrows, the critical path in red, and dashed outlines where the plan is earlier than its dependencies allow. Conflicts are listed below the chart; picking one, or a bar, shows planned vs earliest dates, slack, dependencies and the elements it changes. Export as CSV or Mermaid. Scope, lanes and zoom are kept in the URL.
 
 ### Look and feel
@@ -79,13 +81,14 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 42 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs 46 Playwright tests in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
 - relationships: allowed types only, add with role and validity, remove, rule violation
 - a read-only viewer being refused
 - graph readability: for each layout and depth, no overlapping nodes, minimum node spacing, at most 2% of label pairs colliding, and the graph spread across the canvas
+- time and scenarios: as-of views, a scenario overlay, Compare between dates and against a scenario
 - the Roadmap Studio: scope, lanes, zoom, conflicts, item details, reload and Mermaid export
 - the Query Catalog end to end: viewer runs a system query; author drafts (checks shown), fixes and submits; steward publishes and grants; viewer runs the new query; steward deprecates and retires it
 
@@ -97,7 +100,7 @@ The stack needs about 3.3 GB, and the browser tests add about 1 GB. On a 4 GB Do
 
 | Interface | Where | Use |
 |---|---|---|
-| REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap |
+| REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap; `asOf` and `scenario` on reads; `GET /v1/workspaces/{ws}/diff?fromAsOf=&fromScenario=&toAsOf=&toScenario=` |
 | GraphQL | `POST /graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
 
 All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/dev.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).

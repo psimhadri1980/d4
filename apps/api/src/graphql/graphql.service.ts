@@ -7,7 +7,9 @@ import type { AttributeDef, MetamodelRegistry } from '@d4/metamodel';
 import { AuthService } from '../auth/auth.service';
 import type { Principal } from '../auth/identity';
 import { parse, toErrorResponse } from '../http/errors';
-import { RoadmapQuery } from '../http/schemas';
+import { DiffQuery, RoadmapQuery, ViewArgsSchema } from '../http/schemas';
+import { diffFor } from '../model/diff.controller';
+import { resolveView } from '../model/view';
 import { roadmapFor } from '../model/roadmap.controller';
 import { Database } from '../infra/database.service';
 import { ModelFactory, type ModelHandles } from '../model/model.factory';
@@ -32,6 +34,12 @@ interface WorkspaceRow {
 }
 
 type Args = Record<string, unknown>;
+interface ViewArgs {
+  asOf?: string | null;
+  scenario?: string | null;
+}
+/** Validates GraphQL view arguments with the same rules as REST query strings. */
+const viewArgs = (a: ViewArgs) => parse(ViewArgsSchema, { asOf: a.asOf ?? undefined, scenario: a.scenario ?? undefined });
 type Direction = 'OUT' | 'IN' | 'BOTH';
 
 const JSONScalar = new GraphQLScalarType({
@@ -130,20 +138,35 @@ export class GraphqlService {
             filter?: { types?: string[]; layer?: string; lifecycle?: string[]; search?: string };
             first?: number;
             after?: string;
+            asOf?: string;
+            scenario?: string;
           },
           ctx: Ctx,
         ) => {
           const s = await this.scope(ctx, ws.id);
-          const page = await s.queries.listElements(ws.id, args.filter ?? {}, {
-            first: args.first,
-            after: args.after,
-          });
+          const view = await resolveView(s.queries, s.registry, ws.id, viewArgs(args));
+          const page = await s.queries.listElements(
+            ws.id,
+            args.filter ?? {},
+            { first: args.first, after: args.after },
+            view,
+          );
           return { nodes: page.items, pageInfo: { endCursor: page.endCursor, hasNextPage: page.hasMore } };
         },
         element: async (ws: WorkspaceRow, args: { id: string }, ctx: Ctx) =>
           (await (await this.scope(ctx, ws.id)).queries.getElement(ws.id, args.id)) ?? null,
         relationship: async (ws: WorkspaceRow, args: { id: string }, ctx: Ctx) =>
           (await (await this.scope(ctx, ws.id)).queries.getRelationship(ws.id, args.id)) ?? null,
+        diff: async (ws: WorkspaceRow, args: { from?: ViewArgs; to?: ViewArgs }, ctx: Ctx) => {
+          const s = await this.scope(ctx, ws.id);
+          const q = parse(DiffQuery, {
+            fromAsOf: args.from?.asOf ?? undefined,
+            fromScenario: args.from?.scenario ?? undefined,
+            toAsOf: args.to?.asOf ?? undefined,
+            toScenario: args.to?.scenario ?? undefined,
+          });
+          return diffFor(s.queries, s.registry, ws.id, q);
+        },
         roadmap: async (ws: WorkspaceRow, args: { scope: string[]; lanes?: string; today?: string }, ctx: Ctx) => {
           const q = parse(RoadmapQuery, { scope: args.scope.join(','), lanes: args.lanes ?? undefined, today: args.today ?? undefined });
           return roadmapFor(await this.scope(ctx, ws.id), ws.id, q.scope, { lanes: q.lanes, today: q.today });
@@ -153,22 +176,21 @@ export class GraphqlService {
       Element: {
         name: (e: Element) => e.attrs['name'] ?? null,
         lifecycle: (e: Element) => e.attrs['lifecycle'] ?? null,
-        connections: async (e: Element, args: { direction: Direction; types?: string[] }, ctx: Ctx) => {
+        connections: async (e: Element, args: { direction: Direction; types?: string[] } & ViewArgs, ctx: Ctx) => {
           const s = await this.scope(ctx, e.workspaceId);
-          const list = await s.queries.connections(e.workspaceId, e.id, {
-            direction: args.direction,
-            types: args.types,
-          });
+          const view = await resolveView(s.queries, s.registry, e.workspaceId, viewArgs(args));
+          const list = await s.queries.connections(e.workspaceId, e.id, { direction: args.direction, types: args.types }, view);
           return list.map((c) => ({ ...c, direction: relDirection(c.relationship, e.id) }));
         },
         neighbourhood: async (
           e: Element,
-          args: { depth: number; types?: string[]; limit: number },
+          args: { depth: number; types?: string[]; limit: number } & ViewArgs,
           ctx: Ctx,
         ) => {
           const s = await this.scope(ctx, e.workspaceId);
+          const view = await resolveView(s.queries, s.registry, e.workspaceId, viewArgs(args));
           return (
-            (await s.queries.neighbourhood(e.workspaceId, e.id, args)) ?? {
+            (await s.queries.neighbourhood(e.workspaceId, e.id, { depth: args.depth, types: args.types, limit: args.limit, view })) ?? {
               root: e,
               elements: [],
               relationships: [],

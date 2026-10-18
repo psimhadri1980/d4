@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'reac
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { applyTheme, storedTheme, type ThemeChoice } from '../theme';
+import { ViewProvider } from '../view';
 
 export function Layout() {
   const { ws } = useParams();
@@ -14,7 +15,7 @@ export function Layout() {
   const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
   // Explorer covers the workspace home, element pages and the element editor.
   const path = useLocation().pathname;
-  const inExplorer = !path.startsWith(`/w/${ws}/queries`) && !path.startsWith(`/w/${ws}/roadmap`);
+  const inExplorer = !['queries', 'roadmap', 'compare'].some((p) => path.startsWith(`/w/${ws}/${p}`));
 
   return (
     <div className="app">
@@ -40,6 +41,7 @@ export function Layout() {
           </Link>
           <NavLink to={`/w/${ws}/queries`}>Queries</NavLink>
           <NavLink to={`/w/${ws}/roadmap`}>Roadmap</NavLink>
+          <NavLink to={`/w/${ws}/compare`}>Compare</NavLink>
         </nav>
         <div className="spacer" />
         <Link to={`/w/${ws}/new`} className="button primary">
@@ -70,7 +72,9 @@ export function Layout() {
         </button>
       </header>
       <main className="content">
-        <Outlet />
+        <ViewProvider workspaceId={ws!}>
+          <Outlet />
+        </ViewProvider>
       </main>
     </div>
   );

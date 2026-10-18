@@ -7,6 +7,8 @@ import { ElementList } from '../components/ElementList';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { GraphCanvas, type GraphLayout } from '../components/GraphCanvas';
 import { useRegistry } from '../model';
+import { useView, viewQuery } from '../view';
+import { ViewBar, ViewNotice } from '../components/ViewBar';
 
 /**
  * Three panes: find elements (left), see them in context (graph), inspect and change (right).
@@ -25,14 +27,16 @@ export function Explorer() {
     relationships: [],
   });
 
+  const { view: modelView } = useView();
+  const vq = viewQuery(modelView);
   const hood = useQuery({
-    queryKey: ['neighbourhood', ws, id, depth],
+    queryKey: ['neighbourhood', ws, id, depth, vq],
     enabled: !!ws && !!id,
-    queryFn: () => api.neighbourhood(ws!, id!, depth),
+    queryFn: () => api.neighbourhood(ws!, id!, depth, vq),
   });
 
-  // A new focus element starts a fresh view.
-  useEffect(() => setExtra({ elements: [], relationships: [] }), [id, ws]);
+  // A new focus element or model view starts a fresh graph.
+  useEffect(() => setExtra({ elements: [], relationships: [] }), [id, ws, modelView.asOf, modelView.scenario]);
 
   const view = useMemo(() => {
     const elements = new Map<string, Element>();
@@ -48,7 +52,7 @@ export function Explorer() {
   }, [hood.data, extra]);
 
   const expand = async (nodeId: string) => {
-    const sub = await api.neighbourhood(ws!, nodeId, 1);
+    const sub = await api.neighbourhood(ws!, nodeId, 1, vq);
     setExtra((x) => ({
       elements: [...x.elements, sub.root, ...sub.elements],
       relationships: [...x.relationships, ...sub.relationships],
@@ -94,6 +98,10 @@ export function Explorer() {
           </button>
           <span className="muted small">Double-click a node to expand it</span>
         </div>
+        <div className="toolbar secondary">
+          <ViewBar workspaceId={ws!} />
+        </div>
+        <ViewNotice workspaceId={ws!} />
         {hood.error && <ErrorBanner error={hood.error} />}
         {id ? (
           <GraphCanvas
@@ -105,6 +113,7 @@ export function Explorer() {
             onExpand={(nodeId) => void expand(nodeId)}
             layout={layout}
             fitSignal={fit}
+            asOf={modelView.asOf}
           />
         ) : (
           <div className="empty">

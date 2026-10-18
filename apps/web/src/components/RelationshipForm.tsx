@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { api, type Element } from '../api';
 import { attrsFromForm, elementName, relationshipOptions, type FormValues } from '../model';
+import { useView } from '../view';
 import { AttributeField } from './AttributeField';
 import { ErrorBanner } from './ErrorBanner';
 
@@ -25,6 +26,7 @@ export function RelationshipForm({ registry, workspaceId: ws, element, onDone }:
   const [validTo, setValidTo] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const { view } = useView();
 
   const option = options[choice];
   const relDef = option ? registry.relationshipType(option.type) : undefined;
@@ -39,9 +41,10 @@ export function RelationshipForm({ registry, workspaceId: ws, element, onDone }:
   }, [choice]);
 
   const candidates = useQuery({
-    queryKey: ['candidates', ws, option?.type, option?.direction, q],
+    queryKey: ['candidates', ws, option?.type, option?.direction, q, view.scenario],
     enabled: !!option,
-    queryFn: () => api.listElements(ws, { type: option!.partnerTypes, q: q || undefined, first: 30 }),
+    // Scenario elements can be connected while that scenario is selected; dates are not filtered.
+    queryFn: () => api.listElements(ws, { type: option!.partnerTypes, q: q || undefined, first: 30 }, { scenario: view.scenario || undefined }),
   });
 
   if (!options.length) return <div className="muted small">The metamodel allows no relationships for {element.type}.</div>;
@@ -58,6 +61,8 @@ export function RelationshipForm({ registry, workspaceId: ws, element, onDone }:
         toId: option.direction === 'OUT' ? targetId : element.id,
         attrs: attrsFromForm(relDef?.attributes ?? [], values),
         validFrom: validFrom || null,
+        // With a scenario selected in the Explorer, new relationships belong to that scenario.
+        scenarioId: view.scenario || null,
         validTo: validTo || null,
       });
       await onDone();
@@ -70,6 +75,7 @@ export function RelationshipForm({ registry, workspaceId: ws, element, onDone }:
 
   return (
     <form className="rel-form" onSubmit={(e) => void submit(e)}>
+      {view.scenario && <p className="view-notice small">This relationship will be added to the selected scenario, not the baseline.</p>}
       <div className="field">
         <label htmlFor="rel-type">Relationship</label>
         <select id="rel-type" value={choice} onChange={(e) => setChoice(Number(e.target.value))}>
