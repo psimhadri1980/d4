@@ -38,7 +38,8 @@ case "${1:-help}" in
     [[ -d ../node_modules ]] || pn install --frozen-lockfile
     pn turbo run build --filter '@d4/web^...'
     # D4_API_URL=http://localhost:3100 points the web app at api-local instead of the container.
-    VITE_API_URL="${D4_API_URL:-http://localhost:3000}" pn --filter @d4/web exec vite --host 127.0.0.1 --port 5173 --strictPort ;;
+    # --force: re-bundle @d4/core and @d4/metamodel, which Vite caches; restart after changing packages/*.
+    VITE_API_URL="${D4_API_URL:-http://localhost:3000}" pn --filter @d4/web exec vite --host 127.0.0.1 --port 5173 --strictPort --force ;;
   # API on local Node with reload, on :3100 next to the container (which keeps :3000), using the
   # data stores and Keycloak in Docker. Pair with: D4_API_URL=http://localhost:3100 deploy/dev.sh web-local
   api-local)
