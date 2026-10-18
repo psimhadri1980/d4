@@ -25,6 +25,13 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 /** Holds the signed-in user; redirects to Keycloak when there is none (except on /callback). */
+/**
+ * The sign-in code in the callback URL can be redeemed only once, but React StrictMode (dev)
+ * runs effects twice. Share one redemption per page load.
+ */
+let callback: Promise<User> | null = null;
+const redeemCallback = () => (callback ??= userManager.signinRedirectCallback());
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
@@ -39,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       if (window.location.pathname === '/callback') {
-        const u = await userManager.signinRedirectCallback();
+        const u = await redeemCallback();
         // The router navigates there (history.replaceState alone would not update it).
         if (!cancelled) {
           setReturnTo(typeof u.state === 'string' && u.state.startsWith('/') && u.state !== '/callback' ? u.state : '/');
