@@ -30,6 +30,23 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
   });
   afterAll(() => h?.close());
 
+  it('documents the catalog endpoints in OpenAPI', async () => {
+    const paths = Object.keys((await h.call('GET', '/v1/openapi.json')).body.paths);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        '/v1/catalog',
+        '/v1/catalog/{id}',
+        '/v1/catalog/{id}/draft',
+        '/v1/catalog/{id}/submit',
+        '/v1/catalog/{id}/review',
+        '/v1/catalog/{id}/versions/{version}/status',
+        '/v1/catalog/{id}/grants',
+        '/v1/catalog/{id}/executions',
+        '/v1/workspaces/{ws}/catalog/{id}/run',
+      ]),
+    );
+  });
+
   describe('system pack and discovery', () => {
     it('installs the system pack as certified, published entries', async () => {
       const list = (await h.call('GET', '/v1/catalog', steward)).body;
