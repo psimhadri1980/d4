@@ -37,6 +37,7 @@ services:
       - neo4j-data:/data
       - neo4j-plugins:/plugins
     mem_limit: 1800m
+    cpus: 2.0
     healthcheck:
       test: ['CMD-SHELL', 'cypher-shell -u neo4j -p d4-local-dev "RETURN 1" >/dev/null 2>&1']
       interval: 10s
@@ -103,6 +104,7 @@ services:
     volumes:
       - ./keycloak/d4-realm.json:/opt/keycloak/data/import/d4-realm.json:ro
     mem_limit: 768m
+    cpus: 1.5
     healthcheck:
       test: ['CMD-SHELL', 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /health/ready HTTP/1.0\r\n\r\n" >&3 && grep -q UP <&3']
       interval: 10s
@@ -157,6 +159,7 @@ services:
       redis: { condition: service_healthy }
       s3-init: { condition: service_completed_successfully }
     mem_limit: 384m
+    cpus: 1.0
 
   web:
     build: { context: .., dockerfile: Dockerfile, target: web }
@@ -216,6 +219,7 @@ services:
     # Capped, with at most two suites at a time, so tests don't starve Neo4j on a 4 GB Docker VM.
     command: ['pnpm', 'turbo', 'run', 'test', '--concurrency=2']
     mem_limit: 1536m
+    cpus: 2.0
     depends_on:
       postgres: { condition: service_healthy }
       neo4j: { condition: service_healthy }
