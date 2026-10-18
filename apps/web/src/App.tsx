@@ -11,13 +11,13 @@ import { QueryStudio } from './pages/QueryStudio';
 import { Stewardship } from './pages/Stewardship';
 
 export function App() {
-  const { user, ready } = useAuth();
+  const { user, ready, returnTo } = useAuth();
   if (!ready || !user) return <div className="splash">Signing in…</div>;
 
   return (
     <Routes>
       <Route path="/" element={<FirstWorkspace />} />
-      <Route path="/callback" element={<FirstWorkspace />} />
+      <Route path="/callback" element={returnTo && returnTo !== '/' ? <Navigate to={returnTo} replace /> : <FirstWorkspace />} />
       <Route path="/w/:ws" element={<Layout />}>
         <Route index element={<Explorer />} />
         <Route path="e/:id" element={<Explorer />} />

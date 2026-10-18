@@ -19,6 +19,21 @@ test.describe('sign-in', () => {
       await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
     });
 
+    test('returns to the deep link after signing in', async ({ page }) => {
+      await page.goto('/');
+      await page.getByLabel('Username or email').fill('dev-viewer');
+      await page.getByLabel('Password', { exact: true }).fill('d4-local-dev');
+      await page.getByRole('button', { name: 'Sign In' }).click();
+      await expect(page).toHaveURL(/\/w\/[0-9A-Z]{26}$/);
+      const ws = /\/w\/([0-9A-Z]{26})/.exec(page.url())![1];
+
+      // Fresh session, then open a deep link: Keycloak SSO signs in and we land on that page.
+      await page.evaluate(() => (globalThis as unknown as { sessionStorage: { clear(): void } }).sessionStorage.clear());
+      await page.goto(`/w/${ws}/catalog`);
+      await expect(page).toHaveURL(new RegExp(`/w/${ws}/catalog$`));
+      await expect(page.getByRole('heading', { name: 'Query catalog' })).toBeVisible();
+    });
+
     test('viewer can sign in and sign out', async ({ page }) => {
       await signIn(page, 'viewer');
       await expect(page.getByText('viewer', { exact: true })).toBeVisible();

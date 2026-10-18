@@ -61,12 +61,21 @@ test.describe('query catalog', () => {
     await expect(page.locator('.results table')).toContainText('Client Master');
   });
 
-  test('viewer gets a clear error for a missing required parameter', async ({ page }) => {
+  test('element picker never looks selected when it is not, and asks for missing values', async ({ page }) => {
     await signIn(page, 'viewer');
     await go(page, '/catalog');
     await page.getByRole('link', { name: /Impact of retiring/ }).click();
+    // The list shows an explicit "none selected" entry, so nothing looks chosen when nothing is.
+    await expect(page.locator('#param-element')).toHaveValue('');
     await page.getByRole('button', { name: 'Run' }).click();
-    await expect(page.getByRole('alert')).toContainText("parameter 'element' is required");
+    await expect(page.getByRole('alert')).toContainText('Please fill in: Element to retire');
+
+    // Selecting an element then runs normally and the choice is confirmed.
+    await page.getByLabel(/Search Platform/).fill('Mainframe');
+    await page.locator('#param-element').selectOption({ label: 'Mainframe — Platform' });
+    await expect(page.getByText('Selected: Mainframe — Platform')).toBeVisible();
+    await page.getByRole('button', { name: 'Run' }).click();
+    await expect(page.locator('.results table')).toContainText('Core Banking System');
   });
 
   test('author drafts, sees check results, fixes and submits', async ({ page }) => {

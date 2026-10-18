@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, can, catalogApi, type CatalogEntry } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { ParamForm, paramsFromForm, type ParamValues } from '../components/ParamForm';
+import { missingRequired, ParamForm, paramLabel, paramsFromForm, type ParamValues } from '../components/ParamForm';
 import { QueryResultView } from '../components/QueryResultView';
 
 /** Browse and run the queries you are allowed to run. */
@@ -77,6 +77,7 @@ function RunPanel({ workspaceId, queryId, entry }: { workspaceId: string; queryI
   const detail = useQuery({ queryKey: ['catalog-detail', queryId], queryFn: () => catalogApi.detail(queryId) });
   const [values, setValues] = useState<ParamValues>({});
   const [showCypher, setShowCypher] = useState(false);
+  const [missing, setMissing] = useState<string[]>([]);
 
   const published = detail.data?.versions.find((v) => v.status === 'published');
   const run = useMutation({
@@ -104,7 +105,9 @@ function RunPanel({ workspaceId, queryId, entry }: { workspaceId: string; queryI
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              run.mutate();
+              const gaps = missingRequired(published.params, values).map(paramLabel);
+              setMissing(gaps);
+              if (!gaps.length) run.mutate();
             }}
           >
             <ParamForm workspaceId={workspaceId} defs={published.params} values={values} onChange={setValues} />
@@ -117,6 +120,11 @@ function RunPanel({ workspaceId, queryId, entry }: { workspaceId: string; queryI
               </button>
               <span className="muted small">v{published.version}</span>
             </div>
+            {missing.length > 0 && (
+              <div className="error-banner" role="alert">
+                Please fill in: {missing.join(', ')}
+              </div>
+            )}
             {showCypher && <pre className="cypher">{published.cypher}</pre>}
           </form>
         )}

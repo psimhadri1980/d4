@@ -81,7 +81,19 @@ export function ParamForm({
   );
 }
 
-/** Search-as-you-type element picker limited to the parameter's element types. */
+/** Required parameters that have no value yet (checked before running). */
+export function missingRequired(defs: QueryParamDef[], values: ParamValues): QueryParamDef[] {
+  const filled = paramsFromForm(defs, values);
+  return defs.filter((d) => d.required && d.default === undefined && filled[d.name] === undefined);
+}
+
+export const paramLabel = label;
+
+/**
+ * Search-as-you-type element picker limited to the parameter's element types. The list always
+ * has an explicit "nothing selected" entry so what is highlighted is what will be sent, and the
+ * chosen element stays listed even when a later search no longer matches it.
+ */
 function ElementPicker({
   id,
   workspaceId,
@@ -97,6 +109,7 @@ function ElementPicker({
 }) {
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
+  const [chosen, setChosen] = useState<{ id: string; label: string } | null>(null);
   useEffect(() => {
     const t = setTimeout(() => setQ(text.trim()), 250);
     return () => clearTimeout(t);
@@ -105,22 +118,32 @@ function ElementPicker({
     queryKey: ['picker', workspaceId, types, q],
     queryFn: () => api.listElements(workspaceId, { type: types, q: q || undefined, first: 30 }),
   });
+
+  const options = (list.data?.items ?? []).map((e) => ({ id: e.id, label: `${elementName(e)} — ${e.type}` }));
+  if (chosen && value === chosen.id && !options.some((o) => o.id === chosen.id)) options.unshift(chosen);
+  const what = types?.join(', ') ?? 'elements';
+
   return (
     <div className="picker">
-      <input
-        type="search"
-        aria-label={`Search ${types?.join(', ') ?? 'elements'}`}
-        placeholder={`Search ${types?.join(', ') ?? 'elements'}…`}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <select id={id} size={5} value={value} onChange={(e) => onChange(e.target.value)}>
-        {(list.data?.items ?? []).map((e) => (
-          <option key={e.id} value={e.id}>
-            {elementName(e)} — {e.type}
+      <input type="search" aria-label={`Search ${what}`} placeholder={`Search ${what}…`} value={text} onChange={(e) => setText(e.target.value)} />
+      <select
+        id={id}
+        size={6}
+        value={value}
+        onChange={(e) => {
+          const picked = options.find((o) => o.id === e.target.value) ?? null;
+          setChosen(picked);
+          onChange(e.target.value);
+        }}
+      >
+        <option value="">— none selected —</option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
           </option>
         ))}
       </select>
+      <small className={value ? '' : 'muted'}>{value && chosen ? `Selected: ${chosen.label}` : 'Click an element in the list to select it.'}</small>
     </div>
   );
 }

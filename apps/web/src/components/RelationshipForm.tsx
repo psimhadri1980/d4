@@ -90,7 +90,8 @@ export function RelationshipForm({ registry, workspaceId: ws, element, onDone }:
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <select id="rel-target" value={targetId} onChange={(e) => setTargetId(e.target.value)} required size={5}>
+        <select id="rel-target" value={targetId} onChange={(e) => setTargetId(e.target.value)} required size={6}>
+          <option value="">— none selected —</option>
           {(candidates.data?.items ?? [])
             .filter((c) => c.id !== element.id)
             .map((c) => (

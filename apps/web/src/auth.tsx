@@ -17,6 +17,8 @@ export const userManager = new UserManager({
 interface AuthState {
   user: User | null;
   ready: boolean;
+  /** Where the user was going before the sign-in redirect (handled by the /callback route). */
+  returnTo: string | null;
   logout(): Promise<void>;
 }
 
@@ -26,6 +28,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,9 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       if (window.location.pathname === '/callback') {
         const u = await userManager.signinRedirectCallback();
-        const target = (u.state as string | undefined) ?? '/';
-        window.history.replaceState({}, '', target);
-        if (!cancelled) setUser(u);
+        // The router navigates there (history.replaceState alone would not update it).
+        if (!cancelled) {
+          setReturnTo(typeof u.state === 'string' && u.state.startsWith('/') && u.state !== '/callback' ? u.state : '/');
+          setUser(u);
+        }
       } else {
         const u = await userManager.getUser();
         if (!u || u.expired) {
@@ -62,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = () => userManager.signoutRedirect();
-  return <AuthContext.Provider value={{ user, ready, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, ready, returnTo, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthState {

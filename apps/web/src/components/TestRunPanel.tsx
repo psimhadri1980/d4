@@ -2,12 +2,13 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { catalogApi, type QueryVersion } from '../api';
 import { ErrorBanner } from './ErrorBanner';
-import { ParamForm, paramsFromForm, type ParamValues } from './ParamForm';
+import { missingRequired, ParamForm, paramLabel, paramsFromForm, type ParamValues } from './ParamForm';
 import { QueryResultView } from './QueryResultView';
 
 /** Runs the saved draft (or version in review) with tight limits so authors and stewards can check it. */
 export function TestRunPanel({ workspaceId, queryId, version, title }: { workspaceId: string; queryId: string; version: QueryVersion; title: string }) {
   const [values, setValues] = useState<ParamValues>({});
+  const [missing, setMissing] = useState<string[]>([]);
   const run = useMutation({ mutationFn: () => catalogApi.test(workspaceId, queryId, paramsFromForm(version.params, values)) });
 
   return (
@@ -17,7 +18,9 @@ export function TestRunPanel({ workspaceId, queryId, version, title }: { workspa
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          run.mutate();
+          const gaps = missingRequired(version.params, values).map(paramLabel);
+          setMissing(gaps);
+          if (!gaps.length) run.mutate();
         }}
       >
         <ParamForm workspaceId={workspaceId} defs={version.params} values={values} onChange={setValues} />
@@ -25,6 +28,11 @@ export function TestRunPanel({ workspaceId, queryId, version, title }: { workspa
           {run.isPending ? 'Running…' : 'Test run'}
         </button>
       </form>
+      {missing.length > 0 && (
+        <div className="error-banner" role="alert">
+          Please fill in: {missing.join(', ')}
+        </div>
+      )}
       <ErrorBanner error={run.error} />
       {run.data && <QueryResultView result={run.data} workspaceId={workspaceId} title={title} shape={version.resultShape} />}
     </div>
