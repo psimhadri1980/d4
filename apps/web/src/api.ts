@@ -133,3 +133,115 @@ export const api = {
   deleteRelationship: (ws: string, id: string, expectedVersion: number) =>
     request<void>('DELETE', `/v1/workspaces/${ws}/relationships/${id}${qs({ expectedVersion })}`),
 };
+
+// ── Query Catalog ───────────────────────────────────────────────────────
+
+export interface CatalogEntry {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  tags: string[];
+  system: boolean;
+  certified: boolean;
+  ownerId: string;
+  publishedVersion: number | null;
+  openStatus: 'draft' | 'in_review' | null;
+}
+
+export interface QueryParamDef {
+  name: string;
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'enum' | 'element' | 'string[]';
+  label?: string;
+  description?: string;
+  required?: boolean;
+  default?: unknown;
+  values?: string[];
+  elementTypes?: string[];
+}
+
+export type QueryStatus = 'draft' | 'in_review' | 'published' | 'deprecated' | 'retired';
+
+export interface QueryVersion {
+  id: string;
+  version: number;
+  status: QueryStatus;
+  cypher: string;
+  params: QueryParamDef[];
+  resultShape: 'table' | 'graph';
+  contentHash: string;
+  checks: { errors: string[]; warnings: string[] } | null;
+  createdBy: string;
+  createdAt: string;
+  submittedAt: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  publishedAt: string | null;
+}
+
+export interface QueryGrant {
+  principalType: 'role' | 'group';
+  principal: string;
+}
+
+export interface CatalogDetail extends CatalogEntry {
+  versions: QueryVersion[];
+  grants?: QueryGrant[];
+}
+
+export interface RunResult {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  truncated: boolean;
+  durationMs: number;
+  queryId: string;
+  version: number;
+  status: string;
+}
+
+export interface Execution {
+  seq: number;
+  version: number;
+  workspaceId: string;
+  userId: string;
+  params: Record<string, unknown>;
+  status: 'ok' | 'error' | 'timeout';
+  rowCount: number | null;
+  durationMs: number;
+  error: string | null;
+  executedAt: string;
+}
+
+export interface Checks {
+  errors: string[];
+  warnings: string[];
+}
+
+export const catalogApi = {
+  search: (f: { q?: string; tag?: string } = {}) => request<CatalogEntry[]>('GET', `/v1/catalog${qs(f)}`),
+  detail: (id: string) => request<CatalogDetail>('GET', `/v1/catalog/${id}`),
+  run: (ws: string, id: string, params: Record<string, unknown>, version?: number) =>
+    request<RunResult>('POST', `/v1/workspaces/${ws}/catalog/${id}/run`, { params, ...(version && { version }) }),
+
+  create: (body: { slug: string; title: string; description?: string; tags?: string[] }) =>
+    request<CatalogEntry>('POST', '/v1/catalog', body),
+  updateMeta: (id: string, body: { title?: string; description?: string; tags?: string[]; certified?: boolean }) =>
+    request<CatalogEntry>('PATCH', `/v1/catalog/${id}`, body),
+  saveDraft: (id: string, body: { cypher: string; params: unknown[]; resultShape: 'table' | 'graph' }) =>
+    request<{ version: QueryVersion; checks: Checks }>('PUT', `/v1/catalog/${id}/draft`, body),
+  submit: (id: string) => request<QueryVersion>('POST', `/v1/catalog/${id}/submit`),
+
+  review: (id: string, decision: 'publish' | 'reject', note?: string) =>
+    request<QueryVersion>('POST', `/v1/catalog/${id}/review`, { decision, note }),
+  setVersionStatus: (id: string, version: number, status: 'deprecated' | 'retired' | 'published') =>
+    request<QueryVersion>('POST', `/v1/catalog/${id}/versions/${version}/status`, { status }),
+  setGrants: (id: string, grants: QueryGrant[]) => request<QueryGrant[]>('PUT', `/v1/catalog/${id}/grants`, grants),
+  executions: (id: string) => request<Execution[]>('GET', `/v1/catalog/${id}/executions`),
+};
+
+/** The current user's roles decide which catalog screens they get. */
+export const can = (roles: string[] | undefined) => ({
+  author: !!roles && (roles.includes('query-author') || roles.includes('admin')),
+  steward: !!roles && (roles.includes('query-steward') || roles.includes('admin')),
+});

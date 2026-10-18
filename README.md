@@ -62,15 +62,19 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
 - **Centre:** the selected element's neighbourhood (depth 1–3), coloured by layer. Double-click a node to expand it; dashed edges are not valid yet (e.g. a planned hand-over).
 - **Right:** attributes, relationships (add or remove; only types the metamodel allows are offered), and change history.
 - **New element / Edit:** forms come from the metamodel. Lifecycle offers only the allowed moves, and the same validation as the server runs in the browser.
+- **Catalog** (everyone): search the queries you're allowed to run, fill in the parameter form (element pickers, choice lists, dates), run, and download results as CSV. Element ids link back to the explorer.
+- **Studio** (query-author): create queries, edit Cypher and parameters, see check errors and warnings when saving, and submit for review. A steward's send-back note is shown on the draft.
+- **Stewardship** (query-steward): review queue with the submitted Cypher next to the published version, publish or send back with a note, role grants, certification, deprecate, retire or re-publish versions, and recent runs.
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 20 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs 27 Playwright tests in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
 - relationships: allowed types only, add with role and validity, remove, rule violation
 - a read-only viewer being refused
+- the Query Catalog end to end: viewer runs a system query; author drafts (checks shown), fixes and submits; steward publishes and grants; viewer runs the new query; steward deprecates and retires it
 
 Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `deploy/dev.sh e2e --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
 

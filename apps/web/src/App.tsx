@@ -4,8 +4,11 @@ import { api } from './api';
 import { useAuth } from './auth';
 import { ErrorBanner } from './components/ErrorBanner';
 import { Layout } from './components/Layout';
+import { Catalog } from './pages/Catalog';
 import { ElementEditor } from './pages/ElementEditor';
 import { Explorer } from './pages/Explorer';
+import { QueryStudio } from './pages/QueryStudio';
+import { Stewardship } from './pages/Stewardship';
 
 export function App() {
   const { user, ready } = useAuth();
@@ -20,6 +23,12 @@ export function App() {
         <Route path="e/:id" element={<Explorer />} />
         <Route path="new" element={<ElementEditor mode="create" />} />
         <Route path="e/:id/edit" element={<ElementEditor mode="edit" />} />
+        <Route path="catalog" element={<Catalog />} />
+        <Route path="catalog/:qid" element={<Catalog />} />
+        <Route path="studio" element={<QueryStudio />} />
+        <Route path="studio/:qid" element={<QueryStudio />} />
+        <Route path="stewardship" element={<Stewardship />} />
+        <Route path="stewardship/:qid" element={<Stewardship />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

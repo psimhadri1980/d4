@@ -463,3 +463,157 @@ button.link.danger {
   margin: 4px 0 0 16px;
   padding: 0;
 }
+
+/* Navigation */
+.nav {
+  display: flex;
+  gap: 4px;
+}
+.nav a {
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--text);
+}
+.nav a:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.nav a.active {
+  background: var(--surface-2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Catalog, Studio, Stewardship */
+.catalog {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100%;
+}
+.catalog .pane.left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pane.main {
+  padding: 16px;
+  overflow: auto;
+}
+@media (max-width: 1100px) {
+  .catalog {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+.status-badges {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.catalog .items li a {
+  /* No layer dot here: title, then status badges. */
+  grid-template-columns: 1fr auto;
+}
+.badge.certified,
+.badge.st-published {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+.badge.st-in_review,
+.badge.st-draft {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.badge.st-deprecated,
+.badge.st-retired {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+pre.cypher {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+pre.cypher.small {
+  font-size: 11px;
+}
+textarea.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.checks.ok,
+.check.ok {
+  color: var(--ok);
+}
+.check.error {
+  color: var(--danger);
+}
+.check.warning {
+  color: var(--warn);
+}
+.note {
+  border-left: 3px solid var(--warn);
+  padding: 6px 10px;
+  background: var(--surface-2);
+  margin: 8px 0;
+}
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 6px 16px;
+  justify-content: start;
+}
+.param-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.table-wrap {
+  overflow: auto;
+  max-height: 60vh;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-weight: 600;
+}
+.danger-text {
+  color: var(--danger);
+}
+.run-panel,
+.studio {
+  max-width: 1100px;
+}

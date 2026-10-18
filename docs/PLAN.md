@@ -106,7 +106,18 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - 2d: API (search, detail, drafts, submit, review, version status, grants, executions, run)
   - the catalog runner was written by the project owner
   - 154 tests pass
-- **Next:** 2e, the catalog UI (catalog page, Query Studio, steward console).
+- **2e done:**
+  - web catalog page (parameter forms, results, CSV)
+  - Query Studio (drafts with live check results, submit)
+  - Stewardship console (review queue with side-by-side Cypher, publish or send back, grants, certification, version lifecycle, run log)
+  - local users `dev-author` and `dev-steward`
+  - 157 unit/integration tests and 27 browser tests pass
+- **Known follow-ups:**
+  - test-running a draft before submission (needs a draft-run endpoint)
+  - graph-shaped results
+  - dedicated runner tests
+  - deleting catalog entries (test runs retire theirs but the entries remain)
+- **Next:** Phase 3, planning and roadmaps.
 
 ---
 
