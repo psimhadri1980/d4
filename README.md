@@ -4,6 +4,8 @@ Capture, decide, plan, develop and deliver design elements as a connected graph.
 
 Stack: TypeScript end to end, Neo4j 5 Community (one instance per tenant), PostgreSQL control plane, Redis, S3, Keycloak.
 
+For low-level details (architecture, request flows, recipes, testing, pitfalls) see **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)**.
+
 ## Layout
 
 ```
