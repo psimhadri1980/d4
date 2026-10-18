@@ -7,6 +7,8 @@ set -euo pipefail
 socat TCP-LISTEN:5173,fork,reuseaddr,bind=127.0.0.1 TCP:"${E2E_WEB_TARGET:-web:80}" &
 socat TCP-LISTEN:8080,fork,reuseaddr,bind=127.0.0.1 TCP:keycloak:8080 &
 socat TCP-LISTEN:3000,fork,reuseaddr,bind=127.0.0.1 TCP:api:3000 &
+# An API on the host from deploy/dev.sh api-local (used when the web app is built against it).
+socat TCP-LISTEN:3100,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:3100 &
 sleep 0.5
 cd /repo/apps/e2e
 exec npx playwright test "$@"

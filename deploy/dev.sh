@@ -37,7 +37,17 @@ case "${1:-help}" in
     dc stop web >/dev/null 2>&1 || true
     [[ -d ../node_modules ]] || pn install --frozen-lockfile
     pn turbo run build --filter '@d4/web^...'
-    pn --filter @d4/web exec vite --host 127.0.0.1 --port 5173 --strictPort ;;
+    # D4_API_URL=http://localhost:3100 points the web app at api-local instead of the container.
+    VITE_API_URL="${D4_API_URL:-http://localhost:3000}" pn --filter @d4/web exec vite --host 127.0.0.1 --port 5173 --strictPort ;;
+  # API on local Node with reload, on :3100 next to the container (which keeps :3000), using the
+  # data stores and Keycloak in Docker. Pair with: D4_API_URL=http://localhost:3100 deploy/dev.sh web-local
+  api-local)
+    node_env api-local
+    [[ -d ../node_modules ]] || pn install --frozen-lockfile
+    pn turbo run build --filter '@d4/api^...'
+    API_PORT=3100 POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_URI=bolt://localhost:7687 \
+      NEO4J_USER=neo4j NEO4J_PASSWORD=d4-local-dev OIDC_ISSUER=http://localhost:8080/realms/d4 OIDC_AUDIENCE=d4-api \
+      pn --filter @d4/api exec tsx watch src/main.ts ;;
   # Web checks on local Node: unit tests, typecheck, lint and a production build.
   web-check)
     node_env web-check
@@ -46,7 +56,9 @@ case "${1:-help}" in
   # Browser tests against the local web server from web-local (API and Keycloak stay in Docker).
   e2e-local)
     [[ -n "$(port_5173_owner)" && "$(port_5173_owner)" != com.docke* ]] || { echo "Start deploy/dev.sh web-local first" >&2; exit 1; }
-    dc --profile tools run --rm --build --no-deps -e E2E_WEB_TARGET=host.docker.internal:5173 e2e "${@:2}" ;;
+    # With D4_API_URL (as given to web-local), test setup also talks to that API.
+    dc --profile tools run --rm --build --no-deps -e E2E_WEB_TARGET=host.docker.internal:5173 \
+      -e E2E_API_URL="${D4_API_URL:-http://localhost:3000}" e2e "${@:2}" ;;
   # Builds and (re)starts the web container from the current tree, e.g. after committing.
   web-deploy)
     owner=$(port_5173_owner)
@@ -74,5 +86,5 @@ case "${1:-help}" in
       | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
     curl -fsS -H "Authorization: Bearer $TOKEN" localhost:3000/v1/me && echo ;;
   *)
-    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy" ;;
+    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy|api-local" ;;
 esac

@@ -127,9 +127,10 @@ For quick web changes, run Vite on the host against the API and Keycloak in Dock
 | `deploy/dev.sh web-local` | Stops the `web` container, installs dependencies if missing, builds the packages the web app imports (`@d4/core`, `@d4/metamodel`), then runs Vite on `127.0.0.1:5173` with hot reload. |
 | `deploy/dev.sh web-check` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
 | `deploy/dev.sh e2e-local [args]` | The Playwright suite in Docker against the local Vite server (`E2E_WEB_TARGET=host.docker.internal:5173`, no `web` container). |
+| `deploy/dev.sh api-local` | API on local Node (tsx watch) on `:3100`, next to the container on `:3000`, using the Docker data stores. Pair with `D4_API_URL=http://localhost:3100 deploy/dev.sh web-local` and `D4_API_URL=http://localhost:3100 deploy/dev.sh e2e-local`. |
 | `deploy/dev.sh web-deploy` | After committing: rebuilds and starts the `web` container. Refuses while something else holds port 5173, so stop `web-local` first. |
 
-Loop: `web-local` → edit (hot reload) → `web-check` and `e2e-local` → commit → stop `web-local` → `web-deploy` → `e2e`.
+Loop: `web-local` (plus `api-local` when the API changes) → edit (hot reload) → `web-check` and `e2e-local` → commit → ask before deploying → stop the local servers → `web-deploy` (and rebuild the API container) → `e2e`.
 
 Vite serves the dev build, so React StrictMode runs effects twice. That surfaces bugs the production build hides, such as one-time OIDC callback codes being redeemed twice.
 
