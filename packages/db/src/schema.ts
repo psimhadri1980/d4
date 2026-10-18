@@ -288,3 +288,34 @@ export const queryExecutions = pgTable(
   },
   (t) => ({ byQuery: index('query_executions_query').on(t.tenantId, t.queryId, t.seq) }),
 );
+
+/**
+ * Background jobs (imports, exports, renders). The queue (BullMQ in Redis) only carries the job
+ * id; this table is the durable record users see: status, progress, result and the artefact.
+ */
+export const jobs = pgTable(
+  'jobs',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    kind: text('kind', { enum: ['export', 'import-tabular'] }).notNull(),
+    status: text('status', { enum: ['queued', 'running', 'succeeded', 'failed'] }).notNull().default('queued'),
+    params: jsonb('params').notNull(),
+    /** 0–100. */
+    progress: integer('progress').notNull().default(0),
+    result: jsonb('result'),
+    error: text('error'),
+    /** Object key in the artefact bucket (input upload or output file). */
+    artifactKey: text('artifact_key'),
+    artifactName: text('artifact_name'),
+    artifactType: text('artifact_type'),
+    artifactBytes: integer('artifact_bytes'),
+    attempts: integer('attempts').notNull().default(0),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => ({ byWorkspace: index('jobs_workspace').on(t.tenantId, t.workspaceId, t.createdAt) }),
+);
