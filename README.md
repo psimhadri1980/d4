@@ -132,7 +132,9 @@ deploy/dev.sh cli export -w default -o exports/default.yaml
 
 ## Developing with Node locally (optional)
 
-Requires Node.js ≥ 20.11 and pnpm 9 (`corepack enable`).
+For the web app, the quickest loop is `deploy/dev.sh web-local` (Vite with hot reload on :5173, using the API and Keycloak in Docker), then `web-check` and `e2e-local`; after committing, `deploy/dev.sh web-deploy` updates the container. See the developer guide, §3.
+
+For everything else: Node.js ≥ 20.11 and pnpm 9 (`corepack enable`, or `npx pnpm@9.12.0` on Node versions without corepack).
 
 ```bash
 cp .env.example .env && pnpm install && pnpm build && pnpm test

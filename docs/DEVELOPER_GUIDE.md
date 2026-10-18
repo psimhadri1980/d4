@@ -22,7 +22,7 @@ These are non-negotiable unless the decision log is changed first.
 | 5 | **Soft delete only** for model data (`deleted = true`); the event log is append-only (DB trigger). | migration 0001 |
 | 6 | **Published query versions are immutable** (DB trigger) and are verified by a canonical-JSON SHA-256 fingerprint before publishing and before every run. | migration 0003, `contentHash` |
 | 7 | **The metamodel is the source of truth** for types, attributes, allowed connections and rules, on both server and browser. Never hard-code type lists. | `packages/metamodel` |
-| 8 | **No local Node is assumed.** Everything builds and runs in Docker via `deploy/dev.sh`. | `Dockerfile`, `deploy/` |
+| 8 | **Docker is the source of truth.** Everything builds and runs in Docker via `deploy/dev.sh`; local Node is optional and used only for fast web iteration (`web-*` commands). | `Dockerfile`, `deploy/` |
 | 9 | Ids are **ULIDs** (26 chars, Crockford base32). | `packages/core/src/ids.ts` |
 | 10 | Cypher identifiers (labels, relationship types) are **never interpolated unchecked**; they pass `ident()` and come from the metamodel. | `packages/graph/src/mapping.ts` |
 
@@ -116,6 +116,23 @@ Everything else runs in containers.
 | `deploy/dev.sh token [user]` | Print an access token (default `dev-admin`). |
 | `deploy/dev.sh smoke` | Health checks + login + `/v1/me`. |
 
+**Bringing the stack up on a busy machine:** start it in stages so image builds and JVM start-ups do not overlap: `docker compose -f deploy/docker-compose.yml up -d --wait postgres redis s3 neo4j keycloak`, then `deploy/dev.sh up`. Neo4j, Keycloak, the API and the test container have CPU caps (2, 1.5, 1, 2).
+
+### Web app on local Node (optional)
+
+For quick web changes, run Vite on the host against the API and Keycloak in Docker. Needs Node ≥ 20.11 (`/opt/homebrew/bin/node` is found even when not on PATH); pnpm runs at the version pinned in `package.json` via `npx`, so corepack is not needed. Host `node_modules` and `dist` are ignored by Docker builds (`.dockerignore`).
+
+| Command | What it does |
+|---|---|
+| `deploy/dev.sh web-local` | Stops the `web` container, installs dependencies if missing, builds the packages the web app imports (`@d4/core`, `@d4/metamodel`), then runs Vite on `127.0.0.1:5173` with hot reload. |
+| `deploy/dev.sh web-check` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
+| `deploy/dev.sh e2e-local [args]` | The Playwright suite in Docker against the local Vite server (`E2E_WEB_TARGET=host.docker.internal:5173`, no `web` container). |
+| `deploy/dev.sh web-deploy` | After committing: rebuilds and starts the `web` container. Refuses while something else holds port 5173, so stop `web-local` first. |
+
+Loop: `web-local` → edit (hot reload) → `web-check` and `e2e-local` → commit → stop `web-local` → `web-deploy` → `e2e`.
+
+Vite serves the dev build, so React StrictMode runs effects twice. That surfaces bugs the production build hides, such as one-time OIDC callback codes being redeemed twice.
+
 ### Ports
 
 | Port | Service |
@@ -142,9 +159,9 @@ The password for all of them is `d4-local-dev`. They exist only in the local rea
 
 ### Browser preview in the Claude desktop app
 
-`.claude/launch.json` has two configurations:
-- `dev` attaches to the running app at `http://localhost:5173`.
-- `stack` runs `docker compose up --build web` in the foreground on 5173.
+`.claude/launch.json` has three configurations:
+- `dev` attaches to whatever serves `http://localhost:5173` (the container or `web-local`).
+- `web-local` runs `deploy/dev.sh web-local`, and `stack` runs `docker compose up --build web`. The desktop app's preview runner may not be allowed into `~/Documents` (macOS privacy), in which case start `web-local` from a terminal and use `dev`.
 
 Do not let the preview move to another port: sign-in will fail there.
 
@@ -385,6 +402,10 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 
 | Symptom | Cause | Fix in place |
 |---|---|---|
+| Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`auth.tsx`) |
+| Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in compose; start in stages (see §3) |
+| Explorer tests opened "Client Master contract v2" | Fresh full-text index scored the longer name higher | Exact name matches rank first; tests pick by exact name |
+| Neo4j and API test suites time out on a brand-new Neo4j | Both apply the full schema concurrently | Rerun once the schema exists (open item: make `applySchema` concurrency-tolerant) |
 | Neo4j container exits 137 during tests or builds | Docker VM out of memory | Neo4j heap 640m / page cache 256m / transaction cap 256m, container cap 1.8 GB; test container 1.5 GB with `--concurrency=2`; Docker Desktop at 6 GB |
 | Reviews fail with "fingerprint mismatch" | Postgres `jsonb` reorders keys | `canonicalJson` sorts keys before hashing |
 | Relationship lookup by id takes ~5 s | One seek per relationship type (UNION of 90+) | Cross-type full-text index on `r.id` |
