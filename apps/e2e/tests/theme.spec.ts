@@ -36,4 +36,26 @@ test.describe('design system', () => {
     await expect(nav.getByRole('link', { name: 'Queries' })).toHaveAttribute('aria-current', 'page');
     await expect(nav.getByRole('link', { name: 'Explorer' })).not.toHaveAttribute('aria-current', 'page');
   });
+
+  test('a tall query tab scrolls its own panel; the tab strip stays put', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 480 });
+    await page.goto('/');
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Queries' }).click();
+    await page.locator('section.accordion').first().getByRole('button', { name: /Orphan elements/ }).click();
+    const panel = page.getByRole('tabpanel');
+    await panel.getByRole('button', { name: 'Run' }).click();
+    await expect(panel.locator('.results table')).toBeVisible();
+
+    const strip = page.getByRole('tablist', { name: 'Open queries' });
+    const before = await strip.boundingBox();
+    const scrolled = await panel.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+      return { overflows: el.scrollHeight > el.clientHeight, top: el.scrollTop };
+    });
+    expect(scrolled.overflows).toBe(true);
+    expect(scrolled.top).toBeGreaterThan(0);
+    const after = await strip.boundingBox();
+    expect(after).toEqual(before);
+    expect(await strip.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+  });
 });

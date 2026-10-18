@@ -875,16 +875,22 @@ button.link.danger {
 }
 
 /* Tabs (Carbon "contained" style) */
-.tabs-area {
+/*
+ * Only the active panel scrolls; the tab strip stays put. The strip scrolls sideways when there
+ * are many tabs, and `flex: none` stops a tall panel from squeezing it (overflow makes its
+ * minimum height 0, so it would otherwise shrink and grow its own scrollbar).
+ */
+.pane.main.tabs-area {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-05);
-  padding: 0 var(--sp-06) var(--sp-05);
+  padding: 0;
+  overflow: hidden;
 }
 .tab-strip {
   display: flex;
+  flex: none;
   overflow-x: auto;
-  margin: 0 calc(-1 * var(--sp-06));
+  overflow-y: hidden;
   padding: 0 var(--sp-06);
   background: var(--layer-02);
   border-bottom: 1px solid var(--border-subtle);
@@ -939,6 +945,13 @@ button.link.danger {
 .tab-close:hover {
   background: var(--layer-hover);
   color: var(--text-primary);
+}
+.tab-panel,
+.tabs-area > .empty {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-05) var(--sp-06);
 }
 .tab-panel[hidden] {
   display: none;
