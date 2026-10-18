@@ -32,8 +32,9 @@ These are non-negotiable unless the decision log is changed first.
 
 ```
 apps/
-  api/        NestJS (Fastify) API: REST + read-only GraphQL, auth, catalog
-  web/        React + Vite SPA (explorer, queries workspace), served by nginx in Docker
+  api/        NestJS (Fastify) API: REST + read-only GraphQL, auth, catalog, jobs
+  worker/     Background job worker (BullMQ consumer): exports and spreadsheet imports
+  web/        React + Vite SPA, served by nginx in Docker
   e2e/        Playwright browser tests (run in Docker against the live stack)
 packages/
   metamodel/  Metamodel schema (zod), loader, registry; starter.yaml
@@ -44,7 +45,10 @@ packages/
   graph/      Neo4j adapter: Neo4jModelRepository, GraphQueries, EXPLAIN explainer,
               catalog runner
   db/         Postgres control plane: Drizzle schema, migrations, stores, local seed
-  codecs/     Model-as-code documents (d4/v1): parse, import input, export
+  codecs/     Model-as-code documents (d4/v1), CSV/Excel tables and mappings, export
+              formats (CSV, Excel, Mermaid, ArchiMate, Cypher)
+  jobs/       Shared by api and worker: tenant graph routing, model handles, export and
+              tabular-import work, S3 artefact store, BullMQ queue, processJob
   cli/        `d4` command: validate, workspaces, import, export
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       docker-compose, dev.sh, Keycloak realm, SeaweedFS, OTel, nginx, e2e runner
@@ -59,7 +63,10 @@ metamodel ◄── core ◄── codecs ◄── cli
     │          │  └──────────── db (uses ulid, DomainEvent)
   cypher ◄── graph (+ core, metamodel)
     ▲          ▲
-    └──── api ─┴── db, codecs, core, metamodel
+    │          ▲
+    │        jobs ── db, codecs, core, metamodel (+ bullmq, S3 client, neo4j-driver)
+    │          ▲
+    └──── api ─┴── worker (jobs, db)
 web ──► core, metamodel (bundled for the browser)
 ```
 
@@ -128,6 +135,7 @@ For quick web changes, run Vite on the host against the API and Keycloak in Dock
 | `deploy/dev.sh web-check` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
 | `deploy/dev.sh e2e-local [args]` | The Playwright suite in Docker against the local Vite server (`E2E_WEB_TARGET=host.docker.internal:5173`, no `web` container). |
 | `deploy/dev.sh api-local` | API on local Node (tsx watch) on `:3100`, next to the container on `:3000`, using the Docker data stores. Pair with `D4_API_URL=http://localhost:3100 deploy/dev.sh web-local` and `D4_API_URL=http://localhost:3100 deploy/dev.sh e2e-local`. |
+| `deploy/dev.sh worker-local` | Job worker on local Node for `api-local`'s queue (`d4-jobs-local`), so local jobs never reach the Docker worker. |
 | `deploy/dev.sh web-deploy` | After committing: rebuilds and starts the `web` container. Refuses while something else holds port 5173, so stop `web-local` first. |
 
 Loop: `web-local` (plus `api-local` when the API changes) → edit (hot reload) → `web-check` and `e2e-local` → commit → ask before deploying → stop the local servers → `web-deploy` (and rebuild the API container) → `e2e`.
@@ -148,6 +156,8 @@ Vite serves the dev build, so React StrictMode runs effects twice. That surfaces
 | 6379 | redis |
 | 8333 | S3 (SeaweedFS) |
 | 3001 | grafana (observability profile) |
+| 3002 | worker health (`/healthz`, inside the container) |
+| 3100 / 3102 | `api-local` / `worker-local` health, on the host |
 
 ### Local users
 
@@ -410,6 +420,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`auth.tsx`) |
 | Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in compose; start in stages (see §3) |
 | Explorer tests opened "Client Master contract v2" | Fresh full-text index scored the longer name higher | Exact name matches rank first; tests pick by exact name |
+| A job endpoint answered 500 "relation \"jobs\" does not exist" | The dev database had not run migration 0005 | Run migrations after pulling (`deploy/dev.sh migrate`, or `node packages/db/dist/migrate.js` with `POSTGRES_URL` on the host) |
 | Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `web-local` runs Vite with `--force`; restart it after changing `packages/*` |
 | On Queries, a tall tab made the tab strip scroll instead of the page | The strip (`overflow-x: auto`) sat in a scrolling flex column, so its minimum height was 0 and it shrank | Only the active `.tab-panel` scrolls; the strip is `flex: none` |
 | Search for a hyphenated name (e.g. "cut-over") found nothing | The analyzer indexes "cut" and "over"; the escaped prefix query "cut\-over*" is not analyzed | `luceneQuery` splits on hyphens and slashes too |

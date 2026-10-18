@@ -48,7 +48,16 @@ case "${1:-help}" in
     pn turbo run build --filter '@d4/api^...'
     API_PORT=3100 POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_URI=bolt://localhost:7687 \
       NEO4J_USER=neo4j NEO4J_PASSWORD=d4-local-dev OIDC_ISSUER=http://localhost:8080/realms/d4 OIDC_AUDIENCE=d4-api \
+      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local \
       pn --filter @d4/api exec tsx watch src/main.ts ;;
+  # Job worker on local Node for api-local's queue (d4-jobs-local), using the Docker data stores.
+  worker-local)
+    node_env worker-local
+    [[ -d ../node_modules ]] || pn install --frozen-lockfile
+    pn turbo run build --filter '@d4/worker^...'
+    POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_URI=bolt://localhost:7687 NEO4J_PASSWORD=d4-local-dev \
+      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local WORKER_HEALTH_PORT=3102 \
+      pn --filter @d4/worker exec tsx watch src/main.ts ;;
   # Web checks on local Node: unit tests, typecheck, lint and a production build.
   web-check)
     node_env web-check
@@ -87,5 +96,5 @@ case "${1:-help}" in
       | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
     curl -fsS -H "Authorization: Bearer $TOKEN" localhost:3000/v1/me && echo ;;
   *)
-    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy|api-local" ;;
+    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy|api-local|worker-local" ;;
 esac

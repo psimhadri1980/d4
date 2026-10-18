@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { ErrorBanner } from './ErrorBanner';
 import { viewQuery, type ViewState } from '../view';
@@ -22,6 +23,8 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
   const [what, setWhat] = useState<'view' | 'workspace'>(elementId ? 'view' : 'workspace');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [background, setBackground] = useState(false);
+  const [queued, setQueued] = useState(false);
   const formatId = useId();
   const whatId = useId();
   const scoped = what === 'view' && !!elementId;
@@ -29,7 +32,13 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
   const run = async () => {
     setBusy(true);
     setError(null);
+    setQueued(false);
     try {
+      if (background) {
+        await api.createExportJob(workspaceId, { format, ...viewQuery(view), ...(scoped && { scope: [elementId!], depth }) });
+        setQueued(true);
+        return;
+      }
       const { blob, filename } = await api.exportFile(workspaceId, format, {
         ...viewQuery(view),
         ...(scoped && { scope: [elementId!], depth }),
@@ -69,9 +78,17 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
         </option>
         <option value="workspace">Whole workspace</option>
       </select>
+      <label className="inline check-inline">
+        <input type="checkbox" checked={background} onChange={(e) => setBackground(e.target.checked)} /> In background
+      </label>
       <button className="button small" onClick={() => void run()} disabled={!format || busy}>
-        {busy ? 'Exporting…' : 'Download'}
+        {busy ? 'Exporting…' : background ? 'Start' : 'Download'}
       </button>
+      {queued && (
+        <span className="small" role="status">
+          Started. <Link to={`/w/${workspaceId}/jobs`}>See Jobs</Link>
+        </span>
+      )}
       {error != null && <ErrorBanner error={error} />}
     </div>
   );

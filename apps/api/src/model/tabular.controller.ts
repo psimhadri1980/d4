@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
-import { parseCsv, readWorkbook, suggestMapping, tablesToImport, type Table, type TableMapping } from '@d4/codecs';
-import { DomainError, planImport } from '@d4/core';
+import { suggestMapping, type TableMapping } from '@d4/codecs';
+import { readTables, runTabularImport } from '@d4/jobs';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
@@ -9,31 +9,15 @@ import { ModelFactory } from './model.factory';
 import { WorkspaceAccess } from './workspace-access.service';
 
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
-export const MAX_TABULAR_ROWS = 50_000;
 const PREVIEW_ROWS = 5;
 
-/** Decodes uploaded files (base64) into tables: CSV is one table, a workbook one per sheet. */
-async function readTables(files: { name: string; content: string }[]): Promise<Table[]> {
-  const tables: Table[] = [];
-  for (const f of files) {
-    const bytes = Buffer.from(f.content, 'base64');
-    if (/\.csv$/i.test(f.name) || /\.txt$/i.test(f.name)) tables.push(parseCsv(f.name, bytes.toString('utf8')));
-    else if (/\.xlsx$/i.test(f.name)) {
-      try {
-        tables.push(...(await readWorkbook(f.name, new Uint8Array(bytes))));
-      } catch {
-        throw new DomainError('VALIDATION', `${f.name} is not a readable .xlsx workbook`);
-      }
-    } else throw new DomainError('VALIDATION', `${f.name}: only .csv and .xlsx files can be imported`);
-  }
-  const rows = tables.reduce((n, t) => n + t.rows.length, 0);
-  if (rows > MAX_TABULAR_ROWS) throw new DomainError('VALIDATION', `${rows} rows is more than the ${MAX_TABULAR_ROWS} allowed in one import`);
-  return tables;
-}
+export const decodeUploads = (files: { name: string; content: string }[]) =>
+  files.map((f) => ({ name: f.name, bytes: new Uint8Array(Buffer.from(f.content, 'base64')) }));
 
 /**
  * Spreadsheet import in two steps: `analyze` reads the files and suggests a mapping per table;
- * the import then plans (dry run) or applies the mapped rows like a model document import.
+ * the import then plans (dry run) or applies the mapped rows like a model document import. For
+ * large files, the same work runs as a background job (see JobsController).
  */
 @Controller('v1/workspaces/:ws/import/tabular')
 export class TabularController {
@@ -47,7 +31,7 @@ export class TabularController {
   async analyze(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
     const { files } = parse(TabularAnalyzeBody, body);
     const scope = await this.access.resolve(p, ws, 'read');
-    const tables = await readTables(files);
+    const tables = await readTables(decodeUploads(files));
     return {
       tables: tables.map((t) => ({
         name: t.name,
@@ -66,19 +50,6 @@ export class TabularController {
     const { files, mappings } = parse(TabularImportBody, body);
     // Dry runs only need read access, as for model documents.
     const scope = await this.access.resolve(p, ws, dryRun ? 'read' : 'write');
-    const tables = await readTables(files);
-    const byName = new Map(mappings.map((m) => [m.table, m.mapping as TableMapping]));
-    const mapped = tables.map((table) => ({ table, mapping: byName.get(table.name) ?? suggestMapping(table, scope.registry) }));
-
-    const { queries, repository } = this.models.for(scope);
-    const existing = await queries.snapshot(scope.workspaceId);
-    const converted = tablesToImport(mapped, scope.registry, existing);
-    const plan = planImport(scope.registry, scope.ctx, converted.input, existing);
-    const { change, ...summary } = plan;
-    // Row problems block the import too: a partial import would surprise more than it helps.
-    const ok = plan.ok && converted.issues.length === 0;
-    const hasChanges = !!change && (change.elements.length > 0 || change.relationships.length > 0);
-    if (ok && !dryRun && hasChanges) await repository.apply(scope.workspaceId, change!);
-    return { ...summary, ok, applied: ok && !dryRun && hasChanges, rowIssues: converted.issues, rowsUsed: converted.used };
+    return runTabularImport(this.models.for(scope), scope.registry, scope.ctx, decodeUploads(files), mappings as { table: string; mapping: TableMapping }[], dryRun);
   }
 }

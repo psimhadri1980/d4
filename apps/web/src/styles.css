@@ -1859,3 +1859,70 @@ table.mapping select {
 .import-result.bad {
   border-left: 3px solid var(--support-error);
 }
+
+/* ── Jobs ───────────────────────────────────────────────────────────────── */
+.jobs-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  height: 100%;
+  max-width: 1200px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.jobs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.jobs-head h2 {
+  margin: 0;
+}
+table.jobs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--layer-01);
+}
+table.jobs th,
+table.jobs td {
+  padding: var(--sp-03) var(--sp-04);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: middle;
+}
+.badge.job-succeeded {
+  color: var(--support-success);
+  border-color: var(--support-success);
+}
+.badge.job-failed {
+  color: var(--support-error);
+  border-color: var(--support-error);
+}
+.badge.job-running,
+.badge.job-queued {
+  color: var(--interactive);
+  border-color: var(--interactive);
+}
+.job-progress {
+  display: inline-block;
+  width: 80px;
+  height: 4px;
+  margin-left: var(--sp-03);
+  vertical-align: middle;
+  background: var(--layer-02);
+}
+.job-progress span {
+  display: block;
+  height: 100%;
+  background: var(--interactive);
+  transition: width 0.3s;
+}
+tr.job.failed td:nth-child(4) {
+  color: var(--support-error);
+}
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-02);
+}

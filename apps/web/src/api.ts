@@ -125,6 +125,21 @@ export interface TabularImportResult {
   relationships: { created: number; updated: number; unchanged: number };
 }
 
+export interface Job {
+  id: string;
+  kind: 'export' | 'import-tabular';
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  progress: number;
+  params: Record<string, unknown>;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  artifact: { name: string; type: string; bytes: number } | null;
+  attempts: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
 export interface ListFilter {
   type?: string[];
   layer?: string;
@@ -175,6 +190,12 @@ export const api = {
     request<{ tables: AnalyzedTable[] }>('POST', `/v1/workspaces/${ws}/import/tabular/analyze`, { files }),
   importTabular: (ws: string, files: Upload[], mappings: { table: string; mapping: TableMapping }[], dryRun: boolean) =>
     request<TabularImportResult>('POST', `/v1/workspaces/${ws}/import/tabular${dryRun ? '?dryRun=true' : ''}`, { files, mappings }),
+  createExportJob: (ws: string, body: ViewParams & { format: string; scope?: string[]; depth?: number }) =>
+    request<Job>('POST', `/v1/workspaces/${ws}/jobs/export`, body),
+  createImportJob: (ws: string, files: Upload[], mappings: { table: string; mapping: TableMapping }[], dryRun: boolean) =>
+    request<Job>('POST', `/v1/workspaces/${ws}/jobs/import-tabular${dryRun ? '?dryRun=true' : ''}`, { files, mappings }),
+  jobs: (ws: string) => request<Job[]>('GET', `/v1/workspaces/${ws}/jobs`),
+  jobFile: (ws: string, id: string) => requestFile(`/v1/workspaces/${ws}/jobs/${id}/artifact`),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>
     request<ModelDiffView>(
       'GET',

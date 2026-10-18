@@ -10,14 +10,16 @@ For low-level details (architecture, request flows, recipes, testing, pitfalls) 
 
 ```
 apps/api              NestJS API: OIDC auth, workspace access, REST commands + GraphQL reads
-apps/web              React explorer: Keycloak login, search, graph canvas, metamodel-driven forms
+apps/worker           Background job worker: exports and spreadsheet imports from the Redis queue
+apps/web              React app: explorer, queries, roadmap, compare, matrices, decisions, import, jobs
 apps/e2e              Playwright browser tests against the running stack
 packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
 packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
 packages/db           Postgres control plane: Drizzle schema, migrations, stores, local seed
 packages/graph        Neo4j adapter: ModelRepository and read queries (list/search, neighbourhood)
-packages/codecs       Model-as-code documents (YAML/JSON): parse, import input, export
+packages/codecs       Model-as-code documents, CSV/Excel import, export formats (CSV, Excel, Mermaid, ArchiMate, Cypher)
+packages/jobs         Job queue, S3 artefacts, tenant graph routing and the work shared by api and worker
 packages/cli          `d4` command line: validate, import, export, workspaces
 samples/              Example models, e.g. ubs-banking.yaml (illustrative)
 deploy/               docker-compose for local infra, Keycloak realm, Postgres bootstrap
@@ -72,6 +74,7 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
 - **As of / Scenario** (Explorer toolbar): view the model on a date, or a scenario on top of the baseline. Applies to the list, graph and details until reset; a notice shows while active. With a scenario selected, new relationships are added to that scenario.
 - **Compare**: two views side by side (dates and/or scenarios): elements added and removed, relationships added, removed and changed (e.g. a store going from MASTER to REPLICA). The URL holds both sides, so a comparison can be shared.
 - **Import** (top bar): CSV files or Excel workbooks. Each table (sheet) gets a suggested mapping that you can change: element or relationship rows, a type for the whole sheet or a Type column, and a field or attribute per column. "Check" is a dry run that lists problems by row and column; "Import" writes everything as one change, only once every row is valid. Relationship ends can be keys from the same upload or existing elements' ids, external keys or names. The Excel export imports back with no changes.
+- **Jobs** (top bar): exports and imports started "In background" run in the job worker; this page shows their progress and results and offers the export files for download. Jobs are private to whoever started them.
 - **Export** (Explorer toolbar): the graph on screen or the whole workspace as Mermaid, ArchiMate Open Exchange XML, elements/relationships CSV, an Excel workbook, model-as-code YAML or a Cypher script, in the current as-of date and scenario.
 - **Matrices**: CRUD-I (process steps × data), capability × application (cells show TIME class), data store roles, and a lifecycle heat-map. Each has findings (e.g. data nothing creates, products without a master, capabilities without applications) and CSV export, and follows the as-of date and scenario.
 - **Decisions**: the ADR log, newest first, with search and status filter. A record shows context, options (chosen and considered), consequences, the elements it decides and what it supersedes; findings flag gaps such as an accepted decision without a chosen option. "New decision" opens the editor with the type preselected.
@@ -85,7 +88,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 54 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs 56 Playwright tests in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
@@ -93,6 +96,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 - a read-only viewer being refused
 - graph readability: for each layout and depth, no overlapping nodes, minimum node spacing, at most 2% of label pairs colliding, and the graph spread across the canvas
 - time and scenarios: as-of views, a scenario overlay, Compare between dates and against a scenario
+- background jobs (an export downloaded from Jobs, an import run in the background)
 - spreadsheet import (mapping, row problems, check then import)
 - exports (Mermaid of the graph on screen, ArchiMate of the workspace, CSV as of a date)
 - matrices (CRUD-I, data store roles over time, capability × application, lifecycle) and the decision log

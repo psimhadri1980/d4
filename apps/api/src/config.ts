@@ -19,6 +19,14 @@ const Env = z.object({
    */
   OIDC_JWKS_URI: optional(z.string().url()),
   OTEL_EXPORTER_OTLP_ENDPOINT: optional(z.string().url()),
+  /** Background jobs; without these the jobs endpoints answer 503. */
+  REDIS_URL: optional(z.string().url()),
+  S3_ENDPOINT: optional(z.string().url()),
+  S3_ACCESS_KEY: z.string().default('d4'),
+  S3_SECRET_KEY: z.string().default('d4-local-dev'),
+  S3_BUCKET: z.string().default('d4-exports'),
+  /** Queue name; tests use their own so a running worker does not take their jobs. */
+  JOB_QUEUE: optional(z.string()),
 });
 export type AppConfig = z.infer<typeof Env>;
 

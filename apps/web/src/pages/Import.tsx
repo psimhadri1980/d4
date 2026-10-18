@@ -31,6 +31,8 @@ export function Import() {
   const [result, setResult] = useState<{ dryRun: boolean; r: TabularImportResult } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [background, setBackground] = useState(false);
+  const [queued, setQueued] = useState(false);
 
   const step = async <T,>(label: string, fn: () => Promise<T>) => {
     setBusy(label);
@@ -59,6 +61,11 @@ export function Import() {
   };
 
   const run = async (dryRun: boolean) => {
+    if (!dryRun && background) {
+      const job = await step('Starting…', () => api.createImportJob(ws!, files, tables.map((t) => ({ table: t.name, mapping: mappings[t.name]! })), false));
+      if (job) setQueued(true);
+      return;
+    }
     const r = await step(dryRun ? 'Checking…' : 'Importing…', () =>
       api.importTabular(ws!, files, tables.map((t) => ({ table: t.name, mapping: mappings[t.name]! })), dryRun),
     );
@@ -104,9 +111,17 @@ export function Import() {
             Check (dry run)
           </button>
           <button className="button primary" onClick={() => void run(false)} disabled={!!busy || !checked}>
-            Import
+            {background ? 'Import in background' : 'Import'}
           </button>
+          <label className="inline check-inline">
+            <input type="checkbox" checked={background} onChange={(e) => setBackground(e.target.checked)} /> In background (large files)
+          </label>
           {!checked && <span className="muted small">Run a successful check first.</span>}
+          {queued && (
+            <span role="status">
+              Started. <Link to={`/w/${ws}/jobs`}>See Jobs</Link>
+            </span>
+          )}
         </div>
       )}
 

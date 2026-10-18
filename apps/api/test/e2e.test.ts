@@ -8,17 +8,22 @@ import { join } from 'node:path';
 import { Client } from 'pg';
 import { parseModelDocument } from '@d4/codecs';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
+import { JobQueue, processJob, S3ArtifactStore, startJobWorker } from '@d4/jobs';
 import { createDb, RoleStore, runMigrations, seedLocal, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { JWKS } from '../src/auth/identity';
 import { APP_CONFIG, loadConfig } from '../src/config';
+import { Database } from '../src/infra/database.service';
+import { TenantGraphService } from '../src/infra/tenant-graph.service';
 
 const PG = process.env.D4_TEST_POSTGRES_URL;
 const NEO = process.env.D4_TEST_NEO4J_URL;
 const NEO_PASSWORD = process.env.D4_TEST_NEO4J_PASSWORD ?? 'd4-local-dev';
 const ISSUER = 'http://issuer.test/realms/d4';
+const REDIS = process.env.D4_TEST_REDIS_URL;
+const S3 = process.env.D4_TEST_S3_ENDPOINT;
 
 describe.skipIf(!PG || !NEO)('API end to end', () => {
   const dbName = `d4_e2e_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
@@ -26,6 +31,8 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
   let app: NestFastifyApplication;
   let workspaceId: string;
   let sampleIds: Record<string, string> = {};
+  let jobQueueName = '';
+  let jobWorker: Awaited<ReturnType<typeof startJobWorker>> | undefined;
   let sign: (sub: string, roles: string[], tenant?: string) => Promise<string>;
 
   const call = async (
@@ -83,7 +90,13 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       NEO4J_PASSWORD: NEO_PASSWORD,
       NEO4J_URI: NEO,
       OIDC_ISSUER: ISSUER,
+      // Jobs: a queue of our own, so a running dev worker does not take these jobs.
+      REDIS_URL: REDIS ?? '',
+      S3_ENDPOINT: S3 ?? '',
+      S3_BUCKET: 'd4-test-artifacts',
+      JOB_QUEUE: `d4-jobs-e2e-${dbName}`,
     });
+    jobQueueName = config.JOB_QUEUE!;
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
       .useValue(config)
@@ -97,6 +110,12 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
   });
 
   afterAll(async () => {
+    await jobWorker?.close();
+    if (REDIS && jobQueueName) {
+      const q = new JobQueue(REDIS, jobQueueName);
+      await q.obliterate();
+      await q.close();
+    }
     await app?.close();
     if (workspaceId && NEO) {
       const driver = neo4j.driver(NEO, neo4j.auth.basic('neo4j', NEO_PASSWORD));
@@ -493,6 +512,56 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
         error: 'VALIDATION',
         message: 'x.pdf: only .csv and .xlsx files can be imported',
       });
+    });
+
+    it.skipIf(!REDIS || !S3)('runs exports and imports as background jobs', async () => {
+      // A worker in this process, on this test's queue, with the API's own connections.
+      jobWorker = startJobWorker(REDIS!, (msg, attempt) =>
+        processJob(msg, {
+          db: app.get(Database).db,
+          graphs: app.get(TenantGraphService).graphs,
+          artifacts: new S3ArtifactStore({ endpoint: S3!, accessKey: 'd4', secretKey: 'd4-local-dev', bucket: 'd4-test-artifacts' }),
+        }, attempt),
+        { queue: jobQueueName },
+      );
+      const viewer = await sign('jobs-1', ['viewer']);
+      const other = await sign('jobs-2', ['viewer']);
+      const architect = await sign('jobs-3', ['architect']);
+      const waitFor = async (token: string, id: string) => {
+        for (let i = 0; i < 100; i++) {
+          const j = (await call('GET', `${ws()}/jobs/${id}`, token)).body!;
+          if (j['status'] === 'succeeded' || j['status'] === 'failed') return j;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        throw new Error(`job ${id} did not finish`);
+      };
+
+      const created = await call('POST', `${ws()}/jobs/export`, viewer, { format: 'archimate', asOf: '2027-08-01' });
+      expect(created.status).toBe(202);
+      expect(created.body).toMatchObject({ kind: 'export', status: 'queued', params: { format: 'archimate', asOf: '2027-08-01' }, artifact: null });
+      const done = await waitFor(viewer, created.body!['id']);
+      expect(done).toMatchObject({ status: 'succeeded', progress: 100, artifact: { name: 'default-2027-08-01.archimate.xml' } });
+
+      const file = await app.inject({ method: 'GET', url: `${ws()}/jobs/${done['id']}/artifact`, headers: { authorization: `Bearer ${viewer}` } });
+      expect(file.statusCode).toBe(200);
+      expect(file.headers['content-disposition']).toContain('default-2027-08-01.archimate.xml');
+      expect(file.body).toContain('xsi:type="ApplicationComponent"');
+
+      // Jobs are private to whoever started them.
+      expect((await call('GET', `${ws()}/jobs/${done['id']}`, other)).status).toBe(403);
+      expect((await call('GET', `${ws()}/jobs`, other)).body).toEqual([]);
+      expect((await call('GET', `${ws()}/jobs`, viewer)).body!.map((j: any) => j.id)).toEqual([done['id']]);
+      expect((await call('POST', `${ws()}/jobs/export`, viewer, { scenario: 'nope' })).status).toBe(404);
+
+      // Imports: applying needs write access at submission; the job then runs as that user.
+      const files = [{ name: 'Platforms.csv', content: Buffer.from('Name,platformType\nQueued Kafka,streaming\n').toString('base64') }];
+      expect((await call('POST', `${ws()}/jobs/import-tabular`, viewer, { files })).status).toBe(403);
+      const imp = await call('POST', `${ws()}/jobs/import-tabular`, architect, { files });
+      const imported = await waitFor(architect, imp.body!['id']);
+      expect(imported).toMatchObject({ status: 'succeeded', params: { dryRun: false, files: ['Platforms.csv'] }, result: { ok: true, applied: true, elements: { created: 1 } }, artifact: null });
+      const found = (await call('GET', `${ws()}/elements?q=queued%20kafka`, viewer)).body!['items'];
+      expect(found[0]).toMatchObject({ createdBy: expect.any(String), attrs: { name: 'Queued Kafka' } });
+      expect((await call('GET', `${ws()}/jobs/${imp.body!['id']}/artifact`, architect)).status).toBe(404);
     });
 
     it('exports a document that re-imports unchanged', async () => {

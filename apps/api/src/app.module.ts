@@ -13,11 +13,13 @@ import { HealthController } from './health/health.controller';
 import { ApiExceptionFilter } from './http/errors';
 import { OpenApiController } from './http/openapi';
 import { Database } from './infra/database.service';
+import { JobsInfra } from './infra/jobs.service';
 import { TenantGraphService } from './infra/tenant-graph.service';
 import { ElementsController } from './model/elements.controller';
 import { ModelFactory } from './model/model.factory';
 import { DiffController } from './model/diff.controller';
 import { InsightsController } from './model/insights.controller';
+import { JobsController } from './model/jobs.controller';
 import { RoadmapController } from './model/roadmap.controller';
 import { RelationshipsController } from './model/relationships.controller';
 import { TabularController } from './model/tabular.controller';
@@ -37,6 +39,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     InsightsController,
     TransferController,
     TabularController,
+    JobsController,
     CatalogController,
     CatalogRunController,
   ],
@@ -45,6 +48,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     jwksProvider,
     Database,
     TenantGraphService,
+    JobsInfra,
     AuthService,
     WorkspaceAccess,
     ModelFactory,

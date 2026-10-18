@@ -1,0 +1,21 @@
+{
+  "name": "@d4/worker",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Runs background jobs (exports, spreadsheet imports) from the Redis queue.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@d4/db": "workspace:*",
+    "@d4/jobs": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}
