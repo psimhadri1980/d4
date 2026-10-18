@@ -331,6 +331,14 @@ export function buildOpenApiDocument(): OpenApiDocument {
   });
   route({
     method: 'post',
+    path: '/v1/workspaces/{ws}/catalog/{id}/test',
+    tags: ['Query Catalog'],
+    summary: 'Test-run the open draft (author) or version in review (author/steward); checks first, 100 rows, 10 s, not logged',
+    request: { params: z.object({ ws, id: qid }), ...body(z.object({ params: z.record(z.unknown()).optional() })) },
+    responses: { 200: json(RunResult, 'Result table'), ...writeErrors },
+  });
+  route({
+    method: 'post',
     path: '/v1/workspaces/{ws}/catalog/{id}/run',
     tags: ['Query Catalog'],
     summary: 'Run a published query in a workspace (granted roles); capped, timed out and logged',

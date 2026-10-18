@@ -58,11 +58,11 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
 
     it('shows viewers only what is granted to them, and supports search', async () => {
       const visible = (await h.call('GET', '/v1/catalog', viewer)).body;
-      expect(visible).toHaveLength(7);
+      expect(visible).toHaveLength(8);
       const found = (await h.call('GET', '/v1/catalog?q=master', viewer)).body.map((q: any) => q.slug);
       expect(found).toEqual(expect.arrayContaining(['data-product-holders', 'data-products-without-master']));
       const none = (await h.call('GET', '/v1/catalog', await h.sign('nobody', ['planner']))).body;
-      expect(none).toHaveLength(7);
+      expect(none).toHaveLength(8);
     });
 
     it('detail hides grants from viewers but shows published versions', async () => {
@@ -98,6 +98,24 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
       const after = (await run('2027-08-01')).body.rows.find((r: any) => r.role === 'MASTER');
       expect(before.store).toBe('Legacy Client Database');
       expect(after.store).toBe('Client MDM Hub');
+    });
+
+    it('returns graph results as plain JSON nodes, relationships and paths', async () => {
+      const q = await bySlug('data-product-lineage-graph');
+      const res = await h.call('POST', `/v1/workspaces/${ws()}/catalog/${q.id}/run`, viewer, {
+        params: { element: keyToId['dp-client'] },
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.columns).toEqual(['product', 'paths']);
+      const row = res.body.rows[0];
+      expect(row.product).toMatchObject({ labels: expect.arrayContaining(['DataProduct']), properties: { name: 'Client Master' } });
+      expect(typeof row.product.elementId).toBe('string');
+      const segment = row.paths[0].segments[0];
+      expect(segment.relationship).toMatchObject({ type: expect.any(String), startNodeId: expect.any(String), endNodeId: expect.any(String) });
+      expect(segment.start.properties).toHaveProperty('id');
+      // Plain JSON only: nothing left as driver objects (integers are numbers, dates are strings).
+      expect(JSON.parse(JSON.stringify(row))).toEqual(row);
+      expect(typeof row.product.properties.version).toBe('number');
     });
 
     it('rejects bad parameters and logs runs', async () => {
@@ -160,6 +178,27 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
       const good = await h.call('PUT', `/v1/catalog/${id}/draft`, author, { cypher: GOOD, params: PARAMS });
       expect(good.body.checks).toEqual({ errors: [], warnings: [] });
       expect(good.body.version.version).toBe(1);
+    });
+
+    it('lets the author test-run the draft (not logged) and refuses others', async () => {
+      const ok = await h.call('POST', `/v1/workspaces/${ws()}/catalog/${id}/test`, author, { params: { criticality: 'MISSION_CRITICAL' } });
+      expect(ok.status).toBe(200);
+      expect(ok.body).toMatchObject({ status: 'draft', version: 1 });
+      expect(ok.body.rows.map((r: any) => r.name)).toEqual(['Core Banking System', 'Credit Risk Engine']);
+
+      expect((await h.call('POST', `/v1/workspaces/${ws()}/catalog/${id}/test`, viewer, {})).status).toBe(403);
+      const badParam = await h.call('POST', `/v1/workspaces/${ws()}/catalog/${id}/test`, author, { params: { criticality: 'EXTREME' } });
+      expect(badParam.status).toBe(422);
+      expect((await h.call('GET', `/v1/catalog/${id}/executions`, steward)).body).toEqual([]);
+    });
+
+    it('blocks test runs of drafts that fail the checks', async () => {
+      const tmp = (await h.call('POST', '/v1/catalog', author, { slug: 'unsafe-draft', title: 'Unsafe' })).body;
+      await h.call('PUT', `/v1/catalog/${tmp.id}/draft`, author, { cypher: 'MATCH (a:Application) SET a.x = 1 RETURN a' });
+      const res = await h.call('POST', `/v1/workspaces/${ws()}/catalog/${tmp.id}/test`, author, {});
+      expect(res.status).toBe(422);
+      expect(res.body.issues.join(' ')).toMatch(/SET is not allowed/);
+      await h.call('DELETE', `/v1/catalog/${tmp.id}`, author);
     });
 
     it('is invisible to viewers until published and granted', async () => {

@@ -7,6 +7,7 @@ describe('system query pack', () => {
   it('loads every query, all passing the authoring checks without warnings', () => {
     expect(pack.map((q) => q.slug)).toEqual([
       'data-product-holders',
+      'data-product-lineage-graph',
       'data-products-without-master',
       'impact-of-retirement',
       'lifecycle-risk',

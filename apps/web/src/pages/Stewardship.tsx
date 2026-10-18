@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, can, catalogApi, type QueryGrant, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { RemoveQueryButton } from '../components/RemoveQueryButton';
+import { TestRunPanel } from '../components/TestRunPanel';
 import { ChecksList, STATUS_LABEL, StatusBadges, VersionHistory } from './QueryStudio';
 
 /** Roles a steward can grant a query to (mirrors the platform role list). */
@@ -142,6 +143,8 @@ function StewardPanel({ queryId }: { queryId: string }) {
           </div>
         </div>
       )}
+
+      {pending && <TestRunPanel key={pending.id} workspaceId={ws!} queryId={queryId} version={pending} title={d.slug} />}
 
       <div className="card">
         <h3>Who can run it</h3>

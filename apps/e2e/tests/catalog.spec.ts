@@ -45,6 +45,22 @@ test.describe('query catalog', () => {
     await expect(page.getByRole('button', { name: 'Download CSV' })).toBeEnabled();
   });
 
+  test('graph-shaped queries render as a graph with a table toggle', async ({ page }) => {
+    await signIn(page, 'viewer');
+    await go(page, '/catalog');
+    await page.getByRole('link', { name: /Lineage graph/ }).click();
+    await page.getByLabel('Search DataProduct').fill('Client Master');
+    await page.locator('#param-element').selectOption({ label: 'Client Master — DataProduct' });
+    await page.getByRole('button', { name: 'Run' }).click();
+    await expect(page.getByText(/\d+ elements · \d+ relationships · v1/)).toBeVisible();
+    await expect(page.locator('.result-graph canvas').first()).toBeVisible();
+    const counts = await page.getByText(/\d+ elements · \d+ relationships · v1/).innerText();
+    expect(Number(/(\d+) elements/.exec(counts)![1])).toBeGreaterThan(5);
+
+    await page.getByRole('group', { name: 'Result view' }).getByRole('button', { name: 'Table' }).click();
+    await expect(page.locator('.results table')).toContainText('Client Master');
+  });
+
   test('viewer gets a clear error for a missing required parameter', async ({ page }) => {
     await signIn(page, 'viewer');
     await go(page, '/catalog');
@@ -72,6 +88,14 @@ test.describe('query catalog', () => {
     await page.getByLabel('Parameters (JSON)').fill(PARAMS);
     await page.getByRole('button', { name: 'Save draft' }).click();
     await expect(page.getByText('✓ All checks pass')).toBeVisible();
+
+    // Test-run the saved draft before submitting.
+    const testRun = page.locator('.test-run');
+    await testRun.getByLabel('Criticality').selectOption('MISSION_CRITICAL');
+    await testRun.getByRole('button', { name: 'Test run' }).click();
+    await expect(testRun.locator('table')).toContainText('Core Banking System');
+    await expect(testRun.locator('table')).not.toContainText('Client Onboarding Portal');
+
     await page.getByRole('button', { name: 'Submit for review' }).click();
     await expect(page.getByText(/waiting for a steward/)).toBeVisible();
   });

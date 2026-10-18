@@ -35,6 +35,7 @@ const StatusBody = z.object({ status: z.enum(['deprecated', 'retired', 'publishe
 const GrantsBody = z
   .array(z.object({ principalType: z.enum(['role', 'group']), principal: z.string().min(1) }).strict())
   .max(100);
+const TestBody = z.object({ params: z.record(z.unknown()).optional() }).strict();
 const RunBody = z
   .object({ params: z.record(z.unknown()).optional(), version: z.number().int().positive().optional() })
   .strict();
@@ -114,6 +115,13 @@ export class CatalogController {
 @Controller('v1/workspaces/:ws/catalog')
 export class CatalogRunController {
   constructor(@Inject(QueryRunService) private readonly runner: QueryRunService) {}
+
+  /** Test-runs the open draft or version in review (tighter limits, not logged). */
+  @Post(':id/test')
+  @HttpCode(200)
+  test(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Body() body: unknown) {
+    return this.runner.testDraft(p, ws, id, parse(TestBody, body ?? {}));
+  }
 
   @Post(':id/run')
   @HttpCode(200)

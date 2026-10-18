@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, can, catalogApi, type CatalogEntry, type Checks, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { RemoveQueryButton } from '../components/RemoveQueryButton';
+import { TestRunPanel } from '../components/TestRunPanel';
 
 export const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft',
@@ -259,6 +260,9 @@ function Editor({ queryId }: { queryId: string }) {
           <RemoveQueryButton queryId={queryId} title={d.title} versions={versions} after={`/w/${ws}/studio`} />
         </div>
       </div>
+      {open && !open.checks?.errors.length && open.checks && (
+        <TestRunPanel key={`${open.id}-${open.contentHash}`} workspaceId={ws!} queryId={queryId} version={open} title={d.slug} />
+      )}
       <VersionHistory versions={versions} />
     </div>
   );

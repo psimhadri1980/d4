@@ -1,0 +1,22 @@
+slug: data-product-lineage-graph
+title: Lineage graph of a data product
+description: >
+  The data product with everything within two hops through holds, feeds, derived-from, process
+  steps acting on it and consumers: the stores (master, golden copy, distributors), the feeds
+  between them, derived products and the steps that create, read or change it.
+tags: [data, lineage, graph]
+resultShape: graph
+defaultRoles: [viewer, contributor, planner, architect]
+params:
+  - name: element
+    type: element
+    required: true
+    label: Data product
+    elementTypes: [DataProduct]
+cypher: |
+  MATCH (p:DataProduct {id: $element})
+  WHERE p.workspaceId = $workspace AND p.deleted = false
+  OPTIONAL MATCH path = (p)-[rels:HOLDS|FEEDS|DERIVED_FROM|ACTS_ON|CONSUMES*1..2]-(x:Element)
+  WHERE all(r IN rels WHERE r.deleted = false) AND x.deleted = false
+  RETURN p AS product, collect(DISTINCT path) AS paths
+  LIMIT 1

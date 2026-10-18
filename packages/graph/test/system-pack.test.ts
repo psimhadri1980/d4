@@ -117,6 +117,14 @@ describe.skipIf(!URL)('system query pack on the UBS sample', () => {
     expect(rows.every((r) => ['DEPRECATED', 'RETIRED'].includes(String(r['linkedLifecycle'])))).toBe(true);
   });
 
+  it('lineage graph returns the product and paths to stores, feeds and steps', async () => {
+    const rows = await run('data-product-lineage-graph', { element: keyToId['dp-client'] });
+    expect(rows).toHaveLength(1);
+    const paths = rows[0]!['paths'] as { segments: { relationship: { type: string } }[] }[];
+    const types = new Set(paths.flatMap((p) => p.segments.map((s) => s.relationship.type)));
+    expect([...types].sort()).toEqual(expect.arrayContaining(['ACTS_ON', 'CONSUMES', 'DERIVED_FROM', 'FEEDS', 'HOLDS']));
+  });
+
   it('lists orphan elements, optionally by type', async () => {
     expect((await run('orphan-elements')).map((r) => r['name'])).toEqual(['Orphaned Feed']);
     expect(await run('orphan-elements', { types: ['Platform'] })).toEqual([]);

@@ -224,6 +224,10 @@ export const catalogApi = {
   run: (ws: string, id: string, params: Record<string, unknown>, version?: number) =>
     request<RunResult>('POST', `/v1/workspaces/${ws}/catalog/${id}/run`, { params, ...(version && { version }) }),
 
+  /** Test-runs the open draft (author) or version in review (author/steward); not logged. */
+  test: (ws: string, id: string, params: Record<string, unknown>) =>
+    request<RunResult>('POST', `/v1/workspaces/${ws}/catalog/${id}/test`, { params }),
+
   create: (body: { slug: string; title: string; description?: string; tags?: string[] }) =>
     request<CatalogEntry>('POST', '/v1/catalog', body),
   updateMeta: (id: string, body: { title?: string; description?: string; tags?: string[]; certified?: boolean }) =>

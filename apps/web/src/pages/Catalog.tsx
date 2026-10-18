@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, can, catalogApi, type CatalogEntry } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ParamForm, paramsFromForm, type ParamValues } from '../components/ParamForm';
-import { ResultTable } from '../components/ResultTable';
+import { QueryResultView } from '../components/QueryResultView';
 
 /** Browse and run the queries you are allowed to run. */
 export function Catalog() {
@@ -124,7 +124,7 @@ function RunPanel({ workspaceId, queryId, entry }: { workspaceId: string; queryI
       </div>
       {run.data && (
         <div className="card">
-          <ResultTable result={run.data} workspaceId={workspaceId} title={entry?.slug ?? d.slug} />
+          <QueryResultView result={run.data} workspaceId={workspaceId} title={entry?.slug ?? d.slug} shape={published?.resultShape ?? 'table'} />
         </div>
       )}
     </div>

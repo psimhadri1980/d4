@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { QueryParamDef, RunResult } from '../src/api';
 import { paramsFromForm } from '../src/components/ParamForm';
+import { graphFromRows } from '../src/components/QueryResultView';
 import { toCsv } from '../src/components/ResultTable';
 
 describe('paramsFromForm', () => {
@@ -35,5 +36,50 @@ describe('toCsv', () => {
       status: 'published',
     };
     expect(toCsv(r)).toBe('name,changes,node\n"A, ""quoted""","x (RETIRE), y",Mainframe');
+  });
+});
+
+describe('graphFromRows', () => {
+  const node = (eid: string, id: string, type: string, name: string) => ({
+    elementId: eid,
+    labels: ['Element', type],
+    properties: { id, type, name, workspaceId: 'ws', version: 1 },
+  });
+  const rel = (eid: string, type: string, s: string, e: string, extra: Record<string, unknown> = {}) => ({
+    elementId: eid,
+    type,
+    startNodeId: s,
+    endNodeId: e,
+    properties: { id: `R${eid}`, ...extra },
+  });
+
+  it('collects nodes and relationships from paths nested in lists, using D4 ids', () => {
+    const dp = node('n1', 'DP', 'DataProduct', 'Client Master');
+    const store = node('n2', 'DS', 'DataStore', 'MDM Hub');
+    const step = node('n3', 'ST', 'ProcessStep', 'Capture');
+    const rows = [
+      {
+        product: dp,
+        paths: [
+          { start: dp, end: store, segments: [{ start: store, relationship: rel('r1', 'HOLDS', 'n2', 'n1', { role: 'MASTER' }), end: dp }] },
+          { start: dp, end: step, segments: [{ start: step, relationship: rel('r2', 'ACTS_ON', 'n3', 'n1'), end: dp }] },
+        ],
+      },
+    ];
+    const g = graphFromRows(rows);
+    expect(g.elements.map((e) => `${e.id}:${e.type}:${String(e.attrs['name'])}`).sort()).toEqual([
+      'DP:DataProduct:Client Master',
+      'DS:DataStore:MDM Hub',
+      'ST:ProcessStep:Capture',
+    ]);
+    expect(g.relationships.map((r) => `${r.fromId}-${r.type}->${r.toId}`).sort()).toEqual(['DS-HOLDS->DP', 'ST-ACTS_ON->DP']);
+    expect(g.relationships.find((r) => r.type === 'HOLDS')?.attrs['role']).toBe('MASTER');
+    expect(g.elements[0]!.attrs).not.toHaveProperty('workspaceId');
+  });
+
+  it('drops relationships whose endpoints are not in the result', () => {
+    const g = graphFromRows([{ r: rel('r9', 'OWNS', 'x', 'y'), n: node('n1', 'A', 'Platform', 'K8s') }]);
+    expect(g.elements).toHaveLength(1);
+    expect(g.relationships).toEqual([]);
   });
 });
