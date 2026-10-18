@@ -1,4 +1,4 @@
-# Local D4 stack. Sized for an 8 GB machine (~3 GB for the core profile).
+# Local D4 stack. Sized for an 8 GB machine (~3.3 GB caps for the core profile).
 #   core (default):  neo4j, postgres, redis, s3 (SeaweedFS), keycloak
 #                    + init jobs (db-migrate, neo4j-schema, s3-init) + api + web (:5173)
 #   observability:   otel-collector, tempo, prometheus, grafana   (--profile observability)
@@ -28,13 +28,15 @@ services:
       NEO4J_dbms_security_procedures_unrestricted: 'apoc.*,gds.*'
       NEO4J_dbms_security_procedures_allowlist: 'apoc.*,gds.*'
       NEO4J_db_transaction_timeout: 30s
+      # Heap + page cache + capped transaction memory, leaving ~600 MB for JVM/Lucene overhead.
       NEO4J_server_memory_heap_initial__size: 512m
-      NEO4J_server_memory_heap_max__size: 768m
+      NEO4J_server_memory_heap_max__size: 640m
       NEO4J_server_memory_pagecache_size: 256m
+      NEO4J_db_memory_transaction_total_max: 256m
     volumes:
       - neo4j-data:/data
       - neo4j-plugins:/plugins
-    mem_limit: 1400m
+    mem_limit: 1800m
     healthcheck:
       test: ['CMD-SHELL', 'cypher-shell -u neo4j -p d4-local-dev "RETURN 1" >/dev/null 2>&1']
       interval: 10s
@@ -211,6 +213,9 @@ services:
     profiles: [tools]
     build: { context: .., dockerfile: Dockerfile, target: test }
     image: d4-test:local
+    # Capped, with at most two suites at a time, so tests don't starve Neo4j on a 4 GB Docker VM.
+    command: ['pnpm', 'turbo', 'run', 'test', '--concurrency=2']
+    mem_limit: 1536m
     depends_on:
       postgres: { condition: service_healthy }
       neo4j: { condition: service_healthy }
@@ -220,6 +225,17 @@ services:
       # Graph tests use a throwaway workspace on the dev Neo4j and delete it afterwards.
       D4_TEST_NEO4J_URL: bolt://neo4j:7687
       D4_TEST_NEO4J_PASSWORD: d4-local-dev
+
+  # Browser tests against the running stack: deploy/dev.sh e2e
+  e2e:
+    profiles: [tools]
+    build: { context: .., dockerfile: Dockerfile, target: e2e }
+    image: d4-e2e:local
+    depends_on:
+      web: { condition: service_healthy }
+    volumes:
+      - ../apps/e2e/results:/repo/apps/e2e/results
+    shm_size: 1gb
 
 volumes:
   neo4j-data:

@@ -55,6 +55,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
 | D23 | 2026-10-17 | Model-as-code format `d4/v1`: document `key`s for wiring, ids kept on export; imports match by id → externalKey → type + name, are validated as a whole, applied as one change set, and never delete | Hand-authored files re-import without duplicates; exports round-trip exactly |
 | D24 | 2026-10-17 | Sample dataset uses UBS's public divisions with **invented** systems, data and plans, labelled illustrative | Realistic demo without misrepresenting a real bank's internals |
 | D25 | 2026-10-18 | Web app uses `react-router` (not TanStack Router), `oidc-client-ts` (PKCE, session storage), and runs `@d4/metamodel` + `@d4/core` in the browser | Forms, relationship options and lifecycle moves follow the exact server rules |
+| D26 | 2026-10-18 | Browser tests with **Playwright 1.47** in Docker (`deploy/dev.sh e2e`); the container forwards localhost:5173/8080/3000 to web/keycloak/api so OIDC origins match a developer browser; tests run serially on the dev workspace with `e2erun…`-prefixed data cleaned up after | Real login flow and real API; no test-only auth bypass |
 
 ## Status
 
@@ -88,8 +89,10 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - checked live in the browser
   - 97 tests pass
 - **Phase 1 (Model) complete.**
+- **Browser tests done:** 20 Playwright tests covering sign-in, explorer, editing, relationships and roles; stable across repeated runs.
+- **Memory tuning:** Neo4j cap raised to 1.8 GB, and the test container capped at 1.5 GB with two suites at a time, so runs on a 4 GB Docker VM stay inside memory.
 - **Known follow-ups:**
-  - automated browser (Playwright) tests
+  - run the browser tests in CI
   - code-splitting (bundle ~290 KB gzipped)
   - graph layout readability on dense neighbourhoods
   - batched Neo4j writes for large imports

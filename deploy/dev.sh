@@ -20,6 +20,8 @@ case "${1:-help}" in
   migrate)  dc run --rm --build db-migrate ;;
   schema)   dc run --rm neo4j-schema ;;
   test)     dc --profile tools run --rm --build test ;;
+  # Browser tests (Playwright) against the running stack; report in apps/e2e/results/report.
+  e2e)      dc --profile tools run --rm --build e2e "${@:2}" ;;
   # Prints an access token for a dev user (default dev-admin).
   token)
     curl -fsS -d client_id=d4-web -d grant_type=password -d username="${2:-dev-admin}" \
@@ -40,5 +42,5 @@ case "${1:-help}" in
       | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
     curl -fsS -H "Authorization: Bearer $TOKEN" localhost:3000/v1/me && echo ;;
   *)
-    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|smoke|token [user]|cli <args>|sample" ;;
+    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample" ;;
 esac

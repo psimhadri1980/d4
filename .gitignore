@@ -8,3 +8,5 @@ coverage/
 deploy/data/
 .DS_Store
 .claude/settings.local.json
+apps/e2e/results/
+apps/e2e/.auth/

@@ -9,6 +9,7 @@ Stack: TypeScript end to end, Neo4j 5 Community (one instance per tenant), Postg
 ```
 apps/api              NestJS API: OIDC auth, workspace access, REST commands + GraphQL reads
 apps/web              React explorer: Keycloak login, search, graph canvas, metamodel-driven forms
+apps/e2e              Playwright browser tests against the running stack
 packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
 packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
@@ -28,14 +29,15 @@ Prerequisite: Docker Desktop running. On an 8 GB machine, give it at least 4 GB 
 ```bash
 deploy/dev.sh up        # build the API image, start the core stack, apply the Neo4j schema, create buckets
 deploy/dev.sh smoke     # health checks + Keycloak login + /v1/me
-deploy/dev.sh test      # run the whole test suite inside a container
+deploy/dev.sh test      # unit + integration tests inside a container
+deploy/dev.sh e2e       # Playwright browser tests against the running stack (report: apps/e2e/results/report)
 deploy/dev.sh up-obs    # also start OTel collector, Tempo, Prometheus, Grafana
 deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volumes
 ```
 
 | Component | Purpose | Memory cap |
 |---|---|---|
-| neo4j 5.26 Community + APOC + GDS | Tenant graph (`t_local`) | 1.4 GB |
+| neo4j 5.26 Community + APOC + GDS | Tenant graph (`t_local`) | 1.8 GB |
 | postgres 16 | Control plane (tenants, events) | 256 MB |
 | redis 7 | Queue / cache | 128 MB |
 | s3 (SeaweedFS) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
@@ -53,6 +55,19 @@ Open http://localhost:5173 and sign in as `dev-admin` (or `dev-viewer` for read-
 - **Centre:** the selected element's neighbourhood (depth 1–3), coloured by layer. Double-click a node to expand it; dashed edges are not valid yet (e.g. a planned hand-over).
 - **Right:** attributes, relationships (add or remove; only types the metamodel allows are offered), and change history.
 - **New element / Edit:** forms come from the metamodel. Lifecycle offers only the allowed moves, and the same validation as the server runs in the browser.
+
+### Browser tests
+
+`deploy/dev.sh e2e` runs 20 Playwright tests in Chromium against the live stack:
+- sign-in and sign-out through Keycloak
+- search, filters, graph depth, details and navigation (on the UBS sample)
+- metamodel-driven create and edit, lifecycle rules, validation, history, delete
+- relationships: allowed types only, add with role and validity, remove, rule violation
+- a read-only viewer being refused
+
+Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `deploy/dev.sh e2e --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
+
+The stack needs about 3.3 GB, and the browser tests add about 1 GB. On a 4 GB Docker VM it fits, but only just; 6 GB under Docker Desktop → Settings → Resources is more comfortable.
 
 ## API
 

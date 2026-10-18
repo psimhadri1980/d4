@@ -1,0 +1,15 @@
+{
+  "name": "@d4/e2e",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Browser tests for the D4 Explorer, run against the local Docker stack.",
+  "scripts": {
+    "e2e": "playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint tests playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.47.2",
+    "yaml": "^2.5.0"
+  }
+}

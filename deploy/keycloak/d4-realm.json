@@ -3,13 +3,27 @@
   "enabled": true,
   "roles": {
     "realm": [
-      { "name": "viewer" },
-      { "name": "contributor" },
-      { "name": "planner" },
-      { "name": "architect" },
-      { "name": "query-author" },
-      { "name": "query-steward" },
-      { "name": "admin" }
+      {
+        "name": "viewer"
+      },
+      {
+        "name": "contributor"
+      },
+      {
+        "name": "planner"
+      },
+      {
+        "name": "architect"
+      },
+      {
+        "name": "query-author"
+      },
+      {
+        "name": "query-steward"
+      },
+      {
+        "name": "admin"
+      }
     ]
   },
   "clients": [
@@ -18,14 +32,21 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://localhost:5173/*"],
-      "webOrigins": ["http://localhost:5173"],
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
       "protocolMappers": [
         {
           "name": "audience-d4-api",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
-          "config": { "included.custom.audience": "d4-api", "access.token.claim": "true" }
+          "config": {
+            "included.custom.audience": "d4-api",
+            "access.token.claim": "true"
+          }
         },
         {
           "name": "tenant",
@@ -38,7 +59,11 @@
             "access.token.claim": "true"
           }
         }
-      ]
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5173/*",
+        "pkce.code.challenge.method": "S256"
+      }
     }
   ],
   "users": [
@@ -49,8 +74,18 @@
       "emailVerified": true,
       "firstName": "Dev",
       "lastName": "Admin",
-      "credentials": [{ "type": "password", "value": "d4-local-dev", "temporary": false }],
-      "realmRoles": ["admin", "query-author", "query-steward"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "d4-local-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin",
+        "query-author",
+        "query-steward"
+      ]
     },
     {
       "username": "dev-viewer",
@@ -59,8 +94,16 @@
       "emailVerified": true,
       "firstName": "Dev",
       "lastName": "Viewer",
-      "credentials": [{ "type": "password", "value": "d4-local-dev", "temporary": false }],
-      "realmRoles": ["viewer"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "d4-local-dev",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "viewer"
+      ]
     }
   ]
 }
