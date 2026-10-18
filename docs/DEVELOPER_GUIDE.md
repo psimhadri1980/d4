@@ -458,5 +458,4 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 - Batched (`UNWIND`) graph writes for large imports.
 - Write-class catalog queries (`kind: write`) are modelled but not executable.
 - Licensed UBS font to replace the Source Sans 3 stand-in (`--font-sans`).
-- Deleting a Scenario should remove its scenario items.
 - Next phase: Phase 4, delivery outputs (PLAN.md).

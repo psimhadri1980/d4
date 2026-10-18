@@ -23,6 +23,33 @@ const code = async (p: Promise<unknown>) => {
 };
 
 describe('elements', () => {
+  it('deleting a scenario deletes its items and leaves the baseline alone', async () => {
+    const dp = await svc.createElement(ctx, { type: 'DataProduct', attrs: { name: 'Client' } });
+    const legacy = await svc.createElement(ctx, { type: 'DataStore', attrs: { name: 'Legacy' } });
+    const baseline = await svc.createRelationship(ctx, { type: 'HOLDS', fromId: legacy.id, toId: dp.id, attrs: { role: 'MASTER' } });
+    const s = await svc.createElement(ctx, { type: 'Scenario', attrs: { name: 'Early cut-over' } });
+    const cache = await svc.createElement(ctx, { type: 'DataStore', attrs: { name: 'Cache' }, scenarioId: s.id });
+    const early = await svc.createRelationship(ctx, {
+      type: 'HOLDS', fromId: legacy.id, toId: dp.id, attrs: { role: 'MASTER' }, validTo: '2027-04-01', scenarioId: s.id,
+    });
+    const cached = await svc.createRelationship(ctx, { type: 'HOLDS', fromId: cache.id, toId: dp.id, attrs: { role: 'CONSUMER_CACHE' }, scenarioId: s.id });
+    // Unrelated scenario: untouched.
+    const other = await svc.createElement(ctx, { type: 'Scenario', attrs: { name: 'Other' } });
+    const otherStore = await svc.createElement(ctx, { type: 'DataStore', attrs: { name: 'Other store' }, scenarioId: other.id });
+
+    await svc.deleteElement(ctx, { id: s.id, expectedVersion: 1 });
+    const gone = (id: string) => repo.elements.get(id)?.deleted ?? repo.relationships.get(id)?.deleted;
+    expect([s.id, cache.id, early.id, cached.id].map(gone)).toEqual([true, true, true, true]);
+    expect([dp.id, legacy.id, baseline.id, other.id, otherStore.id].map(gone)).toEqual([false, false, false, false, false]);
+
+    const last = repo.events.at(-1)!;
+    expect(last).toMatchObject({ type: 'ElementDeleted', subjectId: s.id, data: { cascadedElements: [cache.id] } });
+    expect((last.data['cascadedRelationships'] as string[]).sort()).toEqual([early.id, cached.id].sort());
+    expect(repo.events.filter((e) => e.data['reason'] === 'scenario-deleted').map((e) => e.subjectId).sort()).toEqual(
+      [cache.id, early.id, cached.id].sort(),
+    );
+  });
+
   it('creates with defaults, system fields and an event', async () => {
     const el = await svc.createElement(ctx, { type: 'DataProduct', attrs: { name: 'Customer' } });
     expect(el).toMatchObject({ version: 1, workspaceId: 'ws1', deleted: false, createdBy: 'u1' });

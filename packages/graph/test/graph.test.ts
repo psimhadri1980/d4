@@ -234,6 +234,14 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
       expect(viaCypher.relationships.map((r) => r.id).sort()).toEqual(viaCore.relationships.map((r) => r.id).sort());
       expect(viaCypher.elements.map((e) => e.id).sort()).toEqual(viaCore.elements.map((e) => e.id).sort());
     }
+
+    // Deleting the scenario removes its items; the baseline hand-over stays.
+    await svc.deleteElement(vctx, { id: fast.id, expectedVersion: 1 });
+    expect(await listed({})).not.toContain('View Fast');
+    expect(names((await q.listElements(ctx.workspaceId, { search: 'view cache' }, {}, { scenarioId: fast.id })).items)).toEqual([]);
+    const live = await q.snapshot(ctx.workspaceId);
+    expect(live.relationships.filter((r) => r.scenarioId === fast.id)).toEqual([]);
+    expect(await masters({ asOf: '2027-05-01' })).toEqual(['View Legacy']);
   });
 
   it('rejects unknown types in queries instead of interpolating them', async () => {

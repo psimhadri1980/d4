@@ -9,6 +9,8 @@ export interface ModelReader {
   relationshipsOf(workspaceId: string, elementId: string): Promise<Relationship[]>;
   /** Live relationships of a type that point at the target. */
   relationshipsTo(workspaceId: string, type: string, toId: string): Promise<Relationship[]>;
+  /** Live elements and relationships that belong to a scenario (their `scenarioId`). */
+  scenarioItems(workspaceId: string, scenarioId: string): Promise<{ elements: Element[]; relationships: Relationship[] }>;
   /** Is there a directed path of live `type` relationships from `fromId` to `toId`? */
   pathExists(workspaceId: string, type: string, fromId: string, toId: string): Promise<boolean>;
 }

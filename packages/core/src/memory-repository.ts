@@ -25,6 +25,13 @@ export class InMemoryModelRepository implements ModelRepository {
     return this.live(ws).filter((r) => r.fromId === elementId || r.toId === elementId);
   }
 
+  async scenarioItems(ws: string, scenarioId: string) {
+    return {
+      elements: [...this.elements.values()].filter((e) => e.workspaceId === ws && !e.deleted && e.scenarioId === scenarioId),
+      relationships: this.live(ws).filter((r) => r.scenarioId === scenarioId),
+    };
+  }
+
   async relationshipsTo(ws: string, type: string, toId: string) {
     return this.live(ws).filter((r) => r.type === type && r.toId === toId);
   }

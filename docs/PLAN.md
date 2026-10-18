@@ -144,7 +144,7 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - REST: `asOf` and `scenario` on element list, relationships and neighbourhood; `GET /v1/workspaces/{ws}/diff`; GraphQL arguments and `Workspace.diff`; unknown scenarios → 404, non-Scenario ids → 400
   - web: Explorer "As of" and "Scenario" pickers (kept per tab), a notice while not on today's baseline, scenario badges, new relationships go into the selected scenario, dashed edges relative to the view date; Compare page with swap and shareable URL
   - 4 core, 1 Neo4j, 2 API and 4 browser tests
-  - follow-up: deleting a Scenario should remove its items
+  - deleting a Scenario (or subtype) also soft-deletes its elements, their relationships and its own relationships, each with an audited event (`reason: scenario-deleted`); the baseline is untouched
 - **3e done:**
   - `@d4/core`: CRUD-I, capability × application (TIME classes), data store roles and lifecycle heat-map matrices with findings and CSV; `decisionLog` (options, chosen, decided elements, supersession, findings)
   - `GraphQueries.subgraphOf` and `lifecycleCounts`; `GET /v1/workspaces/{ws}/matrix/{kind}` and `/decisions` (REST, OpenAPI, GraphQL), all following `asOf` and `scenario`

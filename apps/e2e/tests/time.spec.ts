@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { api, defaultWorkspaceId, RUN } from './helpers';
+import { API, api, defaultWorkspaceId, RUN, token } from './helpers';
 
 interface El { id: string; version: number; attrs: Record<string, unknown> }
 
@@ -48,10 +48,13 @@ test.describe('time and scenarios', () => {
   });
 
   test.afterAll(async () => {
-    // Scenario relationships join sample elements, so they are removed explicitly.
-    for (const r of rels) await api(`/v1/workspaces/${ws}/relationships/${r.id}?expectedVersion=${r.version}`, { method: 'DELETE' });
-    // By id: never depend on search to clean up.
-    if (scenario) await api(`/v1/workspaces/${ws}/elements/${scenario.id}?expectedVersion=${scenario.version}`, { method: 'DELETE' });
+    // By id, never by search. Deleting the scenario also deletes its relationships.
+    if (!scenario) return;
+    await api(`/v1/workspaces/${ws}/elements/${scenario.id}?expectedVersion=${scenario.version}`, { method: 'DELETE' });
+    for (const r of rels) {
+      const res = await fetch(`${API}/v1/workspaces/${ws}/relationships/${r.id}`, { headers: { authorization: `Bearer ${await token('admin')}` } });
+      expect(res.status, 'scenario relationship should be gone').toBe(404);
+    }
   });
 
   test('Explorer shows the model as of a date and can reset', async ({ page }) => {

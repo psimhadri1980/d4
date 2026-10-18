@@ -65,6 +65,22 @@ export class Neo4jModelRepository implements ModelRepository {
     return rows.map(toRelationship);
   }
 
+  async scenarioItems(ws: string, scenarioId: string): Promise<{ elements: Element[]; relationships: Relationship[] }> {
+    const [els, rels] = await Promise.all([
+      this.read(
+        'MATCH (n:Element) WHERE n.workspaceId = $ws AND n.scenarioId = $s AND n.deleted = false RETURN properties(n) AS p',
+        { ws, s: scenarioId },
+      ),
+      this.read(
+        `MATCH (a:Element)-[r]->(b:Element)
+         WHERE a.workspaceId = $ws AND r.workspaceId = $ws AND r.scenarioId = $s AND r.deleted = false
+         RETURN properties(r) AS p, type(r) AS t, a.id AS f, b.id AS o`,
+        { ws, s: scenarioId },
+      ),
+    ]);
+    return { elements: els.map((r) => propsToElement(r['p'] as Row)), relationships: rels.map(toRelationship) };
+  }
+
   async relationshipsTo(ws: string, type: string, toId: string): Promise<Relationship[]> {
     const rows = await this.read(
       `MATCH (a:Element)-[r:${ident(type)}]->(n:Element {id: $id})

@@ -136,17 +136,28 @@ export class ModelService {
     const current = await this.liveElement(ctx, input.id);
     this.assertVersion(current, input.expectedVersion);
 
-    const rels = (await this.repo.relationshipsOf(ctx.workspaceId, current.id)).map((r) =>
-      this.bump(ctx, { ...r, deleted: true }),
-    );
-    const deleted = this.bump(ctx, { ...current, deleted: true });
-    await this.commit(ctx, { elements: [deleted], relationships: rels }, [
-      ...rels.map((r) =>
-        this.event(ctx, 'RelationshipDeleted', r, { type: r.type, reason: 'endpoint-deleted' }),
-      ),
-      this.event(ctx, 'ElementDeleted', deleted, {
-        type: deleted.type,
+    // Deleting a scenario deletes what belongs to it: its elements, their relationships and its
+    // own relationships (including ones between baseline elements). The baseline is untouched.
+    const scenario = this.reg.lineage(current.type).includes('Scenario')
+      ? await this.repo.scenarioItems(ctx.workspaceId, current.id)
+      : { elements: [], relationships: [] };
+    const doomed = [current, ...scenario.elements];
+    const relById = new Map<string, Relationship>();
+    for (const r of scenario.relationships) relById.set(r.id, r);
+    for (const e of doomed) for (const r of await this.repo.relationshipsOf(ctx.workspaceId, e.id)) relById.set(r.id, r);
+
+    const rels = [...relById.values()].map((r) => this.bump(ctx, { ...r, deleted: true }));
+    const elements = doomed.map((e) => this.bump(ctx, { ...e, deleted: true }));
+    const [deleted, ...cascaded] = elements;
+    const reason = (r: Relationship) =>
+      r.scenarioId === current.id ? 'scenario-deleted' : 'endpoint-deleted';
+    await this.commit(ctx, { elements, relationships: rels }, [
+      ...rels.map((r) => this.event(ctx, 'RelationshipDeleted', r, { type: r.type, reason: reason(r) })),
+      ...cascaded.map((e) => this.event(ctx, 'ElementDeleted', e, { type: e.type, reason: 'scenario-deleted' })),
+      this.event(ctx, 'ElementDeleted', deleted!, {
+        type: deleted!.type,
         cascadedRelationships: rels.map((r) => r.id),
+        ...(cascaded.length && { cascadedElements: cascaded.map((e) => e.id) }),
       }),
     ]);
   }
