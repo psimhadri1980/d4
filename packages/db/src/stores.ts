@@ -247,6 +247,14 @@ export class RoleStore {
       );
   }
 
+  async groupIdsOf(userId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ groupId: groupMembers.groupId })
+      .from(groupMembers)
+      .where(eq(groupMembers.userId, userId));
+    return rows.map((r) => r.groupId);
+  }
+
   /**
    * Roles granted to the user directly or through groups, tenant-wide or (when given) for the
    * workspace. Realm roles from the IdP are merged in by the API's authorisation layer.

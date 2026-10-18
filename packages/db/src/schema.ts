@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -187,4 +188,101 @@ export const events = pgTable(
     subject: index('events_subject').on(t.tenantId, t.subjectId, t.seq),
     unpublished: index('events_unpublished').on(t.seq).where(sql`${t.publishedAt} is null`),
   }),
+);
+
+// ── Query Catalog (ADR 0002) ────────────────────────────────────────────
+
+/** A catalog entry. Its Cypher lives in immutable versions; users run published versions only. */
+export const queries = pgTable(
+  'queries',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    slug: text('slug').notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    /** Shipped with the platform (system pack) rather than authored in the tenant. */
+    system: boolean('system').notNull().default(false),
+    /** Marked as mastered/certified by a steward. */
+    certified: boolean('certified').notNull().default(false),
+    ownerId: text('owner_id').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => ({ slug: uniqueIndex('queries_tenant_slug').on(t.tenantId, t.slug) }),
+);
+
+export const QUERY_STATUSES = ['draft', 'in_review', 'published', 'deprecated', 'retired'] as const;
+
+/**
+ * One version of a query. Cypher, parameters and result shape are frozen once the version leaves
+ * draft (enforced by a trigger in migration 0003); only status and review fields change after.
+ */
+export const queryVersions = pgTable(
+  'query_versions',
+  {
+    id: text('id').primaryKey(),
+    queryId: text('query_id')
+      .notNull()
+      .references(() => queries.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    cypher: text('cypher').notNull(),
+    /** Parameter definitions (name, type, required, default, enum, element type, label). */
+    params: jsonb('params').notNull(),
+    resultShape: text('result_shape', { enum: ['table', 'graph'] }).notNull(),
+    /** 'read' runs in a READ session; 'write' is admin-approved and runs via commands. */
+    kind: text('kind', { enum: ['read', 'write'] }).notNull().default('read'),
+    contentHash: text('content_hash').notNull(),
+    status: text('status', { enum: QUERY_STATUSES }).notNull().default('draft'),
+    /** Findings from the authoring checks at the last test or submit. */
+    checks: jsonb('checks'),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    reviewedBy: text('reviewed_by'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewNote: text('review_note'),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (t) => ({
+    version: uniqueIndex('query_versions_query_version').on(t.queryId, t.version),
+    status: index('query_versions_status').on(t.queryId, t.status),
+  }),
+);
+
+/** Who may see and run a query's published versions: a realm role or a D4 group. */
+export const queryGrants = pgTable(
+  'query_grants',
+  {
+    queryId: text('query_id')
+      .notNull()
+      .references(() => queries.id, { onDelete: 'cascade' }),
+    principalType: text('principal_type', { enum: ['role', 'group'] }).notNull(),
+    principal: text('principal').notNull(),
+    grantedBy: text('granted_by').notNull(),
+    grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.queryId, t.principalType, t.principal] }) }),
+);
+
+/** Every run, for audit and usage analytics. */
+export const queryExecutions = pgTable(
+  'query_executions',
+  {
+    seq: bigserial('seq', { mode: 'number' }).primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    queryId: text('query_id').notNull(),
+    version: integer('version').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    userId: text('user_id').notNull(),
+    params: jsonb('params').notNull(),
+    status: text('status', { enum: ['ok', 'error', 'timeout'] }).notNull(),
+    rowCount: integer('row_count'),
+    durationMs: integer('duration_ms').notNull(),
+    error: text('error'),
+    executedAt: timestamp('executed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ byQuery: index('query_executions_query').on(t.tenantId, t.queryId, t.seq) }),
 );

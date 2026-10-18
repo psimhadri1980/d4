@@ -15,6 +15,20 @@
       "when": 1792258353950,
       "tag": "0001_event_log_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792297701975,
+      "tag": "0002_query_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792297702437,
+      "tag": "0003_query_catalog_guards",
+      "breakpoints": true
     }
   ]
 }
