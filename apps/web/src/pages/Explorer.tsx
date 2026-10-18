@@ -5,7 +5,7 @@ import { api, type Element, type Relationship } from '../api';
 import { ElementDetails } from '../components/ElementDetails';
 import { ElementList } from '../components/ElementList';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { GraphCanvas } from '../components/GraphCanvas';
+import { GraphCanvas, type GraphLayout } from '../components/GraphCanvas';
 import { useRegistry } from '../model';
 
 /**
@@ -18,6 +18,8 @@ export function Explorer() {
   const navigate = useNavigate();
   const registry = useRegistry(ws);
   const [depth, setDepth] = useState(1);
+  const [layout, setLayout] = useState<GraphLayout>('radial');
+  const [fit, setFit] = useState(0);
   const [extra, setExtra] = useState<{ elements: Element[]; relationships: Relationship[] }>({
     elements: [],
     relationships: [],
@@ -79,6 +81,17 @@ export function Explorer() {
               ))}
             </select>
           </label>
+          <label className="inline">
+            Layout
+            <select value={layout} onChange={(e) => setLayout(e.target.value as GraphLayout)} disabled={!id}>
+              <option value="radial">Radial</option>
+              <option value="force">Force</option>
+              <option value="hierarchy">Hierarchy</option>
+            </select>
+          </label>
+          <button className="button small" onClick={() => setFit((n) => n + 1)} disabled={!id}>
+            Fit
+          </button>
           <span className="muted small">Double-click a node to expand it</span>
         </div>
         {hood.error && <ErrorBanner error={hood.error} />}
@@ -90,6 +103,8 @@ export function Explorer() {
             selectedId={id}
             onSelect={(nodeId) => navigate(`/w/${ws}/e/${nodeId}`)}
             onExpand={(nodeId) => void expand(nodeId)}
+            layout={layout}
+            fitSignal={fit}
           />
         ) : (
           <div className="empty">

@@ -66,3 +66,78 @@ test.describe('explorer', () => {
     await expect(page.getByText('Organisation · Division')).toBeVisible();
   });
 });
+
+interface Box {
+  x1: number;
+  x2: number;
+  y1: number;
+  y2: number;
+}
+/** The slice of Cytoscape's API the measurements need (the e2e package doesn't depend on it). */
+interface CyNode {
+  renderedBoundingBox(o: { includeLabels: boolean }): Box;
+  renderedPosition(): { x: number; y: number };
+}
+interface Cy {
+  nodes(): { length: number; map<T>(f: (n: CyNode) => T): T[] };
+}
+
+/** Node geometry from the Cytoscape instance behind the explorer canvas. */
+async function layoutStats(page: Page) {
+  return page.locator('.graph').first().evaluate((el) => {
+    const cy = (el as unknown as { __cy: Cy }).__cy;
+    const nodes = cy.nodes();
+    const boxes = nodes.map((n) => n.renderedBoundingBox({ includeLabels: false }));
+    const labelBoxes = nodes.map((n) => n.renderedBoundingBox({ includeLabels: true }));
+    const centres = nodes.map((n) => n.renderedPosition());
+    const overlap = (a: Box, b: Box) =>
+      a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+    let nodeOverlaps = 0;
+    let labelOverlaps = 0;
+    let pairs = 0;
+    let minDistance = Infinity;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        pairs++;
+        if (overlap(boxes[i]!, boxes[j]!)) nodeOverlaps++;
+        if (overlap(labelBoxes[i]!, labelBoxes[j]!)) labelOverlaps++;
+        minDistance = Math.min(minDistance, Math.hypot(centres[i]!.x - centres[j]!.x, centres[i]!.y - centres[j]!.y));
+      }
+    }
+    const xs = centres.map((c) => c.x);
+    const ys = centres.map((c) => c.y);
+    return {
+      count: nodes.length,
+      nodeOverlaps,
+      labelOverlapRate: pairs ? labelOverlaps / pairs : 0,
+      minDistance,
+      spreadX: (Math.max(...xs) - Math.min(...xs)) / el.clientWidth,
+      spreadY: (Math.max(...ys) - Math.min(...ys)) / el.clientHeight,
+    };
+  });
+}
+
+test.describe('graph readability', () => {
+  for (const [layout, depth] of [
+    ['Radial', '1'],
+    ['Radial', '2'],
+    ['Force', '1'],
+    ['Force', '2'],
+    ['Hierarchy', '2'],
+  ] as const) {
+    test(`${layout} layout at depth ${depth} spreads nodes without overlaps`, async ({ page }) => {
+      await open(page, 'Client Master');
+      await page.getByRole('combobox', { name: 'Layout' }).selectOption({ label: layout });
+      await page.getByRole('combobox', { name: 'Depth' }).selectOption(depth);
+      await expect.poll(async () => (await viewCounts(page)).elements).toBeGreaterThan(depth === '1' ? 10 : 25);
+      await page.getByRole('button', { name: 'Fit' }).click();
+
+      const s = await layoutStats(page);
+      expect(s.nodeOverlaps, JSON.stringify(s)).toBe(0);
+      expect(s.minDistance, JSON.stringify(s)).toBeGreaterThan(30);
+      expect(s.labelOverlapRate, JSON.stringify(s)).toBeLessThan(0.02);
+      // Uses the canvas rather than clumping in the middle.
+      expect(Math.max(s.spreadX, s.spreadY), JSON.stringify(s)).toBeGreaterThan(0.6);
+    });
+  }
+});

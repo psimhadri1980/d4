@@ -112,11 +112,12 @@ Today this knowledge is spread across spreadsheets, EA tools and wikis, so nobod
   - Stewardship console (review queue with side-by-side Cypher, publish or send back, grants, certification, version lifecycle, run log)
   - local users `dev-author` and `dev-steward`
   - 157 unit/integration tests and 27 browser tests pass
-- **Known follow-ups:**
-  - test-running a draft before submission (needs a draft-run endpoint)
-  - graph-shaped results
-  - dedicated runner tests
-  - deleting catalog entries (test runs retire theirs but the entries remain)
+- **Follow-ups done:**
+  - draft test runs
+  - graph-shaped results (with a lineage graph system query)
+  - delete/archive of catalog entries
+  - readable explorer layouts (radial, force, hierarchy) with measured readability tests
+- **Still open:** dedicated tests for the catalog runner (owner to provide); the runner is exercised end to end, including node, relationship and path conversion.
 - **Next:** Phase 3, planning and roadmaps.
 
 ---

@@ -153,6 +153,7 @@ export function QueryResultView({
                 relationships={graph.relationships}
                 onSelect={() => undefined}
                 onExpand={(id) => navigate(`/w/${workspaceId}/e/${id}`)}
+                layout="force"
               />
             </div>
           ) : (

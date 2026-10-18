@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { QueryParamDef, RunResult } from '../src/api';
 import { paramsFromForm } from '../src/components/ParamForm';
+import { hopDistances } from '../src/components/GraphCanvas';
 import { graphFromRows } from '../src/components/QueryResultView';
 import { toCsv } from '../src/components/ResultTable';
 
@@ -81,5 +82,17 @@ describe('graphFromRows', () => {
     const g = graphFromRows([{ r: rel('r9', 'OWNS', 'x', 'y'), n: node('n1', 'A', 'Platform', 'K8s') }]);
     expect(g.elements).toHaveLength(1);
     expect(g.relationships).toEqual([]);
+  });
+});
+
+describe('hopDistances', () => {
+  it('measures undirected hops from the root; unreachable nodes are absent', () => {
+    const d = hopDistances('A', [
+      { fromId: 'B', toId: 'A' },
+      { fromId: 'B', toId: 'C' },
+      { fromId: 'D', toId: 'C' },
+      { fromId: 'X', toId: 'Y' },
+    ]);
+    expect(Object.fromEntries(d)).toEqual({ A: 0, B: 1, C: 2, D: 3 });
   });
 });

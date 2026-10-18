@@ -1,4 +1,4 @@
-import cytoscape, { type Core, type ElementDefinition } from 'cytoscape';
+import cytoscape, { type Core, type ElementDefinition, type LayoutOptions } from 'cytoscape';
 import { useEffect, useRef } from 'react';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import type { Element, Relationship } from '../api';
@@ -12,15 +12,101 @@ interface Props {
   onSelect(id: string): void;
   /** Double-click: load this element's neighbourhood into the view. */
   onExpand(id: string): void;
+  /** Layout algorithm; `radial` puts `selectedId` in the centre with rings by hop distance. */
+  layout?: GraphLayout;
+  /** Bumped by the parent to re-fit the view (e.g. a "Fit" button). */
+  fitSignal?: number;
+}
+
+export type GraphLayout = 'radial' | 'force' | 'hierarchy';
+
+/**
+ * Below this zoom, nodes and labels become too small to read; the view stays at this zoom
+ * (centred on the selected element) and the user pans instead.
+ */
+export const MIN_READABLE_ZOOM = 0.7;
+
+function keepReadable(cy: Core, focusId?: string) {
+  if (cy.zoom() >= MIN_READABLE_ZOOM) return;
+  const focus = focusId ? cy.getElementById(focusId) : cy.collection();
+  cy.zoom(MIN_READABLE_ZOOM);
+  cy.center(focus.nonempty() ? focus : undefined);
+}
+
+/** Hop distance from the root over the undirected relationship graph. */
+export function hopDistances(rootId: string, relationships: { fromId: string; toId: string }[]): Map<string, number> {
+  const next = new Map<string, string[]>();
+  for (const r of relationships) {
+    next.set(r.fromId, [...(next.get(r.fromId) ?? []), r.toId]);
+    next.set(r.toId, [...(next.get(r.toId) ?? []), r.fromId]);
+  }
+  const dist = new Map([[rootId, 0]]);
+  const queue = [rootId];
+  for (let cur = queue.shift(); cur !== undefined; cur = queue.shift()) {
+    for (const n of next.get(cur) ?? []) {
+      if (!dist.has(n)) {
+        dist.set(n, dist.get(cur)! + 1);
+        queue.push(n);
+      }
+    }
+  }
+  return dist;
+}
+
+/**
+ * Layout options tuned for readable, spread-out graphs. Radial needs a root that is in the
+ * graph; otherwise force is used.
+ */
+function layoutOptions(kind: GraphLayout, rootId: string | undefined, hops: Map<string, number>, count: number): LayoutOptions {
+  const base = { animate: false, fit: true, padding: 40 };
+  if (kind === 'radial' && rootId) {
+    const maxHop = Math.max(0, ...hops.values());
+    return {
+      ...base,
+      name: 'concentric',
+      // Higher value = closer to the centre; unreachable nodes go to the outermost ring.
+      concentric: (n: cytoscape.NodeSingular) => maxHop + 1 - (hops.get(n.id()) ?? maxHop + 1),
+      levelWidth: () => 1,
+      minNodeSpacing: 70,
+      avoidOverlap: true,
+      spacingFactor: count > 30 ? 1.1 : 1.4,
+      startAngle: (3 / 2) * Math.PI,
+    } as LayoutOptions;
+  }
+  if (kind === 'hierarchy' && rootId) {
+    return { ...base, name: 'breadthfirst', roots: [rootId], directed: false, spacingFactor: 3.6, avoidOverlap: true } as LayoutOptions;
+  }
+  return {
+    ...base,
+    name: 'cose',
+    randomize: true,
+    nodeRepulsion: () => 400_000,
+    nodeOverlap: 40,
+    idealEdgeLength: () => 140,
+    edgeElasticity: () => 80,
+    gravity: 0.25,
+    numIter: 2500,
+    componentSpacing: 120,
+  } as LayoutOptions;
 }
 
 /** Reads a CSS custom property so the graph follows the light/dark theme tokens. */
 const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-/** Force-directed graph of the current view; nodes are coloured by metamodel layer. */
-export function GraphCanvas({ registry, elements, relationships, selectedId, onSelect, onExpand }: Props) {
+/** Graph of the current view; nodes are coloured by metamodel layer. */
+export function GraphCanvas({
+  registry,
+  elements,
+  relationships,
+  selectedId,
+  onSelect,
+  onExpand,
+  layout = 'radial',
+  fitSignal = 0,
+}: Props) {
   const host = useRef<HTMLDivElement>(null);
   const cy = useRef<Core | null>(null);
+  const lastLayout = useRef<GraphLayout | null>(null);
   const handlers = useRef({ onSelect, onExpand });
   handlers.current = { onSelect, onExpand };
 
@@ -76,6 +162,8 @@ export function GraphCanvas({ registry, elements, relationships, selectedId, onS
     instance.on('tap', 'node', (e) => handlers.current.onSelect(e.target.id()));
     instance.on('dbltap', 'node', (e) => handlers.current.onExpand(e.target.id()));
     cy.current = instance;
+    // Test hook: lets browser tests measure node placement.
+    (host.current as unknown as { __cy?: Core }).__cy = instance;
     return () => instance.destroy();
   }, []);
 
@@ -111,12 +199,20 @@ export function GraphCanvas({ registry, elements, relationships, selectedId, onS
     instance.json({ elements: defs });
     const after = new Set(elements.map((e) => e.id));
     const changed = before.size !== after.size || [...after].some((id) => !before.has(id));
-    if (changed) {
-      instance
-        .layout({ name: 'cose', animate: false, nodeRepulsion: () => 9000, idealEdgeLength: () => 110, padding: 30 })
-        .run();
+    if (changed || lastLayout.current !== layout) {
+      lastLayout.current = layout;
+      const root = selectedId && after.has(selectedId) ? selectedId : undefined;
+      instance.layout(layoutOptions(layout, root, root ? hopDistances(root, relationships) : new Map(), elements.length)).run();
+      keepReadable(instance, root);
     }
-  }, [elements, relationships, registry]);
+  }, [elements, relationships, registry, layout, selectedId]);
+
+  useEffect(() => {
+    const instance = cy.current;
+    if (!fitSignal || !instance) return;
+    instance.fit(undefined, 40);
+    keepReadable(instance, selectedId);
+  }, [fitSignal]); // selectedId is read at click time
 
   useEffect(() => {
     const instance = cy.current;
