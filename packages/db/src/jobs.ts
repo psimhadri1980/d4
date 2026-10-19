@@ -13,6 +13,7 @@ export interface NewJob {
   params: Record<string, unknown>;
   createdBy: string;
   id?: string;
+  scheduleId?: string;
 }
 
 export interface Artifact {
@@ -33,7 +34,15 @@ export class JobStore {
   async create(tenantId: string, j: NewJob): Promise<JobRow> {
     const [row] = await this.db
       .insert(jobs)
-      .values({ id: j.id ?? ulid(), tenantId, workspaceId: j.workspaceId, kind: j.kind, params: j.params, createdBy: j.createdBy })
+      .values({
+        id: j.id ?? ulid(),
+        tenantId,
+        workspaceId: j.workspaceId,
+        kind: j.kind,
+        params: j.params,
+        createdBy: j.createdBy,
+        ...(j.scheduleId && { scheduleId: j.scheduleId }),
+      })
       .returning();
     return row!;
   }

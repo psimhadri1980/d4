@@ -312,10 +312,43 @@ export const jobs = pgTable(
     artifactType: text('artifact_type'),
     artifactBytes: integer('artifact_bytes'),
     attempts: integer('attempts').notNull().default(0),
+    /** The schedule that started this job, if any. */
+    scheduleId: text('schedule_id'),
     createdBy: text('created_by').notNull(),
     createdAt: createdAt(),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
   },
   (t) => ({ byWorkspace: index('jobs_workspace').on(t.tenantId, t.workspaceId, t.createdAt) }),
+);
+
+/**
+ * Report schedules: a job spec (export or render) plus a cadence. The worker's scheduler claims
+ * due rows (`next_run_at <= now`) and creates ordinary jobs owned by `created_by`.
+ */
+export const schedules = pgTable(
+  'schedules',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    name: text('name').notNull(),
+    kind: text('kind', { enum: ['export', 'render'] }).notNull(),
+    params: jsonb('params').notNull(),
+    /** Set the as-of date (exports, graph pictures) or "today" (roadmaps) to the run date. */
+    useRunDate: boolean('use_run_date').notNull().default(true),
+    /** { frequency: daily | weekly | monthly, hour (UTC), weekday?, day? } */
+    cadence: jsonb('cadence').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    nextRunAt: timestamp('next_run_at', { withTimezone: true }).notNull(),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    lastJobId: text('last_job_id'),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byWorkspace: index('schedules_workspace').on(t.tenantId, t.workspaceId),
+    due: index('schedules_due').on(t.enabled, t.nextRunAt),
+  }),
 );
