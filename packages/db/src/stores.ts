@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, asc, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { ulid, type DomainEvent } from '@d4/core';
 import { Metamodel, MetamodelRegistry, checkReferences, type Metamodel as MetamodelDoc } from '@d4/metamodel';
 import type { DbOrTx } from './client';
@@ -104,6 +104,17 @@ export class MetamodelStore {
     await this.db.update(metamodels).set({ status: 'active' }).where(eq(metamodels.id, id));
   }
 
+  /** The newest active metamodel version for the tenant (what new workspaces use). */
+  async activeId(tenantId: string): Promise<string | undefined> {
+    const [row] = await this.db
+      .select({ id: metamodels.id })
+      .from(metamodels)
+      .where(and(eq(metamodels.tenantId, tenantId), eq(metamodels.status, 'active')))
+      .orderBy(desc(metamodels.createdAt))
+      .limit(1);
+    return row?.id;
+  }
+
   async get(tenantId: string, id: string): Promise<MetamodelDoc> {
     return Metamodel.parse((await this.row(tenantId, id)).content);
   }
@@ -171,6 +182,30 @@ export class WorkspaceStore {
       .where(and(eq(workspaces.tenantId, tenantId), eq(workspaces.id, id)));
   }
 
+  /** Every workspace including archived ones (tenant administration). */
+  async listAll(tenantId: string) {
+    return this.db.select().from(workspaces).where(eq(workspaces.tenantId, tenantId)).orderBy(asc(workspaces.name));
+  }
+
+  async update(tenantId: string, id: string, changes: { name?: string; description?: string | null }) {
+    const [row] = await this.db
+      .update(workspaces)
+      .set(changes)
+      .where(and(eq(workspaces.tenantId, tenantId), eq(workspaces.id, id)))
+      .returning();
+    return row;
+  }
+
+  /** Archived workspaces disappear for everyone but admins; nothing is deleted. */
+  async setArchived(tenantId: string, id: string, archived: boolean) {
+    const [row] = await this.db
+      .update(workspaces)
+      .set({ archivedAt: archived ? sql`now()` : null })
+      .where(and(eq(workspaces.tenantId, tenantId), eq(workspaces.id, id)))
+      .returning();
+    return row;
+  }
+
   async bySlug(tenantId: string, slug: string) {
     const [row] = await this.db
       .select()
@@ -222,6 +257,10 @@ export class UserStore {
     const [row] = await this.db.select().from(users).where(and(eq(users.tenantId, tenantId), eq(users.id, id)));
     return row;
   }
+
+  async list(tenantId: string) {
+    return this.db.select().from(users).where(eq(users.tenantId, tenantId)).orderBy(asc(users.email), asc(users.id));
+  }
 }
 
 export interface Grant {
@@ -254,6 +293,15 @@ export class RoleStore {
           g.workspaceId ? eq(roleBindings.workspaceId, g.workspaceId) : isNull(roleBindings.workspaceId),
         ),
       );
+  }
+
+  /** Bindings for one workspace, or tenant-wide ones (`workspaceId` null). */
+  async bindings(tenantId: string, workspaceId: string | null) {
+    return this.db
+      .select()
+      .from(roleBindings)
+      .where(and(eq(roleBindings.tenantId, tenantId), workspaceId ? eq(roleBindings.workspaceId, workspaceId) : isNull(roleBindings.workspaceId)))
+      .orderBy(asc(roleBindings.principalType), asc(roleBindings.principalId), asc(roleBindings.role));
   }
 
   async groupIdsOf(userId: string): Promise<string[]> {

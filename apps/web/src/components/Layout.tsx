@@ -15,7 +15,7 @@ export function Layout() {
   const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
   // Explorer covers the workspace home, element pages and the element editor.
   const path = useLocation().pathname;
-  const inExplorer = !['queries', 'roadmap', 'compare', 'matrices', 'decisions', 'import', 'jobs', 'reports'].some((p) => path.startsWith(`/w/${ws}/${p}`));
+  const inExplorer = !['queries', 'roadmap', 'compare', 'matrices', 'decisions', 'import', 'jobs', 'reports', 'admin'].some((p) => path.startsWith(`/w/${ws}/${p}`));
 
   return (
     <div className="app">
@@ -55,12 +55,19 @@ export function Layout() {
         <Link to={`/w/${ws}/reports`} className="button ghost">
           Reports
         </Link>
+        {me.data?.roles.includes('admin') && (
+          <Link to={`/w/${ws}/admin`} className="button ghost">
+            Admin
+          </Link>
+        )}
         <Link to={`/w/${ws}/new`} className="button primary">
           + New element
         </Link>
         <div className="user">
           <span>{(user?.profile.preferred_username as string | undefined) ?? user?.profile.email}</span>
-          <span className="muted small">{me.data?.roles.join(', ')}</span>
+          <span className="muted small roles" title={me.data?.roles.join(', ')}>
+            {me.data?.roles.join(', ')}
+          </span>
         </div>
         <label className="theme-picker">
           <span className="sr-only">Theme</span>

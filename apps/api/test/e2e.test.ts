@@ -599,6 +599,42 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `${ws()}/schedules`, viewer)).body).toEqual([]);
     });
 
+    it('lets admins manage workspaces and members, and nobody else', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      const viewer = await sign('plain-viewer', ['viewer']);
+      expect((await call('GET', '/v1/admin/workspaces', viewer)).status).toBe(403);
+
+      const created = await call('POST', '/v1/admin/workspaces', admin, { slug: 'Retail-Lab', name: 'Retail lab' });
+      expect(created).toMatchObject({ status: 201, body: { slug: 'retail-lab', archived: false } });
+      expect((await call('POST', '/v1/admin/workspaces', admin, { slug: 'retail-lab', name: 'Again' })).status).toBe(409);
+      expect((await call('POST', '/v1/admin/workspaces', admin, { slug: 'Bad slug!', name: 'x' })).status).toBe(400);
+      const id = created.body!['id'];
+
+      // A viewer with no binding cannot see the new workspace's data until granted.
+      const me = (await call('GET', '/v1/me', viewer)).body!;
+      expect((await call('GET', `/v1/workspaces/${id}/elements`, await sign('outsider', []))).status).toBe(403);
+      expect((await call('POST', `/v1/admin/members/${id}`, admin, { principalId: me['userId'], role: 'planner' })).status).toBe(204);
+      expect((await call('GET', `/v1/admin/members/${id}`, admin)).body).toEqual([
+        expect.objectContaining({ principalType: 'user', principalId: me['userId'], role: 'planner', label: 'plain-viewer@example.test' }),
+      ]);
+      expect((await call('POST', `/v1/admin/members/${id}`, admin, { principalId: 'ghost', role: 'viewer' })).status).toBe(404);
+
+      // Tenant-wide admin cannot be removed from oneself.
+      const adminMe = (await call('GET', '/v1/me', admin)).body!;
+      await call('POST', '/v1/admin/members/tenant', admin, { principalId: adminMe['userId'], role: 'admin' });
+      expect((await call('DELETE', '/v1/admin/members/tenant', admin, { principalId: adminMe['userId'], role: 'admin' })).status).toBe(409);
+      expect((await call('DELETE', `/v1/admin/members/${id}`, admin, { principalId: me['userId'], role: 'planner' })).status).toBe(204);
+      expect((await call('GET', `/v1/admin/members/${id}`, admin)).body).toEqual([]);
+
+      expect((await call('PATCH', `/v1/admin/workspaces/${id}`, admin, { name: 'Retail lab (old)' })).body).toMatchObject({ name: 'Retail lab (old)' });
+      expect((await call('POST', `/v1/admin/workspaces/${id}/archive`, admin)).status).toBe(204);
+      expect((await call('GET', '/v1/workspaces', admin)).body!.map((w: any) => w.id)).not.toContain(id);
+      expect((await call('GET', '/v1/admin/workspaces?archived=true', admin)).body!.find((w: any) => w.id === id)).toMatchObject({ archived: true });
+      expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(404);
+      expect((await call('POST', `/v1/admin/workspaces/${id}/restore`, admin)).status).toBe(204);
+      expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
+    });
+
     it('exports a document that re-imports unchanged', async () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);

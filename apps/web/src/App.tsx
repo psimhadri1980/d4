@@ -14,6 +14,7 @@ import { Matrices } from './pages/Matrices';
 import { Import } from './pages/Import';
 import { Jobs } from './pages/Jobs';
 import { Reports } from './pages/Reports';
+import { Admin } from './pages/Admin';
 
 export function App() {
   const { user, ready, returnTo } = useAuth();
@@ -36,6 +37,7 @@ export function App() {
         <Route path="import" element={<Import />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="admin" element={<Admin />} />
         {/* Earlier separate screens now open as tabs in Queries. */}
         <Route path="catalog/:qid?" element={<ToQueries mode="run" />} />
         <Route path="studio/:qid?" element={<ToQueries mode="edit" />} />

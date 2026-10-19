@@ -374,4 +374,45 @@ export const catalogApi = {
 export const can = (roles: string[] | undefined) => ({
   author: !!roles && (roles.includes('query-author') || roles.includes('admin')),
   steward: !!roles && (roles.includes('query-steward') || roles.includes('admin')),
+  admin: !!roles && roles.includes('admin'),
 });
+
+/** Roles a binding can grant (same list as the API's). */
+export const ROLES = ['viewer', 'contributor', 'planner', 'architect', 'query-author', 'query-steward', 'admin'] as const;
+
+export interface AdminWorkspace {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  archived: boolean;
+}
+
+export interface Member {
+  principalType: 'user' | 'group';
+  principalId: string;
+  label: string;
+  role: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface TenantUser {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  realmRoles: string[];
+  lastSeenAt: string;
+}
+
+export const adminApi = {
+  workspaces: () => request<AdminWorkspace[]>('GET', '/v1/admin/workspaces?archived=true'),
+  createWorkspace: (body: { slug: string; name: string; description?: string }) => request<AdminWorkspace>('POST', '/v1/admin/workspaces', body),
+  updateWorkspace: (id: string, body: { name?: string; description?: string | null }) => request<AdminWorkspace>('PATCH', `/v1/admin/workspaces/${id}`, body),
+  setArchived: (id: string, archived: boolean) => request<void>('POST', `/v1/admin/workspaces/${id}/${archived ? 'archive' : 'restore'}`),
+  users: () => request<TenantUser[]>('GET', '/v1/admin/users'),
+  members: (scope: string) => request<Member[]>('GET', `/v1/admin/members/${scope}`),
+  grant: (scope: string, principalId: string, role: string) => request<void>('POST', `/v1/admin/members/${scope}`, { principalId, role }),
+  revoke: (scope: string, m: Pick<Member, 'principalType' | 'principalId' | 'role'>) =>
+    request<void>('DELETE', `/v1/admin/members/${scope}`, { principalType: m.principalType, principalId: m.principalId, role: m.role }),
+};

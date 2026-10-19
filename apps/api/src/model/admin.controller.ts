@@ -1,0 +1,145 @@
+import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { MetamodelStore, RoleStore, ROLES, UserStore, WorkspaceStore } from '@d4/db';
+import type { Principal } from '../auth/identity';
+import { CurrentPrincipal } from '../auth/principal.decorator';
+import { parse } from '../http/errors';
+import { z } from '../http/schemas';
+import { Database } from '../infra/database.service';
+
+const slug = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9-]{1,47}$/, 'lowercase letters, digits and dashes, 2–48 characters');
+const CreateWorkspace = z.object({ slug, name: z.string().trim().min(1).max(120), description: z.string().trim().max(2000).optional() }).strict();
+const UpdateWorkspace = z.object({ name: z.string().trim().min(1).max(120).optional(), description: z.string().trim().max(2000).nullable().optional() }).strict();
+const Binding = z
+  .object({
+    principalType: z.enum(['user', 'group']).default('user'),
+    principalId: z.string().min(1),
+    role: z.enum(ROLES),
+  })
+  .strict();
+const ListQuery = z.object({ archived: z.enum(['true', 'false']).optional() });
+
+/**
+ * Tenant administration: workspaces and who may do what in them. Admin only; everything is
+ * scoped to the caller's tenant. Role changes apply to a user's next request (bindings are read
+ * on each sign-in check).
+ */
+@Controller('v1')
+export class AdminController {
+  constructor(@Inject(Database) private readonly database: Database) {}
+
+  @Get('admin/workspaces')
+  async workspaces(@CurrentPrincipal() p: Principal, @Query() query: unknown) {
+    this.admin(p);
+    const archived = parse(ListQuery, query).archived === 'true';
+    const store = new WorkspaceStore(this.database.db);
+    const rows = archived ? await store.listAll(p.tenantId) : await store.list(p.tenantId);
+    return rows.map((w) => ({ id: w.id, slug: w.slug, name: w.name, description: w.description, archived: !!w.archivedAt, createdAt: w.createdAt.toISOString() }));
+  }
+
+  @Post('admin/workspaces')
+  @HttpCode(201)
+  async create(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
+    this.admin(p);
+    const b = parse(CreateWorkspace, body);
+    const store = new WorkspaceStore(this.database.db);
+    if (await store.bySlug(p.tenantId, b.slug)) throw new ConflictException(`A workspace with slug '${b.slug}' already exists`);
+    const metamodelId = await new MetamodelStore(this.database.db).activeId(p.tenantId);
+    if (!metamodelId) throw new ConflictException('The tenant has no active metamodel');
+    const w = await store.create(p.tenantId, { slug: b.slug, name: b.name, ...(b.description && { description: b.description }), metamodelId });
+    return { id: w.id, slug: w.slug, name: w.name, description: w.description, archived: false, createdAt: w.createdAt.toISOString() };
+  }
+
+  @Patch('admin/workspaces/:ws')
+  async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+    this.admin(p);
+    const row = await new WorkspaceStore(this.database.db).update(p.tenantId, ws, parse(UpdateWorkspace, body));
+    if (!row) throw new NotFoundException(`Workspace '${ws}' not found`);
+    return { id: row.id, slug: row.slug, name: row.name, description: row.description, archived: !!row.archivedAt };
+  }
+
+  /** Archive hides the workspace from everyone but admins; its data stays. */
+  @Post('admin/workspaces/:ws/archive')
+  @HttpCode(204)
+  async archive(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
+    await this.setArchived(p, ws, true);
+  }
+
+  @Post('admin/workspaces/:ws/restore')
+  @HttpCode(204)
+  async restore(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
+    await this.setArchived(p, ws, false);
+  }
+
+  @Get('admin/users')
+  async users(@CurrentPrincipal() p: Principal) {
+    this.admin(p);
+    return (await new UserStore(this.database.db).list(p.tenantId)).map((u) => ({
+      id: u.id,
+      email: u.email,
+      displayName: u.displayName,
+      realmRoles: u.realmRoles,
+      lastSeenAt: u.lastSeenAt.toISOString(),
+    }));
+  }
+
+  /** `ws` = a workspace id, or `tenant` for tenant-wide roles. */
+  @Get('admin/members/:ws')
+  async members(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
+    this.admin(p);
+    const scope = await this.scope(p, ws);
+    const users = new Map((await new UserStore(this.database.db).list(p.tenantId)).map((u) => [u.id, u]));
+    return (await new RoleStore(this.database.db).bindings(p.tenantId, scope)).map((b) => ({
+      principalType: b.principalType,
+      principalId: b.principalId,
+      label: b.principalType === 'user' ? (users.get(b.principalId)?.email ?? users.get(b.principalId)?.displayName ?? b.principalId) : b.principalId,
+      role: b.role,
+      createdBy: b.createdBy,
+      createdAt: b.createdAt.toISOString(),
+    }));
+  }
+
+  @Post('admin/members/:ws')
+  @HttpCode(204)
+  async grant(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+    this.admin(p);
+    const scope = await this.scope(p, ws);
+    const b = parse(Binding, body);
+    if (b.principalType === 'user' && !(await new UserStore(this.database.db).get(p.tenantId, b.principalId))) {
+      throw new NotFoundException(`User '${b.principalId}' not found (users appear after their first sign-in)`);
+    }
+    await new RoleStore(this.database.db).grant(p.tenantId, { ...b, ...(scope && { workspaceId: scope }) }, p.userId);
+  }
+
+  @Delete('admin/members/:ws')
+  @HttpCode(204)
+  async revoke(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+    this.admin(p);
+    const scope = await this.scope(p, ws);
+    const b = parse(Binding, body);
+    // Keep at least one way back in: an admin cannot remove their own tenant-wide admin binding.
+    if (!scope && b.role === 'admin' && b.principalType === 'user' && b.principalId === p.userId) {
+      throw new ConflictException('You cannot remove your own tenant-wide admin role');
+    }
+    await new RoleStore(this.database.db).revoke(p.tenantId, { ...b, ...(scope && { workspaceId: scope }) });
+  }
+
+  private admin(p: Principal) {
+    if (!p.roles.includes('admin')) throw new ForbiddenException('Tenant administration needs the admin role');
+  }
+
+  private async scope(p: Principal, ws: string): Promise<string | null> {
+    if (ws === 'tenant') return null;
+    const row = await new WorkspaceStore(this.database.db).get(p.tenantId, ws);
+    if (!row) throw new NotFoundException(`Workspace '${ws}' not found`);
+    return row.id;
+  }
+
+  private async setArchived(p: Principal, ws: string, archived: boolean) {
+    this.admin(p);
+    if (!(await new WorkspaceStore(this.database.db).setArchived(p.tenantId, ws, archived))) throw new NotFoundException(`Workspace '${ws}' not found`);
+  }
+}

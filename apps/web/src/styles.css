@@ -316,6 +316,12 @@ pre,
   background: var(--shell-active);
   border-bottom-color: var(--interactive);
 }
+.user .roles {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .user {
   display: flex;
   flex-direction: column;
@@ -1987,4 +1993,41 @@ tr.paused td {
 
 .schedule-form .recipients input {
   min-width: 280px;
+}
+
+/* ── Administration ─────────────────────────────────────────────────────── */
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  height: 100%;
+  max-width: 1100px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.admin-page h2 {
+  margin: 0;
+}
+.admin-create {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-04);
+  margin-top: var(--sp-05);
+}
+.admin-create .field select,
+.admin-create .field input {
+  min-width: 220px;
+}
+.field.narrow {
+  max-width: 360px;
+  margin-bottom: var(--sp-04);
+}
+.inline-form {
+  display: flex;
+  gap: var(--sp-03);
+  align-items: center;
+}
+.mono {
+  font-family: var(--font-mono);
 }

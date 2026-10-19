@@ -15,6 +15,7 @@ import { OpenApiController } from './http/openapi';
 import { Database } from './infra/database.service';
 import { JobsInfra } from './infra/jobs.service';
 import { TenantGraphService } from './infra/tenant-graph.service';
+import { AdminController } from './model/admin.controller';
 import { ElementsController } from './model/elements.controller';
 import { ModelFactory } from './model/model.factory';
 import { DiffController } from './model/diff.controller';
@@ -33,6 +34,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     HealthController,
     OpenApiController,
     WorkspacesController,
+    AdminController,
     ElementsController,
     RelationshipsController,
     RoadmapController,
