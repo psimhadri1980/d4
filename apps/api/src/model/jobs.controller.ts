@@ -31,6 +31,7 @@ export function jobView(j: JobRow) {
     error: j.error,
     artifact: j.kind !== 'import-tabular' && j.status === 'succeeded' && j.artifactName ? { name: j.artifactName, type: j.artifactType, bytes: j.artifactBytes } : null,
     attempts: j.attempts,
+    scheduleId: j.scheduleId,
     createdBy: j.createdBy,
     createdAt: j.createdAt.toISOString(),
     startedAt: j.startedAt?.toISOString() ?? null,

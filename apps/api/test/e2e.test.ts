@@ -568,6 +568,29 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/jobs/render`, viewer, { target: 'graph', format: 'gif', root: sampleIds['dp-client'] })).status).toBe(400);
       const render = await call('POST', `${ws()}/jobs/render`, viewer, { target: 'roadmap', format: 'svg', scope: [sampleIds['init-client-data']] });
       expect(render).toMatchObject({ status: 202, body: { kind: 'render', status: 'queued' } });
+
+      // Scheduled reports: create, run now (an export, so this test's worker runs it), manage.
+      const sched = await call('POST', `${ws()}/schedules`, viewer, {
+        name: 'Weekly model export',
+        kind: 'export',
+        params: { format: 'mermaid' },
+        cadence: { frequency: 'weekly', hour: 7, weekday: 1 },
+      });
+      expect(sched).toMatchObject({ status: 201, body: { cadenceText: 'Every Monday at 07:00 UTC', enabled: true, lastJob: null } });
+      expect(new Date(sched.body!['nextRunAt']).getUTCDay()).toBe(1);
+      const runNow = await call('POST', `${ws()}/schedules/${sched.body!['id']}/run`, viewer);
+      expect(runNow.body).toMatchObject({ kind: 'export', scheduleId: sched.body!['id'], params: { format: 'mermaid', asOf: new Date().toISOString().slice(0, 10) } });
+      await waitFor(viewer, runNow.body!['id']);
+      const listed = (await call('GET', `${ws()}/schedules`, viewer)).body!;
+      expect(listed).toEqual([expect.objectContaining({ id: sched.body!['id'], lastJob: expect.objectContaining({ status: 'succeeded', artifact: expect.objectContaining({ name: expect.stringMatching(/\.mmd$/) }) }) })]);
+
+      expect((await call('PATCH', `${ws()}/schedules/${sched.body!['id']}`, other, { enabled: false })).status).toBe(403);
+      const paused = await call('PATCH', `${ws()}/schedules/${sched.body!['id']}`, viewer, { enabled: false });
+      expect(paused.body).toMatchObject({ enabled: false, nextRunAt: null });
+      expect((await call('POST', `${ws()}/schedules`, viewer, { name: 'x', kind: 'render', params: { target: 'graph', format: 'png', root: 'nope' }, cadence: { frequency: 'daily', hour: 1 } })).status).toBe(404);
+      expect((await call('POST', `${ws()}/schedules`, viewer, { name: 'x', kind: 'export', params: { format: 'pdf' }, cadence: { frequency: 'daily', hour: 1 } })).body).toMatchObject({ error: 'VALIDATION' });
+      expect((await call('DELETE', `${ws()}/schedules/${sched.body!['id']}`, viewer)).status).toBe(204);
+      expect((await call('GET', `${ws()}/schedules`, viewer)).body).toEqual([]);
     });
 
     it('exports a document that re-imports unchanged', async () => {

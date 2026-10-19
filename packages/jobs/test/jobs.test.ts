@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parseModelDocument, toImportInput } from '@d4/codecs';
 import { planImport } from '@d4/core';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
-import { createDb, JobStore, LOCAL_TENANT, MetamodelStore, runMigrations, seedLocal, type DbHandle } from '@d4/db';
+import { createDb, JobStore, LOCAL_TENANT, MetamodelStore, runMigrations, ScheduleStore, seedLocal, type DbHandle } from '@d4/db';
 import { GraphQueries, Neo4jModelRepository, type SessionProvider } from '@d4/graph';
 import { Client } from 'pg';
 import {
@@ -13,6 +13,7 @@ import {
   JobQueue,
   MemoryArtifactStore,
   processJob,
+  runDueSchedules,
   S3ArtifactStore,
   startJobWorker,
   type JobDeps,
@@ -139,6 +140,38 @@ describe.skipIf(!PG || !NEO)('job processing (Postgres + Neo4j)', () => {
     const misrouted = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'render', params: { target: 'graph', format: 'png', root: client!.id }, createdBy: 'u1' });
     await processJob({ tenantId: LOCAL_TENANT, jobId: misrouted.id }, deps, { made: 0, max: 3 });
     expect(await store.get(LOCAL_TENANT, misrouted.id)).toMatchObject({ status: 'failed', error: 'PNG and PDF renders need the renderer service' });
+  });
+
+  it('a scheduler tick starts due reports as their owner, on the right queue', async () => {
+    const schedules = new ScheduleStore(handle.db);
+    const due = await schedules.create(LOCAL_TENANT, {
+      workspaceId: ws,
+      name: 'Weekly picture',
+      kind: 'render',
+      params: { target: 'graph', format: 'svg', root: 'x' },
+      useRunDate: true,
+      cadence: { frequency: 'weekly', hour: 6, weekday: 1 },
+      nextRunAt: new Date('2027-01-11T06:00:00Z'),
+      createdBy: 'owner-5',
+    });
+    const sent: { queue: string; jobId: string }[] = [];
+    const queues = {
+      jobs: { enqueue: async (m: { jobId: string }) => void sent.push({ queue: 'jobs', jobId: m.jobId }) },
+      render: { enqueue: async (m: { jobId: string }) => void sent.push({ queue: 'render', jobId: m.jobId }) },
+    };
+    const now = new Date('2027-01-11T06:00:20Z');
+    const started = await runDueSchedules(handle.db, queues, now);
+    expect(started).toHaveLength(1);
+    expect(sent).toEqual([{ queue: 'render', jobId: started[0] }]);
+    expect(await store.get(LOCAL_TENANT, started[0]!)).toMatchObject({
+      kind: 'render',
+      createdBy: 'owner-5',
+      scheduleId: due.id,
+      params: { target: 'graph', format: 'svg', root: 'x', asOf: '2027-01-11' },
+    });
+    expect(await schedules.get(LOCAL_TENANT, due.id)).toMatchObject({ lastJobId: started[0], nextRunAt: new Date('2027-01-18T06:00:00Z') });
+    expect(await runDueSchedules(handle.db, queues, now)).toEqual([]);
+    await schedules.remove(LOCAL_TENANT, due.id);
   });
 
   it.skipIf(!REDIS)('goes through the Redis queue to a worker', async () => {

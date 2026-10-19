@@ -10,6 +10,7 @@ describe('worker config', () => {
       S3_BUCKET: 'd4-exports',
       WORKER_CONCURRENCY: 2,
       WORKER_HEALTH_PORT: 3002,
+      SCHEDULER_INTERVAL_MS: 30_000,
       NEO4J_URI: undefined,
       JOB_QUEUE: undefined,
     });

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { ErrorBanner } from './ErrorBanner';
+import { ScheduleForm } from './ScheduleForm';
 import { viewQuery, type ViewState } from '../view';
 
 const FORMATS: { value: string; label: string }[] = [
@@ -27,9 +28,15 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
   const [error, setError] = useState<unknown>(null);
   const [background, setBackground] = useState(false);
   const [queued, setQueued] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
   const formatId = useId();
   const whatId = useId();
   const scoped = what === 'view' && !!elementId;
+  const picture = format.startsWith('picture:');
+  // What a schedule produces: the same export or picture, with the scenario but not a fixed date.
+  const scheduleParams: Record<string, unknown> = picture
+    ? { target: 'graph', format: format.slice(8), root: elementId, depth, ...(view.scenario && { scenario: view.scenario }) }
+    : { format, ...(view.scenario && { scenario: view.scenario }), ...(scoped && { scope: [elementId!], depth }) };
 
   const run = async () => {
     setBusy(true);
@@ -100,12 +107,25 @@ export function ExportMenu({ workspaceId, elementId, depth, view }: { workspaceI
       <button className="button small" onClick={() => void run()} disabled={!format || busy}>
         {busy ? 'Exporting…' : background || format.startsWith('picture:') ? 'Start' : 'Download'}
       </button>
+      <button className="button small ghost" type="button" disabled={!format} onClick={() => setScheduling((x) => !x)} aria-expanded={scheduling}>
+        Schedule…
+      </button>
       {queued && (
         <span className="small" role="status">
           Started. <Link to={`/w/${workspaceId}/jobs`}>See Jobs</Link>
         </span>
       )}
       {error != null && <ErrorBanner error={error} />}
+      {scheduling && format && (
+        <ScheduleForm
+          workspaceId={workspaceId}
+          kind={picture ? 'render' : 'export'}
+          params={scheduleParams}
+          defaultName={picture ? `Graph ${format.slice(8).toUpperCase()}` : `${format} export`}
+          runDateHint="Use the run date as the “as of” date"
+          onClose={() => setScheduling(false)}
+        />
+      )}
     </div>
   );
 }

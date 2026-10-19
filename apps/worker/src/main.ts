@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { processJob, S3ArtifactStore, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { JobQueue, processJob, RENDER_QUEUE, runDueSchedules, S3ArtifactStore, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { loadConfig } from './config';
 
 /**
@@ -45,6 +45,23 @@ async function main() {
     ready = true;
     log('worker ready', { queue: config.JOB_QUEUE ?? 'd4-jobs', concurrency: config.WORKER_CONCURRENCY });
   });
+  // Report schedules: every worker polls; row locks make each due schedule run once.
+  const queues = { jobs: new JobQueue(config.REDIS_URL, config.JOB_QUEUE), render: new JobQueue(config.REDIS_URL, config.RENDER_QUEUE ?? RENDER_QUEUE) };
+  let ticking = false;
+  const tick = async () => {
+    if (ticking) return;
+    ticking = true;
+    try {
+      const started = await runDueSchedules(db.db, queues);
+      if (started.length) log('scheduled reports started', { jobs: started });
+    } catch (e) {
+      log('scheduler tick failed', { error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      ticking = false;
+    }
+  };
+  const timer = config.SCHEDULER_INTERVAL_MS > 0 ? setInterval(() => void tick(), config.SCHEDULER_INTERVAL_MS) : undefined;
+
   const health = createServer((req, res) => {
     const ok = req.url === '/healthz' && ready && worker.isRunning();
     res.writeHead(ok ? 200 : 503, { 'content-type': 'application/json' }).end(JSON.stringify({ status: ok ? 'ok' : 'starting' }));
@@ -53,6 +70,8 @@ async function main() {
   const shutdown = async (signal: string) => {
     log('shutting down', { signal });
     health.close();
+    if (timer) clearInterval(timer);
+    await Promise.all([queues.jobs.close(), queues.render.close()]);
     // Lets running jobs finish; queued ones stay in Redis for the next worker.
     await worker.close();
     await graphs.close();

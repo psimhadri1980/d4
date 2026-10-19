@@ -77,6 +77,7 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
 - **Compare**: two views side by side (dates and/or scenarios): elements added and removed, relationships added, removed and changed (e.g. a store going from MASTER to REPLICA). The URL holds both sides, so a comparison can be shared.
 - **Import** (top bar): CSV files or Excel workbooks. Each table (sheet) gets a suggested mapping that you can change: element or relationship rows, a type for the whole sheet or a Type column, and a field or attribute per column. "Check" is a dry run that lists problems by row and column; "Import" writes everything as one change, only once every row is valid. Relationship ends can be keys from the same upload or existing elements' ids, external keys or names. The Excel export imports back with no changes.
 - **Pictures**: the Roadmap page's PDF / PNG / SVG buttons and the Explorer's "Picture of this graph" export render in the background (renderer service with headless Chromium); files appear on the Jobs page.
+- **Reports** (top bar): exports and pictures that run on a schedule (daily, weekly or monthly at a UTC hour), created with "Schedule…" on the Roadmap page or in the Explorer's Export control. Run now, change the schedule, pause or delete; the last file is a click away. Runs can use the run date as their "as of" date (or "today" for roadmaps).
 - **Jobs** (top bar): exports and imports started "In background" run in the job worker; this page shows their progress and results and offers the export files for download. Jobs are private to whoever started them.
 - **Export** (Explorer toolbar): the graph on screen or the whole workspace as Mermaid, ArchiMate Open Exchange XML, elements/relationships CSV, an Excel workbook, model-as-code YAML or a Cypher script, in the current as-of date and scenario.
 - **Matrices**: CRUD-I (process steps × data), capability × application (cells show TIME class), data store roles, and a lifecycle heat-map. Each has findings (e.g. data nothing creates, products without a master, capabilities without applications) and CSV export, and follows the as-of date and scenario.
@@ -91,7 +92,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 58 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs 59 Playwright tests in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
@@ -99,6 +100,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 - a read-only viewer being refused
 - graph readability: for each layout and depth, no overlapping nodes, minimum node spacing, at most 2% of label pairs colliding, and the graph spread across the canvas
 - time and scenarios: as-of views, a scenario overlay, Compare between dates and against a scenario
+- scheduled reports (schedule from the Roadmap page, run now, download, change, pause, delete)
 - pictures (a roadmap PDF and a graph PNG from the renderer)
 - background jobs (an export downloaded from Jobs, an import run in the background)
 - spreadsheet import (mapping, row problems, check then import)

@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, type Element } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { ScheduleForm } from '../components/ScheduleForm';
 import { Gantt, type GanttZoom } from '../components/Gantt';
 import { download, roadmapToCsv, roadmapToMermaid } from '../roadmap-export';
 
@@ -46,6 +47,7 @@ export function Roadmap() {
   const [highlight, setHighlight] = useState<string[]>([]);
   const lanesId = useId();
   const [picture, setPicture] = useState<unknown>(null);
+  const [scheduling, setScheduling] = useState(false);
 
   const set = (k: string, v: string | null) => {
     const p = new URLSearchParams(params);
@@ -159,6 +161,9 @@ export function Roadmap() {
                     </button>
                   ))}
                 </span>
+                <button className="button small ghost" onClick={() => setScheduling((x) => !x)} aria-expanded={scheduling}>
+                  Schedule…
+                </button>
                 {picture === 'started' && (
                   <span className="small" role="status">
                     Started. <Link to={`/w/${ws}/jobs`}>See Jobs</Link>
@@ -167,6 +172,16 @@ export function Roadmap() {
               </div>
             </div>
 
+            {scheduling && (
+              <ScheduleForm
+                workspaceId={ws!}
+                kind="render"
+                params={{ target: 'roadmap', format: 'pdf', scope, lanes, zoom }}
+                defaultName={`Roadmap PDF`}
+                runDateHint="Show “today” as the run date"
+                onClose={() => setScheduling(false)}
+              />
+            )}
             <Gantt roadmap={r} zoom={zoom} selected={selected} highlight={highlight} onSelect={setSelected} today={today()} />
 
             <section className="card conflicts" aria-label="Conflicts">

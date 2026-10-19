@@ -1932,3 +1932,55 @@ tr.job.failed td:nth-child(4) {
   align-items: center;
   gap: var(--sp-02);
 }
+
+/* ── Scheduled reports ──────────────────────────────────────────────────── */
+.reports-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  height: 100%;
+  max-width: 1280px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.schedule-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-04);
+  width: 100%;
+  margin: var(--sp-03) 0;
+}
+.schedule-form .field input {
+  min-width: 220px;
+}
+.cadence-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-04);
+}
+.cadence-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-03);
+}
+.form-actions {
+  display: flex;
+  gap: var(--sp-03);
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-02);
+  justify-content: flex-end;
+}
+tr.paused td {
+  color: var(--text-secondary);
+}
+.error-text {
+  color: var(--support-error);
+}
+.export-menu .schedule-form {
+  flex-basis: 100%;
+}

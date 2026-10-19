@@ -137,7 +137,7 @@ For quick web changes, run Vite on the host against the API and Keycloak in Dock
 | `deploy/dev.sh web-check` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
 | `deploy/dev.sh e2e-local [args]` | The Playwright suite in Docker against the local Vite server (`E2E_WEB_TARGET=host.docker.internal:5173`, no `web` container). |
 | `deploy/dev.sh api-local` | API on local Node (tsx watch) on `:3100`, next to the container on `:3000`, using the Docker data stores. Pair with `D4_API_URL=http://localhost:3100 deploy/dev.sh web-local` and `D4_API_URL=http://localhost:3100 deploy/dev.sh e2e-local`. |
-| `deploy/dev.sh worker-local` | Job worker on local Node for `api-local`'s queue (`d4-jobs-local`), so local jobs never reach the Docker worker. |
+| `deploy/dev.sh worker-local` | Job worker on local Node for `api-local`'s queues (`d4-jobs-local`, `d4-render-local`), so local jobs never reach the Docker worker. Its report scheduler is off unless `D4_SCHEDULER_INTERVAL_MS` is set, because schedules live in the shared dev database and would otherwise be started on the local queues. |
 | `deploy/dev.sh renderer-local` | Builds the renderer image from the tree and runs it once (not the compose service) on `api-local`'s render queue (`d4-render-local`); Chromium needs the Playwright image. |
 | `deploy/dev.sh web-deploy` | After committing: rebuilds and starts the `web` container. Refuses while something else holds port 5173, so stop `web-local` first. |
 
@@ -476,4 +476,5 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 - Batched (`UNWIND`) graph writes for large imports.
 - Write-class catalog queries (`kind: write`) are modelled but not executable.
 - Licensed UBS font to replace the Source Sans 3 stand-in (`--font-sans`).
-- Next phase: Phase 4, delivery outputs (PLAN.md).
+- Reports: email delivery (SMTP), pruning old artefacts, re-checking the owner's access at run time.
+- Next phase: Phase 5, SaaS (per-tenant provisioning, backups, quotas, webhooks; PLAN.md).

@@ -90,7 +90,10 @@ export function Jobs() {
           <tbody>
             {jobs.data.map((j) => (
               <tr key={j.id} className={`job ${j.status}`}>
-                <td>{describe(j)}</td>
+                <td>
+                  {describe(j)}
+                  {j.scheduleId && <span className="badge muted"> scheduled</span>}
+                </td>
                 <td>
                   <span className={`badge job-${j.status}`}>{j.status}</span>
                   {(j.status === 'running' || j.status === 'queued') && (

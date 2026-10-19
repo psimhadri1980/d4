@@ -1,0 +1,126 @@
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { JobStore, ScheduleStore, type ScheduleRow } from '@d4/db';
+import { Cadence, describeCadence, nextRun, startScheduledRun, validateScheduleParams } from '@d4/jobs';
+import type { Principal } from '../auth/identity';
+import { CurrentPrincipal } from '../auth/principal.decorator';
+import { parse } from '../http/errors';
+import { z } from '../http/schemas';
+import { Database } from '../infra/database.service';
+import { JobsInfra } from '../infra/jobs.service';
+import { jobView } from './jobs.controller';
+import { ModelFactory } from './model.factory';
+import { resolveView } from './view';
+import { WorkspaceAccess } from './workspace-access.service';
+
+const CreateBody = z.object({
+  name: z.string().trim().min(1).max(120),
+  kind: z.enum(['export', 'render']),
+  params: z.record(z.unknown()),
+  useRunDate: z.boolean().default(true),
+  cadence: Cadence,
+});
+const UpdateBody = z
+  .object({ name: z.string().trim().min(1).max(120).optional(), cadence: Cadence.optional(), enabled: z.boolean().optional(), useRunDate: z.boolean().optional() })
+  .strict();
+const ListQuery = z.object({ all: z.enum(['true', 'false']).optional() });
+
+/**
+ * Scheduled reports: an export or a picture produced on a cadence by the worker, as the owner.
+ * Owners (and admins) manage their schedules; runs appear as jobs on the Jobs page.
+ */
+@Controller('v1/workspaces/:ws/schedules')
+export class SchedulesController {
+  constructor(
+    @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
+    @Inject(ModelFactory) private readonly models: ModelFactory,
+    @Inject(Database) private readonly database: Database,
+    @Inject(JobsInfra) private readonly infra: JobsInfra,
+  ) {}
+
+  @Get()
+  async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
+    const everyone = parse(ListQuery, query).all === 'true' && p.roles.includes('admin');
+    const scope = await this.access.resolve(p, ws, 'read');
+    const rows = await new ScheduleStore(this.database.db).list(scope.tenantId, scope.workspaceId, everyone ? {} : { createdBy: p.userId });
+    return Promise.all(rows.map((r) => this.view(r)));
+  }
+
+  @Post()
+  @HttpCode(201)
+  async create(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+    const b = parse(CreateBody, body);
+    const scope = await this.access.resolve(p, ws, 'read');
+    const params = validateScheduleParams(b.kind, b.params);
+    // Check what can be checked now, so a schedule does not fail on every run.
+    const { queries } = this.models.for(scope);
+    if (b.kind === 'export' || params['target'] === 'graph') await resolveView(queries, scope.registry, scope.workspaceId, params);
+    if (params['target'] === 'graph' && !(await queries.getElement(scope.workspaceId, String(params['root'])))) {
+      throw new NotFoundException(`Element '${String(params['root'])}' not found`);
+    }
+    const row = await new ScheduleStore(this.database.db).create(scope.tenantId, {
+      workspaceId: scope.workspaceId,
+      name: b.name,
+      kind: b.kind,
+      params,
+      useRunDate: b.useRunDate,
+      cadence: b.cadence,
+      nextRunAt: nextRun(b.cadence, new Date()),
+      createdBy: p.userId,
+    });
+    return this.view(row);
+  }
+
+  @Patch(':id')
+  async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Body() body: unknown) {
+    const b = parse(UpdateBody, body);
+    const { row, tenantId } = await this.own(p, ws, id);
+    const cadence = b.cadence ?? Cadence.parse(row.cadence);
+    // A new cadence, or resuming, counts from now rather than running missed slots.
+    const reschedule = !!b.cadence || (b.enabled === true && !row.enabled);
+    const updated = await new ScheduleStore(this.database.db).update(tenantId, id, { ...b, ...(reschedule && { nextRunAt: nextRun(cadence, new Date()) }) });
+    return this.view(updated!);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
+    const { tenantId } = await this.own(p, ws, id);
+    await new ScheduleStore(this.database.db).remove(tenantId, id);
+  }
+
+  /** Runs the report now, outside the cadence (the next scheduled run is unchanged). */
+  @Post(':id/run')
+  @HttpCode(202)
+  async run(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
+    const { row, tenantId } = await this.own(p, ws, id);
+    const jobId = await startScheduledRun(this.database.db, { jobs: this.infra.queue, render: this.infra.renderQueue }, row, new Date());
+    return jobView((await new JobStore(this.database.db).get(tenantId, jobId))!);
+  }
+
+  private async own(p: Principal, ws: string, id: string): Promise<{ row: ScheduleRow; tenantId: string }> {
+    const scope = await this.access.resolve(p, ws, 'read');
+    const row = await new ScheduleStore(this.database.db).get(scope.tenantId, id);
+    if (!row || row.workspaceId !== scope.workspaceId) throw new NotFoundException(`Schedule '${id}' not found`);
+    if (row.createdBy !== p.userId && !p.roles.includes('admin')) throw new ForbiddenException(`Schedule '${id}' belongs to another user`);
+    return { row, tenantId: scope.tenantId };
+  }
+
+  private async view(r: ScheduleRow) {
+    const cadence = Cadence.parse(r.cadence);
+    const last = r.lastJobId ? await new JobStore(this.database.db).get(r.tenantId, r.lastJobId) : undefined;
+    return {
+      id: r.id,
+      name: r.name,
+      kind: r.kind,
+      params: r.params,
+      useRunDate: r.useRunDate,
+      cadence,
+      cadenceText: describeCadence(cadence),
+      enabled: r.enabled,
+      nextRunAt: r.enabled ? r.nextRunAt.toISOString() : null,
+      lastRunAt: r.lastRunAt?.toISOString() ?? null,
+      lastJob: last ? jobView(last) : null,
+      createdBy: r.createdBy,
+    };
+  }
+}

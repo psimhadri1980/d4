@@ -135,9 +135,30 @@ export interface Job {
   error: string | null;
   artifact: { name: string; type: string; bytes: number } | null;
   attempts: number;
+  scheduleId: string | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;
+}
+
+export type Cadence =
+  | { frequency: 'daily'; hour: number }
+  | { frequency: 'weekly'; hour: number; weekday: number }
+  | { frequency: 'monthly'; hour: number; day: number };
+
+export interface Schedule {
+  id: string;
+  name: string;
+  kind: 'export' | 'render';
+  params: Record<string, unknown>;
+  useRunDate: boolean;
+  cadence: Cadence;
+  cadenceText: string;
+  enabled: boolean;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastJob: Job | null;
+  createdBy: string;
 }
 
 export interface ListFilter {
@@ -195,6 +216,13 @@ export const api = {
   createImportJob: (ws: string, files: Upload[], mappings: { table: string; mapping: TableMapping }[], dryRun: boolean) =>
     request<Job>('POST', `/v1/workspaces/${ws}/jobs/import-tabular${dryRun ? '?dryRun=true' : ''}`, { files, mappings }),
   createRenderJob: (ws: string, body: Record<string, unknown>) => request<Job>('POST', `/v1/workspaces/${ws}/jobs/render`, body),
+  schedules: (ws: string) => request<Schedule[]>('GET', `/v1/workspaces/${ws}/schedules`),
+  createSchedule: (ws: string, body: { name: string; kind: 'export' | 'render'; params: Record<string, unknown>; useRunDate: boolean; cadence: Cadence }) =>
+    request<Schedule>('POST', `/v1/workspaces/${ws}/schedules`, body),
+  updateSchedule: (ws: string, id: string, body: Partial<{ name: string; cadence: Cadence; enabled: boolean; useRunDate: boolean }>) =>
+    request<Schedule>('PATCH', `/v1/workspaces/${ws}/schedules/${id}`, body),
+  deleteSchedule: (ws: string, id: string) => request<void>('DELETE', `/v1/workspaces/${ws}/schedules/${id}`),
+  runSchedule: (ws: string, id: string) => request<Job>('POST', `/v1/workspaces/${ws}/schedules/${id}/run`),
   jobs: (ws: string) => request<Job[]>('GET', `/v1/workspaces/${ws}/jobs`),
   jobFile: (ws: string, id: string) => requestFile(`/v1/workspaces/${ws}/jobs/${id}/artifact`),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>
