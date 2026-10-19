@@ -106,6 +106,7 @@ export function Jobs() {
                 <td className="small">{when(j.startedAt ?? j.createdAt)}</td>
                 <td className="small">{outcome(j)}</td>
                 <td>
+                  {!j.artifact && (j.result as { artifactExpired?: boolean } | null)?.artifactExpired && <span className="muted small">File expired</span>}
                   {j.artifact && (
                     <button className="button small" onClick={() => void download(j)}>
                       Download ({size(j.artifact.bytes)})

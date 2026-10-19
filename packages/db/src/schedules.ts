@@ -14,9 +14,10 @@ export interface NewSchedule {
   cadence: Record<string, unknown>;
   nextRunAt: Date;
   createdBy: string;
+  recipients?: string[];
 }
 
-export type ScheduleChanges = Partial<Pick<ScheduleRow, 'name' | 'params' | 'useRunDate' | 'cadence' | 'enabled' | 'nextRunAt'>>;
+export type ScheduleChanges = Partial<Pick<ScheduleRow, 'name' | 'params' | 'useRunDate' | 'cadence' | 'enabled' | 'nextRunAt' | 'recipients' | 'pausedReason'>>;
 
 export class ScheduleStore {
   constructor(private readonly db: DbOrTx) {}

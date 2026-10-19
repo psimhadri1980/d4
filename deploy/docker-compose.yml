@@ -22,6 +22,9 @@ x-api-env: &api-env
   S3_ACCESS_KEY: d4
   S3_SECRET_KEY: d4-local-dev
   S3_BUCKET: d4-exports
+  # Report emails go to Mailpit locally (inbox at http://localhost:8025).
+  SMTP_URL: smtp://mailpit:1025
+  APP_URL: http://localhost:5173
 
 services:
   # ── Data stores ───────────────────────────────────────────────────────
@@ -93,6 +96,16 @@ services:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8333/healthz >/dev/null 2>&1']
       interval: 5s
       retries: 30
+
+  # Catches report emails locally; nothing leaves the machine. Inbox: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.20.5
+    ports: ['8025:8025', '1025:1025']
+    mem_limit: 64m
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 10s
+      retries: 10
 
   # ── Identity ──────────────────────────────────────────────────────────
   keycloak:
@@ -174,6 +187,7 @@ services:
       <<: *api-env
       WORKER_CONCURRENCY: 2
     depends_on:
+      mailpit: { condition: service_healthy }
       neo4j-schema: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       s3-init: { condition: service_completed_successfully }
@@ -187,6 +201,7 @@ services:
     environment:
       <<: *api-env
     depends_on:
+      mailpit: { condition: service_healthy }
       neo4j-schema: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       s3-init: { condition: service_completed_successfully }

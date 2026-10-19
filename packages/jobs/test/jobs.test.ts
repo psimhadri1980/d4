@@ -5,14 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parseModelDocument, toImportInput } from '@d4/codecs';
 import { planImport } from '@d4/core';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
-import { createDb, JobStore, LOCAL_TENANT, MetamodelStore, runMigrations, ScheduleStore, seedLocal, type DbHandle } from '@d4/db';
+import { createDb, JobStore, LOCAL_TENANT, MetamodelStore, runMigrations, schema, ScheduleStore, seedLocal, UserStore, type DbHandle } from '@d4/db';
 import { GraphQueries, Neo4jModelRepository, type SessionProvider } from '@d4/graph';
 import { Client } from 'pg';
 import {
   inputKey,
   JobQueue,
   MemoryArtifactStore,
+  MemoryMailer,
   processJob,
+  pruneArtifacts,
   runDueSchedules,
   S3ArtifactStore,
   startJobWorker,
@@ -172,6 +174,70 @@ describe.skipIf(!PG || !NEO)('job processing (Postgres + Neo4j)', () => {
     expect(await schedules.get(LOCAL_TENANT, due.id)).toMatchObject({ lastJobId: started[0], nextRunAt: new Date('2027-01-18T06:00:00Z') });
     expect(await runDueSchedules(handle.db, queues, now)).toEqual([]);
     await schedules.remove(LOCAL_TENANT, due.id);
+  });
+
+  it('scheduled runs: delivered by email as their owner, paused when the owner lost access', async () => {
+    const owner = await new UserStore(handle.db).upsertFromToken(LOCAL_TENANT, { subject: 'mail-owner', email: 'o@example.test', roles: ['viewer'] });
+    const nobody = await new UserStore(handle.db).upsertFromToken(LOCAL_TENANT, { subject: 'mail-gone', roles: [] });
+    const schedules = new ScheduleStore(handle.db);
+    const make = (createdBy: string) =>
+      schedules.create(LOCAL_TENANT, {
+        workspaceId: ws,
+        name: 'Daily model',
+        kind: 'export',
+        params: { format: 'mermaid' },
+        useRunDate: false,
+        cadence: { frequency: 'daily', hour: 6 },
+        nextRunAt: new Date('2030-01-01T06:00:00Z'),
+        createdBy,
+        recipients: ['a@example.test', 'b@example.test'],
+      });
+    const mailer = new MemoryMailer();
+    const withMail: JobDeps = { ...deps, mailer, appUrl: 'https://d4.example.test/' };
+
+    const ok = await make(owner.id);
+    const job = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'export', params: { format: 'mermaid' }, createdBy: owner.id, scheduleId: ok.id });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: job.id }, withMail);
+    expect(await store.get(LOCAL_TENANT, job.id)).toMatchObject({ status: 'succeeded', result: { delivery: { status: 'sent', recipients: 2, attached: true } } });
+    expect(mailer.sent).toHaveLength(1);
+    expect(mailer.sent[0]).toMatchObject({ to: ['a@example.test', 'b@example.test'], subject: expect.stringMatching(/^Daily model \(\d{4}-\d{2}-\d{2}\)$/) });
+    expect(mailer.sent[0]!.text).toContain(`https://d4.example.test/w/${ws}/reports`);
+    expect(new TextDecoder().decode(mailer.sent[0]!.attachments![0]!.content)).toContain('flowchart LR');
+
+    // Without a mailer the run still succeeds and says why nothing was sent.
+    const quiet = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'export', params: { format: 'mermaid' }, createdBy: owner.id, scheduleId: ok.id });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: quiet.id }, deps);
+    expect((await store.get(LOCAL_TENANT, quiet.id))!.result).toMatchObject({ delivery: { status: 'skipped' } });
+
+    const lost = await make(nobody.id);
+    const denied = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'export', params: { format: 'mermaid' }, createdBy: nobody.id, scheduleId: lost.id });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: denied.id }, withMail, { made: 0, max: 3 });
+    expect(await store.get(LOCAL_TENANT, denied.id)).toMatchObject({ status: 'failed', error: 'Not run: the owner no longer has access to the workspace' });
+    expect(await schedules.get(LOCAL_TENANT, lost.id)).toMatchObject({ enabled: false, pausedReason: 'Paused: the owner no longer has access to the workspace' });
+    expect(mailer.sent).toHaveLength(1);
+    await schedules.remove(LOCAL_TENANT, ok.id);
+    await schedules.remove(LOCAL_TENANT, lost.id);
+  });
+
+  it('deletes import uploads when the import ends, and prunes old files', async () => {
+    const job = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'import-tabular', params: { dryRun: true }, createdBy: 'u1' });
+    const input: TabularJobInput = { files: [{ name: 'p.csv', content: Buffer.from('Name,platformType\nUpload Gone,x\n').toString('base64') }], mappings: [] };
+    await deps.artifacts.put(inputKey(job.id), JSON.stringify(input), 'application/json');
+    await store.setArtifact(LOCAL_TENANT, job.id, { key: inputKey(job.id), name: 'input.json', type: 'application/json', bytes: 1 });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: job.id }, deps);
+    expect(deps.artifacts.objects.has(inputKey(job.id))).toBe(false);
+    expect((await store.get(LOCAL_TENANT, job.id))!.artifactKey).toBeNull();
+
+    const withFiles = async () => (await handle.db.select().from(schema.jobs)).filter((j) => j.artifactKey);
+    const files = await withFiles();
+    expect(files.length).toBeGreaterThan(0);
+    expect(await pruneArtifacts(handle.db, deps.artifacts, new Date('2000-01-01'))).toBe(0);
+    const removed = await pruneArtifacts(handle.db, deps.artifacts, new Date(Date.now() + 60_000));
+    expect(removed).toBe(files.length);
+    expect(await withFiles()).toEqual([]);
+    for (const j of files) expect(deps.artifacts.objects.has(j.artifactKey!)).toBe(false);
+    const anyExport = (await store.list(LOCAL_TENANT, ws, { createdBy: 'u1' })).find((j) => j.kind === 'export' && j.status === 'succeeded')!;
+    expect(anyExport).toMatchObject({ artifactKey: null, result: expect.objectContaining({ artifactExpired: true }) });
   });
 
   it.skipIf(!REDIS)('goes through the Redis queue to a worker', async () => {

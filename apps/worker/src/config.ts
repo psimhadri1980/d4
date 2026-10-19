@@ -12,10 +12,17 @@ const Env = z.object({
   S3_ACCESS_KEY: z.string().default('d4'),
   S3_SECRET_KEY: z.string().default('d4-local-dev'),
   S3_BUCKET: z.string().default('d4-exports'),
+  /** Report emails; without it, scheduled runs record delivery as skipped. */
+  SMTP_URL: optional(z.string()),
+  MAIL_FROM: z.string().default('D4 Reports <reports@d4.local>'),
+  /** Public web address used in report emails. */
+  APP_URL: z.string().url().default('http://localhost:5173'),
   JOB_QUEUE: optional(z.string()),
   RENDER_QUEUE: optional(z.string()),
   /** How often to look for due report schedules; 0 turns the scheduler off. */
   SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
+  /** Export, report and picture files are deleted this many days after the job finished. */
+  ARTIFACT_RETENTION_DAYS: z.coerce.number().int().min(1).default(30),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
   /** Health endpoint for container checks. */
   WORKER_HEALTH_PORT: z.coerce.number().int().default(3002),

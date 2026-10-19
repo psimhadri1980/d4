@@ -2,6 +2,9 @@ import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { RUN } from './helpers';
 
+/** Mailpit (local mail catcher) as seen from the test container. */
+const MAILPIT = process.env.E2E_MAILPIT_URL ?? 'http://mailpit:8025';
+
 test.describe('scheduled reports', () => {
   test.describe.configure({ timeout: 90_000 });
 
@@ -18,6 +21,8 @@ test.describe('scheduled reports', () => {
     await expect(form.getByLabel('Repeat', { exact: true })).toHaveValue('weekly');
     await form.getByLabel('On', { exact: true }).selectOption({ label: 'Friday' });
     await form.getByLabel('At', { exact: true }).selectOption('7');
+    const inbox = `${RUN}@example.test`;
+    await form.getByLabel('Email to (optional)').fill(inbox);
     await form.getByRole('button', { name: 'Schedule' }).click();
     await page.getByRole('link', { name: 'Manage in Reports' }).click();
 
@@ -31,6 +36,15 @@ test.describe('scheduled reports', () => {
     const [file] = await Promise.all([page.waitForEvent('download'), row.getByRole('button', { name: 'Download' }).click()]);
     expect(file.suggestedFilename()).toBe('roadmap-client-data-consolidation.pdf');
     expect((await readFile((await file.path())!)).subarray(0, 5).toString()).toBe('%PDF-');
+
+    // The run was emailed with the PDF attached.
+    await expect(row).toContainText('Emailed to 1');
+    const search = await (await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${inbox}`)}`)).json() as { messages: { ID: string; Subject: string }[] };
+    expect(search.messages).toHaveLength(1);
+    expect(search.messages[0]!.Subject).toContain(name);
+    const msg = await (await fetch(`${MAILPIT}/api/v1/message/${search.messages[0]!.ID}`)).json() as { Attachments: { FileName: string }[]; Text: string };
+    expect(msg.Attachments.map((a) => a.FileName)).toEqual(['roadmap-client-data-consolidation.pdf']);
+    expect(msg.Text).toContain('/reports');
 
     await row.getByRole('button', { name: 'Change' }).click();
     await row.getByLabel('Repeat', { exact: true }).selectOption('daily');

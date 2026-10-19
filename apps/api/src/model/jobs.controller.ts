@@ -29,7 +29,8 @@ export function jobView(j: JobRow) {
     params,
     result: j.result,
     error: j.error,
-    artifact: j.kind !== 'import-tabular' && j.status === 'succeeded' && j.artifactName ? { name: j.artifactName, type: j.artifactType, bytes: j.artifactBytes } : null,
+    // No file once it expired (artifactKey cleared by pruning).
+    artifact: j.kind !== 'import-tabular' && j.status === 'succeeded' && j.artifactKey && j.artifactName ? { name: j.artifactName, type: j.artifactType, bytes: j.artifactBytes } : null,
     attempts: j.attempts,
     scheduleId: j.scheduleId,
     createdBy: j.createdBy,

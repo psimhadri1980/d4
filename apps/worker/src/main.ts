@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { JobQueue, processJob, RENDER_QUEUE, runDueSchedules, S3ArtifactStore, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { JobQueue, processJob, pruneArtifacts, RENDER_QUEUE, runDueSchedules, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { loadConfig } from './config';
 
 /**
@@ -22,7 +22,8 @@ async function main() {
     secretKey: config.S3_SECRET_KEY,
     bucket: config.S3_BUCKET,
   });
-  const deps: JobDeps = { db: db.db, graphs, artifacts };
+  const mailer = config.SMTP_URL ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM) : undefined;
+  const deps: JobDeps = { db: db.db, graphs, artifacts, appUrl: config.APP_URL, ...(mailer && { mailer }) };
 
   const worker = startJobWorker(
     config.REDIS_URL,
@@ -48,12 +49,19 @@ async function main() {
   // Report schedules: every worker polls; row locks make each due schedule run once.
   const queues = { jobs: new JobQueue(config.REDIS_URL, config.JOB_QUEUE), render: new JobQueue(config.REDIS_URL, config.RENDER_QUEUE ?? RENDER_QUEUE) };
   let ticking = false;
+  let lastPrune = 0;
   const tick = async () => {
     if (ticking) return;
     ticking = true;
     try {
       const started = await runDueSchedules(db.db, queues);
       if (started.length) log('scheduled reports started', { jobs: started });
+      // Once an hour: delete files past the retention period.
+      if (Date.now() - lastPrune > 3_600_000) {
+        lastPrune = Date.now();
+        const removed = await pruneArtifacts(db.db, artifacts, new Date(Date.now() - config.ARTIFACT_RETENTION_DAYS * 86_400_000));
+        if (removed) log('old files deleted', { removed, retentionDays: config.ARTIFACT_RETENTION_DAYS });
+      }
     } catch (e) {
       log('scheduler tick failed', { error: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -74,6 +82,7 @@ async function main() {
     await Promise.all([queues.jobs.close(), queues.render.close()]);
     // Lets running jobs finish; queued ones stay in Redis for the next worker.
     await worker.close();
+    mailer?.close();
     await graphs.close();
     artifacts.close();
     await db.close();

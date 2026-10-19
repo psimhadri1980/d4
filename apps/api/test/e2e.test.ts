@@ -9,7 +9,7 @@ import { Client } from 'pg';
 import { parseModelDocument } from '@d4/codecs';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { JobQueue, processJob, S3ArtifactStore, startJobWorker } from '@d4/jobs';
-import { createDb, RoleStore, runMigrations, seedLocal, type DbHandle } from '@d4/db';
+import { createDb, RoleStore, runMigrations, schema, seedLocal, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
@@ -575,8 +575,14 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
         kind: 'export',
         params: { format: 'mermaid' },
         cadence: { frequency: 'weekly', hour: 7, weekday: 1 },
+        recipients: ['Team@Example.test', 'team@example.test'],
       });
-      expect(sched).toMatchObject({ status: 201, body: { cadenceText: 'Every Monday at 07:00 UTC', enabled: true, lastJob: null } });
+      expect(sched).toMatchObject({ status: 201, body: { cadenceText: 'Every Monday at 07:00 UTC', enabled: true, lastJob: null, recipients: ['team@example.test'], pausedReason: null } });
+      expect((await call('POST', `${ws()}/schedules`, viewer, { name: 'x', kind: 'export', params: { format: 'yaml' }, cadence: { frequency: 'daily', hour: 1 }, recipients: ['not-an-email'] })).status).toBe(400);
+      // Sign-in stores realm roles, so scheduled runs can re-check the owner's access later.
+      const me = (await call('GET', '/v1/me', viewer)).body!;
+      const owner = (await handle.db.select().from(schema.users)).find((u) => u.id === me['userId']);
+      expect(owner!.realmRoles).toEqual(['viewer']);
       expect(new Date(sched.body!['nextRunAt']).getUTCDay()).toBe(1);
       const runNow = await call('POST', `${ws()}/schedules/${sched.body!['id']}/run`, viewer);
       expect(runNow.body).toMatchObject({ kind: 'export', scheduleId: sched.body!['id'], params: { format: 'mermaid', asOf: new Date().toISOString().slice(0, 10) } });

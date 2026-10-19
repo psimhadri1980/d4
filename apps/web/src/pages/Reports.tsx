@@ -81,6 +81,7 @@ export function Reports() {
                 <td>
                   <strong>{s.name}</strong>
                   <div className="muted small">{what(s)}</div>
+                  <div className="muted small">{s.recipients.length ? `Emailed to ${s.recipients.join(', ')}` : 'Not emailed'}</div>
                 </td>
                 <td className="small">
                   {editing === s.id && cadence ? (
@@ -108,12 +109,16 @@ export function Reports() {
                     </>
                   )}
                 </td>
-                <td className="small">{s.enabled ? when(s.nextRunAt) : <span className="badge muted">paused</span>}</td>
+                <td className="small">
+                  {s.enabled ? when(s.nextRunAt) : <span className="badge muted">paused</span>}
+                  {s.pausedReason && <div className="error-text">{s.pausedReason}</div>}
+                </td>
                 <td className="small">
                   {s.lastJob ? (
                     <>
                       <span className={`badge job-${s.lastJob.status}`}>{s.lastJob.status}</span> {when(s.lastRunAt)}
                       {s.lastJob.error && <div className="error-text">{s.lastJob.error}</div>}
+                      <Delivery job={s.lastJob} />
                     </>
                   ) : (
                     'Not run yet'
@@ -148,4 +153,12 @@ export function Reports() {
       )}
     </div>
   );
+}
+
+function Delivery({ job }: { job: Schedule['lastJob'] }) {
+  const d = (job?.result as { delivery?: { status: string; recipients?: number; reason?: string; error?: string } } | null)?.delivery;
+  if (!d) return null;
+  if (d.status === 'sent') return <div className="muted small">✉ Emailed to {d.recipients}</div>;
+  if (d.status === 'skipped') return <div className="muted small">✉ Not emailed: {d.reason}</div>;
+  return <div className="error-text small">✉ Email failed: {d.error}</div>;
 }

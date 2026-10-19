@@ -186,6 +186,8 @@ export interface TokenIdentity {
   subject: string;
   email?: string;
   displayName?: string;
+  /** Realm roles in the token; stored so background jobs can re-check access later. */
+  roles?: readonly string[];
 }
 
 export class UserStore {
@@ -201,17 +203,24 @@ export class UserStore {
         subject: id.subject,
         email: id.email,
         displayName: id.displayName,
+        realmRoles: [...(id.roles ?? [])],
       })
       .onConflictDoUpdate({
         target: [users.tenantId, users.subject],
         set: {
           email: id.email,
           displayName: id.displayName,
+          realmRoles: [...(id.roles ?? [])],
           lastSeenAt: sql`now()`,
         },
       })
       .returning();
     return row!;
+  }
+
+  async get(tenantId: string, id: string) {
+    const [row] = await this.db.select().from(users).where(and(eq(users.tenantId, tenantId), eq(users.id, id)));
+    return row;
   }
 }
 

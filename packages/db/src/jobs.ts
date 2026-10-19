@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import { ulid } from '@d4/core';
 import type { DbOrTx } from './client';
 import { jobs } from './schema';
@@ -98,6 +98,31 @@ export class JobStore {
         ...(artifact && { artifactKey: artifact.key, artifactName: artifact.name, artifactType: artifact.type, artifactBytes: artifact.bytes }),
       })
       .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id), eq(jobs.status, 'running')));
+  }
+
+  /** Finished jobs whose file is older than `before` (for pruning). Across tenants. */
+  async withExpiredArtifacts(before: Date, limit = 100): Promise<JobRow[]> {
+    return this.db
+      .select()
+      .from(jobs)
+      .where(and(isNotNull(jobs.artifactKey), inArray(jobs.status, ['succeeded', 'failed']), lt(jobs.finishedAt, before)))
+      .limit(limit);
+  }
+
+  /** Forgets the job's file (after deleting it from the store); `expired` is shown to users. */
+  async clearArtifact(tenantId: string, id: string, expired: boolean): Promise<void> {
+    await this.db
+      .update(jobs)
+      .set({ artifactKey: null, ...(expired && { result: sql`coalesce(${jobs.result}, '{}'::jsonb) || '{"artifactExpired": true}'::jsonb` }) })
+      .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
+  }
+
+  /** Adds fields to the result (e.g. delivery outcome) without touching the rest. */
+  async addResult(tenantId: string, id: string, fields: Record<string, unknown>): Promise<void> {
+    await this.db
+      .update(jobs)
+      .set({ result: sql`coalesce(${jobs.result}, '{}'::jsonb) || ${JSON.stringify(fields)}::jsonb` })
+      .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
   }
 
   /** `final` = no more retries: the job is failed for good; otherwise it waits for the retry. */

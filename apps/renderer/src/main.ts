@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { processJob, RENDER_QUEUE, S3ArtifactStore, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { processJob, RENDER_QUEUE, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { Chromium } from './chromium';
 import { loadConfig } from './config';
 
@@ -24,7 +24,8 @@ async function main() {
     bucket: config.S3_BUCKET,
   });
   const browser = new Chromium();
-  const deps: JobDeps = { db: db.db, graphs, artifacts, rasterize: browser.rasterize };
+  const mailer = config.SMTP_URL ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM) : undefined;
+  const deps: JobDeps = { db: db.db, graphs, artifacts, rasterize: browser.rasterize, appUrl: config.APP_URL, ...(mailer && { mailer }) };
 
   const worker = startJobWorker(
     config.REDIS_URL,
@@ -58,6 +59,7 @@ async function main() {
     // Lets running jobs finish; queued ones stay in Redis for the next worker.
     await worker.close();
     await browser.close();
+    mailer?.close();
     await graphs.close();
     artifacts.close();
     await db.close();

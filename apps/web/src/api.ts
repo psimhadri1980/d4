@@ -155,6 +155,9 @@ export interface Schedule {
   cadence: Cadence;
   cadenceText: string;
   enabled: boolean;
+  /** Set when the system paused the schedule, e.g. because the owner lost access. */
+  pausedReason: string | null;
+  recipients: string[];
   nextRunAt: string | null;
   lastRunAt: string | null;
   lastJob: Job | null;
@@ -217,9 +220,9 @@ export const api = {
     request<Job>('POST', `/v1/workspaces/${ws}/jobs/import-tabular${dryRun ? '?dryRun=true' : ''}`, { files, mappings }),
   createRenderJob: (ws: string, body: Record<string, unknown>) => request<Job>('POST', `/v1/workspaces/${ws}/jobs/render`, body),
   schedules: (ws: string) => request<Schedule[]>('GET', `/v1/workspaces/${ws}/schedules`),
-  createSchedule: (ws: string, body: { name: string; kind: 'export' | 'render'; params: Record<string, unknown>; useRunDate: boolean; cadence: Cadence }) =>
+  createSchedule: (ws: string, body: { name: string; kind: 'export' | 'render'; params: Record<string, unknown>; useRunDate: boolean; cadence: Cadence; recipients: string[] }) =>
     request<Schedule>('POST', `/v1/workspaces/${ws}/schedules`, body),
-  updateSchedule: (ws: string, id: string, body: Partial<{ name: string; cadence: Cadence; enabled: boolean; useRunDate: boolean }>) =>
+  updateSchedule: (ws: string, id: string, body: Partial<{ name: string; cadence: Cadence; enabled: boolean; useRunDate: boolean; recipients: string[] }>) =>
     request<Schedule>('PATCH', `/v1/workspaces/${ws}/schedules/${id}`, body),
   deleteSchedule: (ws: string, id: string) => request<void>('DELETE', `/v1/workspaces/${ws}/schedules/${id}`),
   runSchedule: (ws: string, id: string) => request<Job>('POST', `/v1/workspaces/${ws}/schedules/${id}/run`),

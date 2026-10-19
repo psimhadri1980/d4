@@ -1,9 +1,11 @@
-import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 /** Where job inputs (uploads) and outputs (export files) are kept. */
 export interface ArtifactStore {
   put(key: string, body: Uint8Array | string, contentType: string): Promise<number>;
   get(key: string): Promise<Uint8Array>;
+  /** Removes an object; removing one that is already gone is not an error. */
+  delete(key: string): Promise<void>;
 }
 
 export interface S3Config {
@@ -41,6 +43,10 @@ export class S3ArtifactStore implements ArtifactStore {
     return res.Body.transformToByteArray();
   }
 
+  async delete(key: string): Promise<void> {
+    await this.s3.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
+  }
+
   /** The bucket is created by deploy (s3-init); creating it here too keeps tests self-contained. */
   private async ensureBucket() {
     if (this.bucketChecked) return;
@@ -64,6 +70,9 @@ export class MemoryArtifactStore implements ArtifactStore {
     const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : body;
     this.objects.set(key, { body: bytes, contentType });
     return bytes.byteLength;
+  }
+  async delete(key: string) {
+    this.objects.delete(key);
   }
   async get(key: string) {
     const o = this.objects.get(key);

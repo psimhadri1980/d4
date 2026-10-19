@@ -18,9 +18,16 @@ const CreateBody = z.object({
   params: z.record(z.unknown()),
   useRunDate: z.boolean().default(true),
   cadence: Cadence,
+  recipients: z.array(z.string().trim().toLowerCase().email()).max(20).default([]),
 });
 const UpdateBody = z
-  .object({ name: z.string().trim().min(1).max(120).optional(), cadence: Cadence.optional(), enabled: z.boolean().optional(), useRunDate: z.boolean().optional() })
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    cadence: Cadence.optional(),
+    enabled: z.boolean().optional(),
+    useRunDate: z.boolean().optional(),
+    recipients: z.array(z.string().trim().toLowerCase().email()).max(20).optional(),
+  })
   .strict();
 const ListQuery = z.object({ all: z.enum(['true', 'false']).optional() });
 
@@ -66,6 +73,7 @@ export class SchedulesController {
       cadence: b.cadence,
       nextRunAt: nextRun(b.cadence, new Date()),
       createdBy: p.userId,
+      recipients: [...new Set(b.recipients)],
     });
     return this.view(row);
   }
@@ -77,7 +85,13 @@ export class SchedulesController {
     const cadence = b.cadence ?? Cadence.parse(row.cadence);
     // A new cadence, or resuming, counts from now rather than running missed slots.
     const reschedule = !!b.cadence || (b.enabled === true && !row.enabled);
-    const updated = await new ScheduleStore(this.database.db).update(tenantId, id, { ...b, ...(reschedule && { nextRunAt: nextRun(cadence, new Date()) }) });
+    const updated = await new ScheduleStore(this.database.db).update(tenantId, id, {
+      ...b,
+      ...(b.recipients && { recipients: [...new Set(b.recipients)] }),
+      ...(reschedule && { nextRunAt: nextRun(cadence, new Date()) }),
+      // Any change by a person (resume, pause) replaces a pause the system made.
+      ...(b.enabled !== undefined && { pausedReason: null }),
+    });
     return this.view(updated!);
   }
 
@@ -117,6 +131,8 @@ export class SchedulesController {
       cadence,
       cadenceText: describeCadence(cadence),
       enabled: r.enabled,
+      pausedReason: r.pausedReason,
+      recipients: r.recipients,
       nextRunAt: r.enabled ? r.nextRunAt.toISOString() : null,
       lastRunAt: r.lastRunAt?.toISOString() ?? null,
       lastJob: last ? jobView(last) : null,

@@ -5,6 +5,13 @@ import { ErrorBanner } from './ErrorBanner';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+/** "a@x.com, b@y.org" → ["a@x.com", "b@y.org"] (blank entries dropped). */
+export const parseRecipients = (text: string) =>
+  text
+    .split(/[,;\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
 /** "06:00 UTC (08:00 here)" so people in any time zone pick the right hour. */
 export function hourLabel(h: number): string {
   const local = new Date(Date.UTC(2027, 0, 4, h)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -85,6 +92,8 @@ export function ScheduleForm({
   onClose(): void;
 }) {
   const nameId = useId();
+  const mailId = useId();
+  const [recipients, setRecipients] = useState('');
   const [name, setName] = useState(defaultName);
   const [cadence, setCadence] = useState<Cadence>({ frequency: 'weekly', hour: 6, weekday: 1 });
   const [useRunDate, setUseRunDate] = useState(true);
@@ -95,7 +104,7 @@ export function ScheduleForm({
     e.preventDefault();
     setError(null);
     try {
-      await api.createSchedule(workspaceId, { name, kind, params, useRunDate, cadence });
+      await api.createSchedule(workspaceId, { name, kind, params, useRunDate, cadence, recipients: parseRecipients(recipients) });
       setSaved(true);
     } catch (err) {
       setError(err);
@@ -119,6 +128,10 @@ export function ScheduleForm({
         <input id={nameId} value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} />
       </div>
       <CadenceFields value={cadence} onChange={setCadence} />
+      <div className="field recipients">
+        <label htmlFor={mailId}>Email to (optional)</label>
+        <input id={mailId} type="text" inputMode="email" placeholder="name@example.com, …" value={recipients} onChange={(e) => setRecipients(e.target.value)} />
+      </div>
       <label className="check-inline">
         <input type="checkbox" checked={useRunDate} onChange={(e) => setUseRunDate(e.target.checked)} /> {runDateHint}
       </label>

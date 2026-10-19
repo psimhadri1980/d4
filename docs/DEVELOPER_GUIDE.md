@@ -159,6 +159,7 @@ Vite serves the dev build, so React StrictMode runs effects twice. That surfaces
 | 6379 | redis |
 | 8333 | S3 (SeaweedFS) |
 | 3001 | grafana (observability profile) |
+| 8025 / 1025 | Mailpit inbox / SMTP (report emails stay local) |
 | 3002 / 3003 | worker / renderer health (`/healthz`, inside the containers) |
 | 3100 / 3102 | `api-local` / `worker-local` health, on the host |
 
@@ -476,5 +477,5 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 - Batched (`UNWIND`) graph writes for large imports.
 - Write-class catalog queries (`kind: write`) are modelled but not executable.
 - Licensed UBS font to replace the Source Sans 3 stand-in (`--font-sans`).
-- Reports: email delivery (SMTP), pruning old artefacts, re-checking the owner's access at run time.
+- Realm role removals in Keycloak reach scheduled reports only after the owner's next sign-in (bindings apply at once).
 - Next phase: Phase 5, SaaS (per-tenant provisioning, backups, quotas, webhooks; PLAN.md).

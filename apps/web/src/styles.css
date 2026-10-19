@@ -1984,3 +1984,7 @@ tr.paused td {
 .export-menu .schedule-form {
   flex-basis: 100%;
 }
+
+.schedule-form .recipients input {
+  min-width: 280px;
+}

@@ -93,6 +93,8 @@ export const users = pgTable(
     subject: text('subject').notNull(),
     email: text('email'),
     displayName: text('display_name'),
+    /** Realm roles from the IdP at the last sign-in; lets background work re-check access. */
+    realmRoles: text('realm_roles').array().notNull().default(sql`'{}'::text[]`),
     createdAt: createdAt(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -340,6 +342,10 @@ export const schedules = pgTable(
     /** { frequency: daily | weekly | monthly, hour (UTC), weekday?, day? } */
     cadence: jsonb('cadence').notNull(),
     enabled: boolean('enabled').notNull().default(true),
+    /** Why the system paused the schedule (e.g. the owner lost access); null when paused by a person. */
+    pausedReason: text('paused_reason'),
+    /** Email addresses that receive each run's file (or a link to it). */
+    recipients: text('recipients').array().notNull().default(sql`'{}'::text[]`),
     nextRunAt: timestamp('next_run_at', { withTimezone: true }).notNull(),
     lastRunAt: timestamp('last_run_at', { withTimezone: true }),
     lastJobId: text('last_job_id'),
