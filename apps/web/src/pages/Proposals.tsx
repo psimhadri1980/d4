@@ -28,6 +28,8 @@ export function Proposals() {
   // `?show=` (from the navigation) picks the filter; the select writes it back.
   const [params, setParams] = useSearchParams();
   const filter = Math.max(0, SHOW.indexOf(params.get('show') ?? 'open'));
+  // Opening a proposal keeps the chosen filter.
+  const keep = params.toString() ? `?${params}` : '';
   const setFilter = (i: number) => setParams((p) => (p.set('show', SHOW[i]!), p), { replace: true });
   const [title, setTitle] = useState('');
   const [error, setError] = useState<unknown>(null);
@@ -42,7 +44,7 @@ export function Proposals() {
       const p = await proposalsApi.create(ws!, { title });
       setTitle('');
       await queryClient.invalidateQueries({ queryKey: ['proposals', ws] });
-      navigate(`/w/${ws}/proposals/${p.id}`);
+      navigate({ pathname: `/w/${ws}/proposals/${p.id}`, search: keep });
     } catch (err) {
       setError(err);
     }
@@ -77,7 +79,7 @@ export function Proposals() {
         <ul className="plain proposal-items" aria-label="Proposals">
           {list.data?.map((p) => (
             <li key={p.id} className={p.id === pid ? 'selected' : ''}>
-              <Link to={`/w/${ws}/proposals/${p.id}`}>{p.title}</Link>
+              <Link to={{ pathname: `/w/${ws}/proposals/${p.id}`, search: keep }}>{p.title}</Link>
               <div className="small muted">
                 <span className={`badge ${STATUS_CLASS[p.status]}`}>{p.status}</span> {p.stepCount} {p.stepCount === 1 ? 'change' : 'changes'} · {new Date(p.updatedAt).toLocaleDateString()}
               </div>

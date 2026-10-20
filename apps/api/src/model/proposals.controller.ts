@@ -1,6 +1,6 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { stageProposal, type ModelReader, type ProposalOperation, type StagedProposal } from '@d4/core';
-import { PROPOSAL_STATUSES, ProposalStore, withLockedProposal, type ProposalRow, type ProposalStatus } from '@d4/db';
+import { PROPOSAL_STATUSES, ProposalStore, withLockedProposal, type ProposalRow } from '@d4/db';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
@@ -9,7 +9,12 @@ import { Database } from '../infra/database.service';
 import { ModelFactory } from './model.factory';
 import { WorkspaceAccess, type Access, type WorkspaceScope } from './workspace-access.service';
 
-const ListQuery = z.object({ status: z.union([z.enum(PROPOSAL_STATUSES), z.array(z.enum(PROPOSAL_STATUSES))]).optional() });
+// `status` may repeat (`?status=a&status=b`) or be comma-separated (`?status=a,b`, as the web client sends it).
+const ListQuery = z.object({
+  status: z
+    .preprocess((v) => ([] as unknown[]).concat(v ?? []).flatMap((s) => (typeof s === 'string' ? s.split(',').map((x) => x.trim()).filter(Boolean) : [s])), z.array(z.enum(PROPOSAL_STATUSES)))
+    .optional(),
+});
 
 /**
  * Change proposals: model changes drafted by a contributor, checked against the live model, and
@@ -29,7 +34,7 @@ export class ProposalsController {
   async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
     const q = parse(ListQuery, query);
     const scope = await this.access.resolve(p, ws, 'read');
-    const statuses = q.status === undefined ? undefined : ([] as ProposalStatus[]).concat(q.status);
+    const statuses = q.status?.length ? q.status : undefined;
     return (await this.store().list(scope.tenantId, scope.workspaceId, statuses)).map(summary);
   }
 

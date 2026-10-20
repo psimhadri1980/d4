@@ -65,3 +65,18 @@ test('a contributor proposes a new element, and an admin approves it into the mo
   const created = (await api<{ items: { id: string; version: number; attrs: { name: string } }[] }>(`/v1/workspaces/${ws}/elements?q=${RUN}`)).items.find((e) => e.attrs.name === storeName)!;
   await api(`/v1/workspaces/${ws}/elements/${created.id}?expectedVersion=${created.version}`, { method: 'DELETE' });
 });
+
+test('every filter lists without errors, and opening a proposal keeps the filter', async ({ page }) => {
+  await page.goto(`/w/${ws}/proposals`);
+  const show = page.getByLabel('Show');
+  for (const label of ['Open', 'Waiting for review', 'Closed', 'All']) {
+    await show.selectOption({ label });
+    await expect(page.getByRole('list', { name: 'Proposals' }).or(page.getByText('No proposals here.')).first()).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  }
+  await show.selectOption({ label: 'All' });
+  const first = page.getByRole('list', { name: 'Proposals' }).getByRole('link').first();
+  await first.click();
+  await expect(page).toHaveURL(/show=all/);
+  await expect(show).toHaveValue('3');
+});

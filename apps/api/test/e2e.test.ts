@@ -867,6 +867,9 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
 
       const listed = (await call('GET', `${ws()}/proposals?status=applied&status=rejected`, viewer)).body!;
       expect(listed.map((p: any) => p.id)).toEqual(expect.arrayContaining([id, stale['id']]));
+      // The web client sends the statuses comma-separated.
+      const joined = (await call('GET', `${ws()}/proposals?status=applied,rejected`, viewer)).body!;
+      expect(joined.map((p: any) => p.id)).toEqual(expect.arrayContaining([id, stale['id']]));
     });
 
     it('lets admins manage webhooks: secrets shown once, URLs checked, pings queued', async () => {
