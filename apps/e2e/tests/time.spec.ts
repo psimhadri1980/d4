@@ -93,7 +93,7 @@ test.describe('time and scenarios', () => {
 
   test('Compare shows the planned hand-over between two dates', async ({ page }) => {
     await page.goto(`/w/${ws}/compare?fromAsOf=2027-01-01&toAsOf=2027-08-01`);
-    await expect(page.getByRole('link', { name: 'Compare' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Compare' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByLabel('Comparison summary')).toContainText('~2 changed');
     const changed = page.getByRole('region', { name: 'Relationships changed' });
     await expect(changed.locator('li', { hasText: 'Legacy Client Database' }).first()).toContainText('MASTER → REPLICA');

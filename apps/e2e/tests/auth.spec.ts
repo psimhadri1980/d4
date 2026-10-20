@@ -7,7 +7,9 @@ test.describe('sign-in', () => {
     await expect(page).toHaveURL(/\/w\/[0-9A-Z]{26}$/);
     await expect(page.getByText('dev-admin')).toBeVisible();
     await expect(page.getByText(/admin, query-author, query-steward/)).toBeVisible();
-    await expect(page.getByRole('combobox').first()).toHaveValue(/[0-9A-Z]{26}/);
+    const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
+    await expect(crumbs.getByRole('link', { name: 'Default' })).toBeVisible();
+    await expect(crumbs).toContainText('Explorer');
   });
 
   test.describe('without a session', () => {

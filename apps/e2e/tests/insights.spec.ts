@@ -12,7 +12,7 @@ test.describe('matrices', () => {
 
   test('CRUD-I matrix groups steps by process and exports CSV', async ({ page }) => {
     await page.goto(`/w/${ws}/matrices`);
-    await expect(page.getByRole('link', { name: 'Matrices' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Matrices' })).toHaveAttribute('aria-current', 'page');
     const table = page.getByRole('table', { name: 'CRUD-I matrix' });
     await expect(table.locator('.group-row', { hasText: 'Client Onboarding' })).toBeVisible();
     await expect(cell(page, 'Capture client details', 'Client Master', 'CREATE')).toHaveText('C');
@@ -63,7 +63,7 @@ test.describe('decisions', () => {
     await page.getByLabel('Status').selectOption('REJECTED');
     await expect(page.getByText('No decisions match.')).toBeVisible();
     await page.getByLabel('Status').selectOption('');
-    await page.getByLabel('Search').fill('legacy client');
+    await page.getByLabel('Search', { exact: true }).fill('legacy client');
     await expect(page.getByRole('list', { name: 'Decision log' }).getByRole('button')).toHaveCount(1);
 
     await page.getByRole('link', { name: '+ New decision' }).click();

@@ -3,7 +3,7 @@ import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { expect, test } from '@playwright/test';
-import { RUN } from './helpers';
+import { openNav, RUN } from './helpers';
 
 /**
  * A receiver in the test process. In the Docker stack the worker reaches it at this container's
@@ -34,7 +34,7 @@ test.afterAll(() => server?.close());
 test('admins add a webhook, see its secret once and receive a signed test delivery', async ({ page }) => {
   const name = `${RUN} hook`;
   await page.goto('/');
-  await page.getByRole('link', { name: 'Admin', exact: true }).click();
+  await openNav(page, 'Admin', 'Webhooks');
   const section = page.getByRole('region', { name: 'Webhooks' });
 
   const form = section.getByRole('form', { name: 'New webhook' });

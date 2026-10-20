@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { RUN, signIn } from './helpers';
+import { openNav, RUN, signIn } from './helpers';
 
 test.describe('administration', () => {
   test('admins create, rename, staff, archive and restore a workspace', async ({ page }) => {
     const name = `${RUN} Lab`;
     await page.goto('/');
-    await page.getByRole('link', { name: 'Admin', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Administration' })).toBeVisible();
+    await openNav(page, 'Admin');
+    await expect(page).toHaveURL(/\/admin\/workspaces$/);
 
     const create = page.getByRole('form', { name: 'New workspace' });
     await create.getByLabel('New workspace name').fill(name);
@@ -23,6 +23,7 @@ test.describe('administration', () => {
     await expect(renamed).toContainText(`${name} 2`);
 
     // Grant the viewer a role in the new workspace, then take it away.
+    await openNav(page, 'Admin', 'People and roles');
     const members = page.getByRole('region', { name: 'Members and roles' });
     await members.getByLabel('Roles for').selectOption({ label: `Workspace: ${name} 2` });
     await expect(members.getByText('No roles granted here yet.')).toBeVisible();
@@ -35,6 +36,7 @@ test.describe('administration', () => {
     await binding.getByRole('button', { name: 'Remove planner from dev-viewer@d4.localhost' }).click();
     await expect(members.getByText('No roles granted here yet.')).toBeVisible();
 
+    await openNav(page, 'Admin', 'Workspaces');
     page.once('dialog', (d) => void d.accept());
     await renamed.getByRole('button', { name: 'Archive' }).click();
     await expect(renamed.locator('.badge')).toHaveText('archived');
@@ -50,7 +52,7 @@ test.describe('administration', () => {
   test('admins create a workspace on an industry metamodel pack', async ({ page }) => {
     const name = `${RUN} Bank`;
     await page.goto('/');
-    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    await openNav(page, 'Admin');
     const create = page.getByRole('form', { name: 'New workspace' });
     await create.getByLabel('New workspace name').fill(name);
     await create.getByLabel('Metamodel').selectOption('d4-banking');
@@ -65,7 +67,7 @@ test.describe('administration', () => {
 
   test('admins see usage against the plan limits', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    await openNav(page, 'Admin', 'Usage');
     const usage = page.getByRole('table', { name: 'Usage' });
     const elements = usage.getByRole('row', { name: /^Elements/ });
     await expect(elements).toContainText('100,000');
@@ -75,7 +77,7 @@ test.describe('administration', () => {
 
   test('admins back up the workspace and check it against the event log', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    await openNav(page, 'Backups');
     const backups = page.getByRole('region', { name: 'Backups' });
     await backups.getByRole('button', { name: 'Back up now' }).click();
     await expect(backups.getByRole('status')).toContainText('Back up the graph: Saved:', { timeout: 30_000 });

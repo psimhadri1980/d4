@@ -79,7 +79,12 @@ export function Queries() {
     update(next, next.some((t) => tabKey(t) === active) ? active : next[0] ? tabKey(next[0]) : null);
   };
 
+  // `?section=` (from the navigation) opens just that section; otherwise all are open.
+  const section = params.get('section');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ catalog: true, studio: true, stewardship: true });
+  useEffect(() => {
+    if (section) setOpenSections({ catalog: section === 'catalog', studio: section === 'studio', stewardship: section === 'stewardship' });
+  }, [section]);
   const toggle = (k: string) => setOpenSections((s) => ({ ...s, [k]: !s[k] }));
 
   return (

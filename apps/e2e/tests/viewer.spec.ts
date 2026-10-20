@@ -9,7 +9,7 @@ test.describe('read-only viewer', () => {
     await page.getByLabel('Search elements').fill('Client Master');
     await expect(page.locator('.items li').first()).toContainText('Client Master');
 
-    await page.getByRole('link', { name: '+ New element' }).click();
+    await page.getByRole('link', { name: 'New element', exact: true }).click();
     await page.getByLabel('Type').selectOption('Platform');
     await page.getByLabel('Name *').fill(`${RUN} Viewer attempt`);
     await page.getByRole('button', { name: 'Create' }).click();

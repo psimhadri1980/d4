@@ -15,7 +15,7 @@ import { Matrices } from './pages/Matrices';
 import { Import } from './pages/Import';
 import { Jobs } from './pages/Jobs';
 import { Reports } from './pages/Reports';
-import { Admin } from './pages/Admin';
+import { AdminPeoplePage, AdminUsagePage, AdminWebhooksPage, AdminWorkspacesPage, BackupsPage, ConnectorsPage } from './pages/Admin';
 
 export function App() {
   const { user, ready, returnTo } = useAuth();
@@ -39,7 +39,13 @@ export function App() {
         <Route path="import" element={<Import />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="admin" element={<Admin />} />
+        <Route path="connectors" element={<ConnectorsPage />} />
+        <Route path="backups" element={<BackupsPage />} />
+        <Route path="admin" element={<Navigate to="workspaces" replace />} />
+        <Route path="admin/workspaces" element={<AdminWorkspacesPage />} />
+        <Route path="admin/people" element={<AdminPeoplePage />} />
+        <Route path="admin/webhooks" element={<AdminWebhooksPage />} />
+        <Route path="admin/usage" element={<AdminUsagePage />} />
         {/* Earlier separate screens now open as tabs in Queries. */}
         <Route path="catalog/:qid?" element={<ToQueries mode="run" />} />
         <Route path="studio/:qid?" element={<ToQueries mode="edit" />} />

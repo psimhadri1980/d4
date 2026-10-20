@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { adminApi, api, can, ROLES, type AdminWorkspace } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -16,9 +16,8 @@ const toSlug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 48);
 
-/** Tenant administration: workspaces, role bindings, webhooks, usage, connectors, backups. Admins only. */
-export function Admin() {
-  const { ws } = useParams();
+/** Admin pages share one gate: without the admin role they say so instead of rendering. */
+function AdminGate({ title, children }: { title: string; children: ReactNode }) {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
   if (me.data && !can(me.data.roles).admin) {
     return (
@@ -29,14 +28,54 @@ export function Admin() {
   }
   return (
     <div className="admin-page">
-      <h2>Administration</h2>
-      <Workspaces />
-      <Members defaultScope={ws!} />
-      <Webhooks />
-      <Usage />
-      <Connectors ws={ws!} />
-      <CurrentBackups ws={ws!} />
+      <h2>{title}</h2>
+      {children}
     </div>
+  );
+}
+
+export const AdminWorkspacesPage = () => (
+  <AdminGate title="Workspaces">
+    <Workspaces />
+  </AdminGate>
+);
+
+export function AdminPeoplePage() {
+  const { ws } = useParams();
+  return (
+    <AdminGate title="People and roles">
+      <Members defaultScope={ws!} />
+    </AdminGate>
+  );
+}
+
+export const AdminWebhooksPage = () => (
+  <AdminGate title="Webhooks">
+    <Webhooks />
+  </AdminGate>
+);
+
+export const AdminUsagePage = () => (
+  <AdminGate title="Usage">
+    <Usage />
+  </AdminGate>
+);
+
+export function ConnectorsPage() {
+  const { ws } = useParams();
+  return (
+    <AdminGate title="Connectors">
+      <Connectors ws={ws!} />
+    </AdminGate>
+  );
+}
+
+export function BackupsPage() {
+  const { ws } = useParams();
+  return (
+    <AdminGate title="Backups">
+      <CurrentBackups ws={ws!} />
+    </AdminGate>
   );
 }
 

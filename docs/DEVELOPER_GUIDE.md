@@ -392,11 +392,14 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 - **List boxes (`select[size]`) need an explicit empty option**, or the browser shows the first option as selected while the value is `''`.
 - Graphs: `GraphCanvas` (layouts radial, force or hierarchy; `fitSignal`). It reads tokens at render time and listens for `THEME_EVENT`.
 - Routing: `App.tsx`. Query screens are tabs inside `/w/:ws/queries`, with state in `?tabs=mode:id,…&active=…`.
+- **Navigation:** add the page to `NAV` in `nav.tsx` (group, icon from `@tabler/icons-react`, `match` prefixes, optional `sub` items and `visible` rule). The sidebar, the breadcrumb and the Ctrl K search all read it. A sub-item that sets a query parameter (`matrices?kind=…`) is active when the URL has that parameter, so the page must read it.
+- **Admin-only pages** each have their own route and use `AdminGate` in `pages/Admin.tsx`.
 
 ### Add a browser test
 
 - **Location:** `apps/e2e/tests`. Use `signIn(page, 'viewer' | 'author' | 'steward' | 'admin')` and `api()` from `helpers.ts`.
 - **Test data:** prefix created data with `RUN` (one token, no hyphens, so full-text search can find it) and clean up with `afterAll` via the API.
+- **Navigation:** `openNav(page, 'Admin', 'Usage')` opens an item or, through the icon rail's flyout, a sub-item. Scope link lookups to `getByRole('navigation', { name: 'Main' })`; the breadcrumb repeats page names.
 - **Ordering:** for multi-step stories use `test.describe.configure({ mode: 'serial' })`.
 - **Selectors:** prefer roles and labels, and use `exact: true` for short names. Playwright name matching is a case-insensitive substring match: "Edit" also matches "Cr*edit* Exposure".
 - **Graph assertions:** read geometry through the test hook on the graph's DOM node (`el.__cy`); see `layoutStats` in `explorer.spec.ts`.

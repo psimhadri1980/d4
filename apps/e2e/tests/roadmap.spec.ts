@@ -5,7 +5,7 @@ test.describe('roadmap studio', () => {
   test('schedules an initiative with lanes, critical path and conflicts', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Roadmap' }).click();
-    await expect(page.getByRole('link', { name: 'Roadmap' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Roadmap' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText(/Choose an initiative/)).toBeVisible();
 
     await page.getByRole('checkbox', { name: 'Client Data Consolidation' }).check();

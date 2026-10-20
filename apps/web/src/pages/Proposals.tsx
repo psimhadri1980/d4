@@ -1,7 +1,7 @@
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, canReview, proposalsApi, type Proposal, type ProposalOperation, type ProposalStatus } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ElementPicker } from '../components/ParamForm';
@@ -19,11 +19,16 @@ const STATUS_CLASS: Record<ProposalStatus, string> = { draft: 'muted', submitted
  * Change proposals: draft a set of model changes, check them against the live model, submit them
  * for review, and have an architect or admin apply them as one change.
  */
+const SHOW = ['open', 'review', 'closed', 'all'];
+
 export function Proposals() {
   const { ws, pid } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState(0);
+  // `?show=` (from the navigation) picks the filter; the select writes it back.
+  const [params, setParams] = useSearchParams();
+  const filter = Math.max(0, SHOW.indexOf(params.get('show') ?? 'open'));
+  const setFilter = (i: number) => setParams((p) => (p.set('show', SHOW[i]!), p), { replace: true });
   const [title, setTitle] = useState('');
   const [error, setError] = useState<unknown>(null);
   const filterId = useId();

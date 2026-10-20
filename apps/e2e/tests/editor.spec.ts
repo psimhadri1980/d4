@@ -5,7 +5,7 @@ const name = (suffix: string) => `${RUN} ${suffix}`;
 
 async function create(page: Page, type: string, elementName: string, fill: Record<string, string> = {}) {
   await page.goto('/');
-  await page.getByRole('link', { name: '+ New element' }).click();
+  await page.getByRole('link', { name: 'New element', exact: true }).click();
   await page.getByLabel('Type').selectOption(type);
   await page.getByLabel('Name *').fill(elementName);
   for (const [label, value] of Object.entries(fill)) {
@@ -39,7 +39,7 @@ test.describe('editing', () => {
 
   test('form fields follow the chosen type', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: '+ New element' }).click();
+    await page.getByRole('link', { name: 'New element', exact: true }).click();
     await page.getByLabel('Type').selectOption('DataStore');
     await expect(page.getByLabel('Category', { exact: true })).toBeVisible();
     const categories = await page.getByLabel('Category', { exact: true }).locator('option').allInnerTexts();
@@ -78,7 +78,7 @@ test.describe('editing', () => {
 
   test('client-side validation blocks bad values before saving', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: '+ New element' }).click();
+    await page.getByRole('link', { name: 'New element', exact: true }).click();
     await page.getByLabel('Type').selectOption('Capability');
     await page.getByLabel('Name *').fill(name('Bad level'));
     await page.getByLabel('Level', { exact: true }).fill('1.5');

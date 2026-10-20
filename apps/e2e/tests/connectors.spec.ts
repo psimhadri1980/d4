@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { expect, test } from '@playwright/test';
-import { api, defaultWorkspaceId, RUN } from './helpers';
+import { openNav, api, defaultWorkspaceId, RUN } from './helpers';
 
 /**
  * A fake CMDB in the test process. As for the webhook test, the worker reaches it at this
@@ -43,7 +43,7 @@ test('admins connect a source, preview a sync, sync it, and see source changes c
   };
 
   await page.goto('/');
-  await page.getByRole('link', { name: 'Admin', exact: true }).click();
+  await openNav(page, 'Connectors');
   const section = page.getByRole('region', { name: 'Connectors' });
   await section.getByRole('button', { name: 'Add connector' }).click();
   const form = section.getByRole('form', { name: 'New connector' });

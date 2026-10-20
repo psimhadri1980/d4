@@ -48,3 +48,12 @@ export async function defaultWorkspaceId(): Promise<string> {
   if (!ws) throw new Error('default workspace missing; run deploy/dev.sh up');
   return ws.id;
 }
+
+/** Opens a page from the left navigation: an item, or one of its sub-items through the icon rail's flyout. */
+export async function openNav(page: Page, item: string, sub?: string) {
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const link = nav.getByRole('link', { name: item, exact: true });
+  if (!sub) return link.click();
+  await link.hover();
+  await nav.getByRole('group', { name: `${item} pages` }).getByRole('link', { name: sub, exact: true }).click();
+}
