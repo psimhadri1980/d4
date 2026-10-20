@@ -36,6 +36,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@d4/sdk": "workspace:*",
     "@nestjs/testing": "^10.4.1",
     "@swc/core": "^1.7.23",
     "@types/pg": "^8.11.6",

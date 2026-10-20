@@ -52,6 +52,7 @@ packages/
   jobs/       Shared by api and worker: tenant graph routing, model handles, export and
               tabular-import work, S3 artefact store, BullMQ queue, processJob
   cli/        `d4` command: validate, workspaces, import, export
+  sdk/        typed REST client generated from the OpenAPI document (`openapi.json` + `src/schema.ts` are generated)
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       docker-compose, dev.sh, Keycloak realm, SeaweedFS, OTel, nginx, e2e runner
 docs/         PLAN.md, ADRs, this guide
@@ -357,7 +358,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 2. Inject dependencies with **explicit `@Inject(Token)`**; the dev runner emits no decorator metadata.
 3. Put access checks and logic in a service. Throw `DomainError` for domain failures and Nest `*Exception`s for HTTP ones; `toErrorResponse` maps both.
 4. Register the controller and providers in `app.module.ts`.
-5. Document the endpoint in `apps/api/src/http/openapi.ts`.
+5. Document the endpoint in `apps/api/src/http/openapi.ts`, then regenerate the SDK: `pnpm --filter @d4/api build && pnpm --filter @d4/sdk generate`. `apps/api/test/openapi.test.ts` fails when a served route is missing from the document or the SDK's copy is stale.
 6. Test it end to end with `apps/api/test/harness.ts` (`startHarness()`), which gives a fresh Postgres database, the real Neo4j and local-signed tokens.
 
 ### Add a Postgres table or column

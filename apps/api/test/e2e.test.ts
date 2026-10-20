@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { parseModelDocument } from '@d4/codecs';
+import { allElements, createClient, D4ApiError } from '@d4/sdk';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { JobQueue, processJob, S3ArtifactStore, startJobWorker } from '@d4/jobs';
 import { createDb, LOCAL_TENANT, MetamodelStore, RoleStore, runMigrations, schema, seedLocal, TenantStore, UsageStore, WorkspaceStore, type DbHandle } from '@d4/db';
@@ -633,6 +634,33 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(404);
       expect((await call('POST', `/v1/admin/workspaces/${id}/restore`, admin)).status).toBe(204);
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
+    });
+
+    it('serves the typed SDK end to end', async () => {
+      // The SDK speaks fetch; route it into the in-process app.
+      const viaApp = (async (url: string, init: RequestInit = {}) => {
+        const u = new URL(url);
+        const res = await app.inject({
+          method: (init.method ?? 'GET') as 'GET',
+          url: `${u.pathname}${u.search}`,
+          headers: init.headers as Record<string, string>,
+          ...(init.body !== undefined && { payload: String(init.body) }),
+        });
+        return new Response(res.statusCode === 204 ? null : res.body, { status: res.statusCode, headers: res.headers as Record<string, string> });
+      }) as unknown as typeof fetch;
+      const d4 = createClient({ baseUrl: 'http://api.test', token: await sign('sdk-user', ['architect']), fetch: viaApp });
+
+      expect((await d4.get('/v1/me')).roles).toContain('architect');
+      const wsId = (await d4.get('/v1/workspaces'))[0]!.id;
+      const el = await d4.post('/v1/workspaces/{ws}/elements', { path: { ws: wsId }, body: { type: 'DataProduct', attrs: { name: 'SDK product' } } });
+      const updated = await d4.patch('/v1/workspaces/{ws}/elements/{id}', { path: { ws: wsId, id: el.id }, body: { expectedVersion: 1, set: { description: 'via SDK' } } });
+      expect(updated.version).toBe(2);
+      const found: string[] = [];
+      for await (const e of allElements(d4, wsId, { q: 'SDK product', first: 1 })) found.push(e.id);
+      expect(found).toContain(el.id);
+      const stale = await d4.patch('/v1/workspaces/{ws}/elements/{id}', { path: { ws: wsId, id: el.id }, body: { expectedVersion: 1, set: { description: 'stale' } } }).catch((e: unknown) => e);
+      expect(stale).toBeInstanceOf(D4ApiError);
+      expect(stale).toMatchObject({ status: 409, code: 'VERSION_CONFLICT' });
     });
 
     it('keeps tenants apart: workspaces, ids and graphs of one tenant are invisible to another', async () => {
