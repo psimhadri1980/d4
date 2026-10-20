@@ -10,3 +10,5 @@ deploy/data/
 .claude/settings.local.json
 apps/e2e/results/
 apps/e2e/.auth/
+deploy/secrets/*
+!deploy/secrets/.gitkeep

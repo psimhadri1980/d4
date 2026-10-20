@@ -19,6 +19,9 @@ export type Role = (typeof ROLES)[number];
 
 // ── Tenants ─────────────────────────────────────────────────────────────
 
+export type TenantStatus = (typeof tenants.$inferSelect)['status'];
+export type InstanceStatus = (typeof tenantDbInstances.$inferSelect)['status'];
+
 export class TenantStore {
   constructor(private readonly db: DbOrTx) {}
 
@@ -29,6 +32,46 @@ export class TenantStore {
 
   async listActive() {
     return this.db.select().from(tenants).where(eq(tenants.status, 'active'));
+  }
+
+  /** Every tenant with its graph instance (if any), for operators. */
+  async listAll() {
+    return this.db
+      .select({ tenant: tenants, instance: tenantDbInstances })
+      .from(tenants)
+      .leftJoin(tenantDbInstances, eq(tenantDbInstances.tenantId, tenants.id))
+      .orderBy(tenants.id);
+  }
+
+  /** Creates the tenant, or returns it unchanged when it exists (provisioning is re-runnable). */
+  async ensure(t: { id: string; slug: string; name: string }) {
+    await this.db.insert(tenants).values(t).onConflictDoNothing();
+    return (await this.get(t.id))!;
+  }
+
+  async setStatus(tenantId: string, status: TenantStatus): Promise<boolean> {
+    const rows = await this.db.update(tenants).set({ status }).where(eq(tenants.id, tenantId)).returning({ id: tenants.id });
+    return rows.length > 0;
+  }
+
+  async instance(tenantId: string) {
+    const [row] = await this.db.select().from(tenantDbInstances).where(eq(tenantDbInstances.tenantId, tenantId));
+    return row;
+  }
+
+  /** Records where the tenant's graph lives; a re-run may move it (e.g. a new host). */
+  async upsertInstance(i: { tenantId: string; boltUri: string; secretRef: string; neo4jVersion: string; status: InstanceStatus }) {
+    await this.db
+      .insert(tenantDbInstances)
+      .values(i)
+      .onConflictDoUpdate({
+        target: tenantDbInstances.tenantId,
+        set: { boltUri: i.boltUri, secretRef: i.secretRef, neo4jVersion: i.neo4jVersion, status: i.status, updatedAt: sql`now()` },
+      });
+  }
+
+  async setInstanceStatus(tenantId: string, status: InstanceStatus): Promise<void> {
+    await this.db.update(tenantDbInstances).set({ status, updatedAt: sql`now()` }).where(eq(tenantDbInstances.tenantId, tenantId));
   }
 
   /** The tenant's Neo4j instance, only when both the tenant and the instance are usable. */

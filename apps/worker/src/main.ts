@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { GraphQuotaGuard, JobQueue, meterUsage, processJob, pruneBackups, startScheduledBackups, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { GraphQuotaGuard, JobQueue, meterUsage, processJob, pruneBackups, startScheduledBackups, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, graphConfig, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { loadConfig } from './config';
 
 /**
@@ -11,11 +11,7 @@ import { loadConfig } from './config';
 async function main() {
   const config = loadConfig();
   const db = createDb(config.POSTGRES_URL, 4);
-  const graphs = new TenantGraphs(db.db, {
-    user: config.NEO4J_USER,
-    password: config.NEO4J_PASSWORD,
-    ...(config.NEO4J_URI && { uriOverride: config.NEO4J_URI }),
-  });
+  const graphs = new TenantGraphs(db.db, graphConfig(config));
   const artifacts = new S3ArtifactStore({
     endpoint: config.S3_ENDPOINT,
     accessKey: config.S3_ACCESS_KEY,

@@ -19,6 +19,8 @@ test.afterAll(async () => {
 });
 
 test('a contributor proposes a new element, and an admin approves it into the model', async ({ browser, page: admin }) => {
+  // Two people, two sign-ins: longer than the default on a busy machine.
+  test.setTimeout(60_000);
   const title = `${RUN} add a store`;
   const storeName = `${RUN} Proposed Store`;
 

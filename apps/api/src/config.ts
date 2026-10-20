@@ -11,6 +11,10 @@ const Env = z.object({
   NEO4J_PASSWORD: z.string().min(1),
   /** Overrides tenant bolt URIs in local dev, where the registry stores in-cluster hostnames. */
   NEO4J_URI: optional(z.string()),
+  /** host=host:port pairs: how this process reaches tenant instances by the host in their registered URI. */
+  NEO4J_HOSTS: optional(z.string()),
+  /** Directory of `file:` secrets (tenant Neo4j passwords). */
+  NEO4J_SECRETS_DIR: optional(z.string()),
   OIDC_ISSUER: z.string().url(),
   OIDC_AUDIENCE: z.string().default('d4-api'),
   /**

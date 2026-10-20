@@ -12,3 +12,4 @@ export * from './tenant-graphs';
 export * from './webhooks';
 export * from './usage';
 export * from './backup';
+export * from './provisioning';

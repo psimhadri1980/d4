@@ -118,6 +118,10 @@ Everything else runs in containers.
 | `deploy/dev.sh status` / `logs <svc>` | Container status, or follow one service's logs. |
 | `deploy/dev.sh down` / `reset` | Stop the stack; `reset` also **deletes all volumes**. |
 | `deploy/dev.sh migrate` / `schema` | Re-run Postgres migrations + seed, or Neo4j DDL. |
+| `deploy/dev.sh tenant-create t_acme "Acme Ltd"` | Operator: a new tenant with its own Neo4j. Starts container `d4-neo4j-t_acme` on 127.0.0.1:7701+ (1 GB) with a generated password in `deploy/secrets/` (git-ignored), then registers it, claims the database for the tenant, applies the schema and seeds the starter metamodel and a `default` workspace. Re-runnable. No service gets Docker access. With `D4_TENANT_CLI=local` the control-plane step runs on local Node instead of the API image. Restart `api-local`/`worker-local` afterwards. |
+| `deploy/dev.sh tenant list` / `check <id>` / `suspend <id>` / `resume <id>` / `delete <id>` | Operator: tenant status and health. Suspended tenants are refused by the API (within the 1-minute auth cache) and by jobs. |
+| `deploy/dev.sh tenant-remove t_acme` | Marks the tenant deleted and removes its container; the data volume stays. |
+| `deploy/dev.sh tenant-user t_acme acme-admin [role …]` | Local Keycloak: a dev user (password `d4-local-dev`, default role admin) for a tenant. The first run also switches the `tenant` claim from the hard-coded `t_local` to an admin-only user attribute and gives existing users `t_local`. A fresh realm import still has the hard-coded claim until this runs. |
 | `deploy/dev.sh quota <tenant> [metric=value …]` | Operator: show or change a tenant's limits (`elements=200000`, `jobsPerDay=unlimited`, `workspaces=default`). Runs in the API image, so rebuild it after changing the tool. |
 | `deploy/dev.sh test` | Unit + integration tests in a container (two suites at a time, 1.5 GB cap). |
 | `deploy/dev.sh e2e [playwright args]` | Playwright suite against the running stack, e.g. `--grep catalog --retries=0`. |
@@ -163,6 +167,7 @@ Vite serves the dev build, so React StrictMode runs effects twice. That surfaces
 | 8025 / 1025 | Mailpit inbox / SMTP (report emails stay local) |
 | 3002 / 3003 | worker / renderer health (`/healthz`, inside the containers) |
 | 3100 / 3102 | `api-local` / `worker-local` health, on the host |
+| 7701+ | Bolt of tenant Neo4j containers from `tenant-create` (127.0.0.1 only) |
 
 ### Local users
 
@@ -446,8 +451,10 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `web-local` runs Vite with `--force`; restart it after changing `packages/*` |
 | On Queries, a tall tab made the tab strip scroll instead of the page | The strip (`overflow-x: auto`) sat in a scrolling flex column, so its minimum height was 0 and it shrank | Only the active `.tab-panel` scrolls; the strip is `flex: none` |
 | Search for a hyphenated name (e.g. "cut-over") found nothing | The analyzer indexes "cut" and "over"; the escaped prefix query "cut\-over*" is not analyzed | `luceneQuery` splits on hyphens and slashes too |
-| Many Postgres or Neo4j test setups time out together, or `SHOW TRANSACTIONS` takes seconds with nothing running | The Neo4j container has run for a long time and is short of memory (it was OOM-killed once at 1800 MB); it spends its time collecting garbage | `docker compose -f deploy/docker-compose.yml restart neo4j` (data is kept), then rerun |
-| `@d4/jobs` integration tests time out on the sample import | Several Neo4j-heavy files ran at once | The package runs its test files one at a time (`vitest.config.ts`); keep it that way |
+| A new tenant's requests fail with "No ready graph database" or a connection error from `api-local` | Local processes reach tenant instances through `NEO4J_HOSTS`, computed when they start | Restart `api-local` and `worker-local` after `tenant-create` |
+| "The graph database registered for tenant … belongs to another tenant" | The tenant's registered bolt URI (or host mapping) points at a Neo4j already claimed by another tenant (`:D4Tenant` marker) | Fix the registry entry or `NEO4J_HOSTS`; never remove the marker to get past it |
+| Neo4j exits with 137 (`OOMKilled`) or becomes very slow under test load | The JVM's off-heap memory (direct buffers, class metadata for APOC/GDS) grew past the container limit; heap and page cache alone were capped | Compose caps it with `NEO4J_server_jvm_additional` (metaspace 512 MB is the minimum with GDS: 256 MB fails at start). Peak under the full test suite is about 1.5 GB of 1.8 GB. If it happens anyway: `docker compose -f deploy/docker-compose.yml up -d neo4j` |
+| `@d4/jobs` or `@d4/graph` integration tests time out on the sample import | Several Neo4j-heavy files ran at once and passed Neo4j's 30 s transaction limit | Both packages run their test files one at a time (`vitest.config.ts`); keep it that way |
 | The webhook browser test times out on "succeeded" with `e2e-local` | `worker-local` started without `D4_WEBHOOK_INTERVAL_MS`, so nothing sends deliveries (the Docker worker may take them instead and cannot reach the receiver on the host's :3199) | Start `D4_WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker-local` |
 | Background-job browser tests time out when run against `api-local` | `worker-local` / `renderer-local` not running, so jobs on the local queues are never picked up | Start `worker-local` and `renderer-local` before `e2e-local` |
 | Names in a list squeezed to one letter | `.items` rows are a grid whose first column is the 10 px layer dot | Lists without a dot override `grid-template-columns` |

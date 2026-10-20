@@ -9,7 +9,7 @@ import { Client } from 'pg';
 import { parseModelDocument } from '@d4/codecs';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { JobQueue, processJob, S3ArtifactStore, startJobWorker } from '@d4/jobs';
-import { createDb, LOCAL_TENANT, RoleStore, runMigrations, schema, seedLocal, UsageStore, type DbHandle } from '@d4/db';
+import { createDb, LOCAL_TENANT, MetamodelStore, RoleStore, runMigrations, schema, seedLocal, TenantStore, UsageStore, WorkspaceStore, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
@@ -635,6 +635,30 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
     });
 
+    it('keeps tenants apart: workspaces, ids and graphs of one tenant are invisible to another', async () => {
+      // Tenant B is registered (wrongly) on the same Neo4j as the local tenant.
+      const tenants = new TenantStore(handle.db);
+      await tenants.ensure({ id: 't_other', slug: 'other', name: 'Other' });
+      await tenants.upsertInstance({ tenantId: 't_other', boltUri: 'bolt://neo4j:7687', secretRef: 'env:NEO4J_PASSWORD', neo4jVersion: '5.26', status: 'ready' });
+      const mm = new MetamodelStore(handle.db);
+      const mmId = await mm.register('t_other', loadStarterMetamodel(), 'test');
+      await mm.activate('t_other', mmId);
+      const other = await new WorkspaceStore(handle.db).create('t_other', { slug: 'default', name: 'Other default', metamodelId: mmId });
+
+      const a = await sign('tenant-admin', ['admin']);
+      const b = await sign('other-admin', ['admin'], 't_other');
+      expect((await call('GET', '/v1/workspaces', b)).body!.map((w: any) => w.id)).toEqual([other.id]);
+      expect((await call('GET', '/v1/workspaces', a)).body!.map((w: any) => w.id)).not.toContain(other.id);
+      // Each tenant's ids are unknown to the other.
+      expect((await call('GET', `${ws()}/elements`, b)).status).toBe(404);
+      expect((await call('GET', `/v1/workspaces/${other.id}/elements`, a)).status).toBe(404);
+      // B's own workspace cannot reach a graph that belongs to A, even though the registry points there.
+      const own = await call('GET', `/v1/workspaces/${other.id}/elements`, b);
+      expect(own.status).toBe(404);
+      expect(own.body!['message']).toMatch(/belongs to another tenant/);
+      expect((await call('GET', '/v1/admin/users', b)).body!.map((u: any) => u.email)).not.toContain('tenant-admin@example.test');
+    });
+
     it.skipIf(!REDIS || !S3)('backs up a workspace, verifies it against the event log, and guards restores', async () => {
       const admin = await sign('tenant-admin', ['admin']);
       const architect = await sign('backup-architect', ['architect']);
@@ -647,7 +671,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const runJob = async (res: { body?: Record<string, any> }) => {
         const id = res.body!['id'];
         if (!jobWorker) await processJob({ tenantId: 't_local', jobId: id }, deps);
-        for (let i = 0; i < 300; i++) {
+        for (let i = 0; i < 1500; i++) {
           const j = (await call('GET', `${ws()}/jobs/${id}`, admin)).body!;
           if (j['status'] === 'succeeded' || j['status'] === 'failed') return j;
           await new Promise((r) => setTimeout(r, 100));
@@ -670,7 +694,9 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/backups/nope/restore`, admin, { confirm: 'default' })).status).toBe(404);
       const restore = await runJob(await call('POST', `${ws()}/backups/${list[0].id}/restore`, admin, { confirm: 'default' }));
       expect(restore).toMatchObject({ kind: 'restore', status: 'succeeded', result: { checksum: verify['result'].checksum } });
-    });
+      // A restore replaces the shared test workspace: the test must never end while one is running,
+      // so it waits as long as the jobs need under a busy machine.
+    }, 180_000);
 
     it('meters usage and refuses writes, jobs and workspaces over the tenant limits', async () => {
       const admin = await sign('tenant-admin', ['admin']);

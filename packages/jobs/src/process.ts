@@ -1,6 +1,6 @@
 import type { TableMapping } from '@d4/codecs';
 import { DomainError } from '@d4/core';
-import { JobStore, MetamodelStore, ScheduleStore, WorkspaceStore, type Db, type JobRow, type ScheduleRow } from '@d4/db';
+import { JobStore, MetamodelStore, ScheduleStore, TenantStore, WorkspaceStore, type Db, type JobRow, type ScheduleRow } from '@d4/db';
 import { canStillRead } from './access';
 import { replaceFromLog, RestoreParams, snapshotWorkspace, verifyWorkspace, type BackupContext } from './backup';
 import type { Mailer } from './mail';
@@ -124,6 +124,8 @@ export async function pruneArtifacts(db: Db, artifacts: ArtifactStore, before: D
 }
 
 async function run(job: JobRow, deps: JobDeps, store: JobStore) {
+  const tenant = await new TenantStore(deps.db).get(job.tenantId);
+  if (tenant?.status !== 'active') throw new DomainError('VALIDATION', `Not run: the tenant is ${tenant?.status ?? 'unknown'}`);
   const ws = await new WorkspaceStore(deps.db).get(job.tenantId, job.workspaceId);
   if (!ws) throw new DomainError('NOT_FOUND', `Workspace '${job.workspaceId}' no longer exists`);
   const registry = await new MetamodelStore(deps.db).registryForWorkspace(job.tenantId, job.workspaceId);
