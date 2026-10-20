@@ -28,6 +28,10 @@ import {
   TabularAnalyzeBody,
   TabularImportBody,
   TableMappingSchema,
+  CreateProposalBody,
+  EditProposalBody,
+  ProposalOperation,
+  ReviewBody,
 } from './schemas';
 
 const json = (schema: z.ZodTypeAny, description: string) => ({
@@ -348,6 +352,32 @@ export function buildOpenApiDocument(): OpenApiDocument {
     .object({ id: z.string(), eventId: z.string().nullable(), eventType: z.string(), status: z.enum(['pending', 'succeeded', 'failed']), attempts: z.number(), nextAttemptAt: z.string().nullable(), responseStatus: z.number().nullable(), lastError: z.string().nullable(), durationMs: z.number().nullable(), createdAt: z.string(), deliveredAt: z.string().nullable() })
     .openapi('WebhookDelivery');
   const hookId = z.string().openapi({ param: { name: 'id', in: 'path' } });
+  const ProposalSummary = z
+    .object({ id: z.string(), workspaceId: z.string(), title: z.string(), description: z.string().nullable(), status: z.enum(['draft', 'submitted', 'applied', 'rejected', 'withdrawn']), stepCount: z.number(), createdBy: z.string(), createdAt: z.string(), updatedAt: z.string(), submittedAt: z.string().nullable(), decidedBy: z.string().nullable(), decidedAt: z.string().nullable(), reviewComment: z.string().nullable() })
+    .openapi('ProposalSummary');
+  const Proposal = ProposalSummary.extend({
+    operations: z.array(ProposalOperation),
+    steps: z.array(z.object({ index: z.number(), op: z.string(), text: z.string(), subjectId: z.string().nullable(), state: z.enum(['ok', 'error', 'unchecked']), error: z.object({ code: z.string(), message: z.string() }).nullable() })),
+    check: z.object({ ok: z.boolean() }).nullable().describe('Whether every step applies to the model as it is now; null once final'),
+  }).openapi('Proposal');
+  const propPath = '/v1/workspaces/{ws}/proposals';
+  const pid = z.string().openapi({ param: { name: 'id', in: 'path' } });
+  const propBody = (schema: z.ZodTypeAny) => ({ body: { content: { 'application/json': { schema } } } });
+  route({ method: 'get', path: propPath, tags: ['Proposals'], summary: 'Proposals, newest activity first (?status= repeatable)', request: { params: z.object({ ws }) }, responses: { 200: json(z.array(ProposalSummary), 'Proposals'), ...errors } });
+  route({ method: 'post', path: propPath, tags: ['Proposals'], summary: 'Create a draft (write access)', request: { params: z.object({ ws }), ...propBody(CreateProposalBody) }, responses: { 201: json(Proposal, 'Created'), ...errors } });
+  route({ method: 'get', path: `${propPath}/{id}`, tags: ['Proposals'], summary: 'A proposal, each step described and checked against the live model', request: { params: z.object({ ws, id: pid }) }, responses: { 200: json(Proposal, 'Proposal'), ...errors } });
+  route({ method: 'patch', path: `${propPath}/{id}`, tags: ['Proposals'], summary: 'Change a draft (author only)', request: { params: z.object({ ws, id: pid }), ...propBody(EditProposalBody) }, responses: { 200: json(Proposal, 'Updated'), ...errors } });
+  route({ method: 'delete', path: `${propPath}/{id}`, tags: ['Proposals'], summary: 'Delete a draft (author only)', request: { params: z.object({ ws, id: pid }) }, responses: { 204: { description: 'Deleted' }, ...errors } });
+  for (const [action, summary] of [
+    ['submit', 'Send a draft for review; every step must apply (author only)'],
+    ['reopen', 'Take a submitted proposal back to draft (author only)'],
+    ['withdraw', 'Withdraw a draft or submitted proposal (author only)'],
+  ] as const) {
+    route({ method: 'post', path: `${propPath}/{id}/${action}`, tags: ['Proposals'], summary, request: { params: z.object({ ws, id: pid }) }, responses: { 200: json(Proposal, 'Proposal'), ...errors } });
+  }
+  route({ method: 'post', path: `${propPath}/{id}/approve`, tags: ['Proposals'], summary: 'Apply every step as one change (architect or admin, not the author); 409 names the step that no longer applies', request: { params: z.object({ ws, id: pid }), ...propBody(ReviewBody) }, responses: { 200: json(Proposal, 'Applied'), ...errors } });
+  route({ method: 'post', path: `${propPath}/{id}/reject`, tags: ['Proposals'], summary: 'Reject with a comment (architect or admin, not the author)', request: { params: z.object({ ws, id: pid }), ...propBody(ReviewBody) }, responses: { 200: json(Proposal, 'Rejected'), ...errors } });
+
   const hookPath = '/v1/admin/webhooks';
   const WebhookBody = z.object({ name: z.string(), url: z.string().describe('https; must not resolve to a private address'), workspace: z.string().nullable().optional().describe('Workspace id or slug; null for all'), eventTypes: z.array(z.string()).optional().describe('Empty for every type') });
   route({ method: 'get', path: hookPath, tags: ['Webhooks'], responses: { 200: json(z.array(Webhook), 'Webhooks'), ...errors } });
