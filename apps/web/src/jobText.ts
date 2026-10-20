@@ -1,4 +1,4 @@
-import type { Job } from './api';
+import type { Job, SyncResult } from './api';
 
 /** Plain-language descriptions of jobs, shared by the Jobs page and Admin backups. */
 const BACKUP_KINDS: Record<string, string> = {
@@ -6,6 +6,7 @@ const BACKUP_KINDS: Record<string, string> = {
   verify: 'Check the graph against the event log',
   restore: 'Restore the graph from a backup',
   rebuild: 'Rebuild the graph from the event log',
+  sync: 'Connector sync',
 };
 
 export function describe(j: Job): string {
@@ -25,6 +26,7 @@ export function outcome(j: Job): string {
   if (j.status !== 'succeeded' || !j.result) return '';
   if (BACKUP_KINDS[j.kind]) {
     const b = j.result as { elements?: number; relationships?: number; matches?: boolean; differences?: number; eventsReplayed?: number };
+    if (j.kind === 'sync') return syncSummary(j.result as unknown as SyncResult);
     if (j.kind === 'verify') return b.matches ? `Matches the event log (${String(b.elements)} elements, ${String(b.relationships)} relationships)` : `${String(b.differences)} differences from the event log`;
     const counts = `${String(b.elements)} elements, ${String(b.relationships)} relationships`;
     return j.kind === 'backup' ? `Saved: ${counts}` : `Replaced: ${counts}${b.eventsReplayed !== undefined ? `, ${b.eventsReplayed} events replayed` : ''}`;
@@ -43,3 +45,17 @@ export function outcome(j: Job): string {
   return r.applied ? `Imported: ${counts}` : r.ok ? `Ready: ${counts}` : `Not imported: ${issues} problem${issues === 1 ? '' : 's'} (run a check in Import to see them)`;
 }
 
+
+/** One line for a sync run: what changed, and what needs a person's attention. */
+export function syncSummary(r: SyncResult): string {
+  const changes = `${r.elements.created} new, ${r.elements.updated} changed, ${r.unchanged} unchanged elements; ${r.relationships.created} new relationships`;
+  const attention = [
+    r.conflicts.count && `${r.conflicts.count} conflict${r.conflicts.count === 1 ? '' : 's'}`,
+    r.missingInSource.count && `${r.missingInSource.count} gone from the source`,
+    r.unresolved.count && `${r.unresolved.count} unresolved relationship${r.unresolved.count === 1 ? '' : 's'}`,
+    r.mappingProblems.count && `${r.mappingProblems.count} unmappable record${r.mappingProblems.count === 1 ? '' : 's'}`,
+    r.issues.length && `${r.issues.length} model rule problem${r.issues.length === 1 ? '' : 's'}`,
+  ].filter(Boolean);
+  const verb = r.dryRun ? 'Would write' : r.applied ? 'Wrote' : r.issues.length ? 'Nothing written' : 'Up to date';
+  return `${verb}: ${changes} from ${r.records} records${attention.length ? ` · ${attention.join(', ')}` : ''}`;
+}

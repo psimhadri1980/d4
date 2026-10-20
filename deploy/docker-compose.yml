@@ -52,7 +52,9 @@ services:
     volumes:
       - neo4j-data:/data
       - neo4j-plugins:/plugins
-    mem_limit: 1800m
+    # Heap 640 + page cache 256 + direct 192 + metaspace up to 512 + code cache 96 MB, plus thread
+    # stacks and native memory: 1800 MB was OOM-killed under test load even with every part capped.
+    mem_limit: 2560m
     cpus: 2.0
     healthcheck:
       test: ['CMD-SHELL', 'cypher-shell -u neo4j -p d4-local-dev "RETURN 1" >/dev/null 2>&1']

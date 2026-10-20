@@ -11,6 +11,7 @@ import { modelHandles } from './model-handles';
 import type { JobMessage } from './queue';
 import { RenderParams, renderPicture, renderSvg, type Rasterize } from './render';
 import type { GraphQuotaGuard } from './usage';
+import { runSync, SyncParams } from './sync';
 import { runTabularImport } from './tabular-import';
 
 export interface JobDeps {
@@ -25,6 +26,10 @@ export interface JobDeps {
   appUrl?: string;
   /** Refuses imports that would pass the tenant's element or relationship limits. */
   quota?: GraphQuotaGuard;
+  /** Let connectors fetch from http:// and private addresses (local development only). */
+  allowPrivateUrls?: boolean;
+  /** For tests: how connectors fetch their sources. */
+  fetch?: typeof fetch;
 }
 
 /** Files up to this size are attached to report emails; larger ones are linked. */
@@ -177,6 +182,15 @@ async function run(job: JobRow, deps: JobDeps, store: JobStore) {
     } else if (job.kind === 'verify') result = await verifyWorkspace(c);
     else result = await replaceFromLog(c, job.kind === 'restore' ? RestoreParams.parse(job.params) : 'events');
     return { result, artifact: undefined };
+  }
+
+  if (job.kind === 'sync') {
+    const result = await runSync(deps.db, handles, registry, { tenantId: job.tenantId, workspaceId: ws.id }, SyncParams.parse(job.params), {
+      allowPrivate: deps.allowPrivateUrls ?? false,
+      ...(deps.fetch && { fetch: deps.fetch }),
+      progress,
+    });
+    return { result: result as unknown as Record<string, unknown>, artifact: undefined };
   }
 
   const input = JSON.parse(new TextDecoder().decode(await deps.artifacts.get(inputKey(job.id)))) as TabularJobInput;

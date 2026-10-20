@@ -636,6 +636,40 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
     });
 
+    it('lets admins manage connectors: validated config and mapping, write-only secret, sync jobs', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      expect((await call('GET', `${ws()}/connectors`, await sign('plain-viewer', ['viewer']))).status).toBe(403);
+      expect((await call('GET', `${ws()}/connectors/kinds`, admin)).body).toEqual([expect.objectContaining({ kind: 'http-json' })]);
+      const base = {
+        key: 'cmdb',
+        name: 'CMDB',
+        kind: 'http-json',
+        config: { url: 'https://93.184.215.14/api/now/table/cmdb_ci', auth: 'bearer', nextPath: 'links.next' },
+        mapping: { itemsPath: 'result', entities: [{ type: { value: 'Application' }, id: 'sys_id', name: 'name' }] },
+        secret: 'token-123',
+        cadence: { frequency: 'daily', hour: 3 },
+        enabled: false,
+      };
+      expect((await call('POST', `${ws()}/connectors`, admin, { ...base, kind: 'ftp' })).status).toBe(400);
+      expect((await call('POST', `${ws()}/connectors`, admin, { ...base, config: { url: 'https://127.0.0.1/x' } })).body).toMatchObject({ message: 'Source URL must not point to a private or local address' });
+      expect((await call('POST', `${ws()}/connectors`, admin, { ...base, mapping: { entities: [] } })).status).toBe(400);
+      const created = await call('POST', `${ws()}/connectors`, admin, base);
+      expect(created).toMatchObject({ status: 201, body: { key: 'cmdb', hasSecret: true, enabled: false, cadenceText: expect.stringMatching(/03:00 UTC/), config: { auth: 'bearer', maxPages: 50 } } });
+      expect(created.body!['secret']).toBeUndefined();
+      expect((await call('POST', `${ws()}/connectors`, admin, base)).status).toBe(409);
+      const id = created.body!['id'];
+
+      // A turned-off connector refuses to sync (no request leaves the test).
+      const job = await call('POST', `${ws()}/connectors/${id}/sync`, admin, { dryRun: true });
+      expect(job).toMatchObject({ status: 202, body: { kind: 'sync', params: { connectorId: id, dryRun: true } } });
+      await processJob({ tenantId: 't_local', jobId: job.body!['id'] }, { db: app.get(Database).db, graphs: app.get(TenantGraphService).graphs, artifacts: undefined as never });
+      expect((await call('GET', `${ws()}/connectors/${id}/runs`, admin)).body).toEqual([expect.objectContaining({ id: job.body!['id'], status: 'failed', error: 'The connector is turned off' })]);
+
+      expect((await call('PATCH', `${ws()}/connectors/${id}`, admin, { secret: null, conflictPolicy: 'source-wins' })).body).toMatchObject({ hasSecret: false, conflictPolicy: 'source-wins' });
+      expect((await call('DELETE', `${ws()}/connectors/${id}`, admin)).status).toBe(204);
+      expect((await call('GET', `${ws()}/connectors/${id}`, admin)).status).toBe(404);
+    });
+
     it('serves the typed SDK end to end', async () => {
       // The SDK speaks fetch; route it into the in-process app.
       const viaApp = (async (url: string, init: RequestInit = {}) => {

@@ -15,6 +15,7 @@
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.1.1",
     "@d4/codecs": "workspace:*",
+    "@d4/connectors": "workspace:*",
     "@d4/core": "workspace:*",
     "@d4/cypher": "workspace:*",
     "@d4/db": "workspace:*",

@@ -29,7 +29,7 @@ const Env = z.object({
   ARTIFACT_RETENTION_DAYS: z.coerce.number().int().min(1).default(30),
   /** How often to relay new model events to webhooks and send due deliveries; 0 turns it off. */
   WEBHOOK_INTERVAL_MS: z.coerce.number().int().min(0).default(5_000),
-  /** Allow http and private-network webhook URLs. Local development only. */
+  /** Allow http and private-network URLs for webhooks and connector sources. Local development only. */
   WEBHOOK_ALLOW_PRIVATE: z.preprocess((v) => v === 'true' || v === '1', z.boolean()).default(false),
   /** UTC hour after which each active workspace gets its daily backup; -1 turns daily backups off. */
   BACKUP_HOUR_UTC: z.coerce.number().int().min(-1).max(23).default(2),

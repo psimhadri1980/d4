@@ -53,6 +53,7 @@ packages/
               tabular-import work, S3 artefact store, BullMQ queue, processJob
   cli/        `d4` command: validate, workspaces, import, export
   sdk/        typed REST client generated from the OpenAPI document (`openapi.json` + `src/schema.ts` are generated)
+  connectors/ connector framework: record mapping, HTTP/JSON source, sync planning
   ui-kit/     React components shared by the web app and embedders: Gantt, GraphCanvas, ResultTable, styles.css
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       docker-compose, dev.sh, Keycloak realm, SeaweedFS, OTel, nginx, e2e runner
@@ -244,6 +245,7 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | `events` | Append-only domain event log + outbox (`published_at`) |
 | `queries`, `query_versions`, `query_grants`, `query_executions` | Query Catalog |
 | `jobs`, `schedules` | Background jobs and report schedules |
+| `connectors`, `connector_items` | Source systems synced into a workspace (config, mapping, write-only secret, schedule) and what each sync last wrote per item |
 | `graph_backups` | Workspace graph snapshots in object storage: event position, counts, checksum |
 | `tenant_quotas`, `usage_daily` | Per-tenant limit overrides (defaults in `@d4/jobs` `DEFAULT_LIMITS`) and daily usage readings |
 | `change_proposals` | Model changes awaiting review: steps (`operations`), status, author and reviewer |
@@ -263,6 +265,7 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | 0009 | `change_proposals` |
 | 0010 | `tenant_quotas`, `usage_daily`; indexes for per-day job and query-run counts |
 | 0011 | `graph_backups`, `workspaces.locked_reason` |
+| 0012 | `connectors`, `connector_items` |
 
 ---
 

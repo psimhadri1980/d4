@@ -85,6 +85,13 @@
       "when": 1792474141810,
       "tag": "0011_graph_backups",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792489380141,
+      "tag": "0012_connectors",
+      "breakpoints": true
     }
   ]
 }

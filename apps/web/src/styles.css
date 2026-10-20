@@ -2073,3 +2073,27 @@ tr.paused td {
   stroke: var(--interactive);
   stroke-width: 1.5;
 }
+
+/* Connectors (Admin) */
+.connector-form {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--sp-05);
+  padding-top: var(--sp-04);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+}
+.connector-form .admin-create {
+  margin-top: 0;
+}
+.connector-form .field.wide input {
+  min-width: 320px;
+}
+.connector-form textarea {
+  width: 100%;
+  font-size: 12px;
+}
+.sync-details {
+  margin: var(--sp-03) 0 0;
+  color: var(--text-secondary);
+}

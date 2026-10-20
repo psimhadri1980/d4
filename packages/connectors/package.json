@@ -1,0 +1,19 @@
+{
+  "name": "@d4/connectors",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Connector framework: source fetching, record-to-model mapping and adapters for external systems.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@d4/core": "workspace:*",
+    "zod": "^3.23.8"
+  }
+}

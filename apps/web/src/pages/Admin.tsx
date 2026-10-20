@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { adminApi, api, can, ROLES, type AdminWorkspace } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { Backups } from './AdminBackups';
+import { Connectors } from './AdminConnectors';
 import { Usage } from './AdminUsage';
 import { Webhooks } from './AdminWebhooks';
 
@@ -15,7 +16,7 @@ const toSlug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 48);
 
-/** Tenant administration: workspaces, role bindings, webhooks, usage, backups. Admins only. */
+/** Tenant administration: workspaces, role bindings, webhooks, usage, connectors, backups. Admins only. */
 export function Admin() {
   const { ws } = useParams();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
@@ -33,6 +34,7 @@ export function Admin() {
       <Members defaultScope={ws!} />
       <Webhooks />
       <Usage />
+      <Connectors ws={ws!} />
       <CurrentBackups ws={ws!} />
     </div>
   );

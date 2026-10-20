@@ -12,3 +12,4 @@ export * from './proposals';
 export * from './usage';
 export { applySettings } from './set-quota';
 export * from './backups';
+export * from './connectors';

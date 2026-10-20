@@ -13,3 +13,4 @@ export * from './webhooks';
 export * from './usage';
 export * from './backup';
 export * from './provisioning';
+export * from './sync';

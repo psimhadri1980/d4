@@ -38,6 +38,9 @@ importers:
       '@d4/codecs':
         specifier: workspace:*
         version: link:../../packages/codecs
+      '@d4/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@d4/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -259,6 +262,15 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
 
+  packages/connectors:
+    dependencies:
+      '@d4/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+
   packages/core:
     dependencies:
       '@d4/metamodel':
@@ -326,6 +338,9 @@ importers:
       '@d4/codecs':
         specifier: workspace:*
         version: link:../codecs
+      '@d4/connectors':
+        specifier: workspace:*
+        version: link:../connectors
       '@d4/core':
         specifier: workspace:*
         version: link:../core

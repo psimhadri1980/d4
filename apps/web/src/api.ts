@@ -127,7 +127,7 @@ export interface TabularImportResult {
 
 export interface Job {
   id: string;
-  kind: 'export' | 'import-tabular' | 'render' | 'backup' | 'verify' | 'restore' | 'rebuild';
+  kind: 'export' | 'import-tabular' | 'render' | 'backup' | 'verify' | 'restore' | 'rebuild' | 'sync';
   status: 'queued' | 'running' | 'succeeded' | 'failed';
   progress: number;
   params: Record<string, unknown>;
@@ -540,4 +540,63 @@ export const backupsApi = {
   verify: (ws: string) => request<Job>('POST', `${bk(ws)}/verify`),
   rebuild: (ws: string, confirm: string) => request<Job>('POST', `${bk(ws)}/rebuild`, { confirm }),
   restore: (ws: string, id: string, confirm: string) => request<Job>('POST', `${bk(ws)}/${id}/restore`, { confirm }),
+};
+
+// ── Connectors ──────────────────────────────────────────────────────────
+
+export interface Connector {
+  id: string;
+  key: string;
+  name: string;
+  kind: string;
+  config: Record<string, unknown>;
+  mapping: Record<string, unknown>;
+  hasSecret: boolean;
+  conflictPolicy: 'skip' | 'source-wins';
+  cadence: Cadence | null;
+  cadenceText: string | null;
+  nextRunAt: string | null;
+  enabled: boolean;
+  lastJobId: string | null;
+  lastRunAt: string | null;
+}
+
+export interface ConnectorInput {
+  key?: string;
+  name?: string;
+  kind?: string;
+  config?: Record<string, unknown>;
+  mapping?: unknown;
+  secret?: string | null;
+  conflictPolicy?: 'skip' | 'source-wins';
+  cadence?: Cadence | null;
+  enabled?: boolean;
+}
+
+/** What a sync job reports (`Job.result` for kind `sync`). */
+export interface SyncResult {
+  dryRun: boolean;
+  applied: boolean;
+  ok: boolean;
+  records: number;
+  pages: number;
+  elements: { created: number; updated: number; unchanged: number };
+  relationships: { created: number; updated: number; unchanged: number };
+  unchanged: number;
+  conflicts: { count: number; items: { externalKey: string; elementId: string; name: string; applied: boolean }[] };
+  deletedInD4: { count: number; items: string[] };
+  missingInSource: { count: number; items: { externalKey: string; elementId: string }[] };
+  unresolved: { count: number; items: { from: string; to: string; type: string }[] };
+  mappingProblems: { count: number; items: { record: number; message: string }[] };
+  issues: { message: string; ruleId?: string }[];
+}
+
+const cn = (ws: string, id = '') => `/v1/workspaces/${ws}/connectors${id ? `/${id}` : ''}`;
+export const connectorsApi = {
+  list: (ws: string) => request<Connector[]>('GET', cn(ws)),
+  create: (ws: string, body: ConnectorInput) => request<Connector>('POST', cn(ws), body),
+  update: (ws: string, id: string, body: ConnectorInput) => request<Connector>('PATCH', cn(ws, id), body),
+  remove: (ws: string, id: string) => request<void>('DELETE', cn(ws, id)),
+  sync: (ws: string, id: string, dryRun: boolean) => request<Job>('POST', `${cn(ws, id)}/sync`, { dryRun }),
+  runs: (ws: string, id: string) => request<Job[]>('GET', `${cn(ws, id)}/runs`),
 };

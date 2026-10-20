@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { GraphQuotaGuard, JobQueue, meterUsage, processJob, pruneBackups, startScheduledBackups, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, graphConfig, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { GraphQuotaGuard, JobQueue, meterUsage, runDueConnectors, processJob, pruneBackups, startScheduledBackups, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, graphConfig, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { loadConfig } from './config';
 
 /**
@@ -19,7 +19,7 @@ async function main() {
     bucket: config.S3_BUCKET,
   });
   const mailer = config.SMTP_URL ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM) : undefined;
-  const deps: JobDeps = { db: db.db, graphs, artifacts, appUrl: config.APP_URL, quota: new GraphQuotaGuard(db.db), ...(mailer && { mailer }) };
+  const deps: JobDeps = { db: db.db, graphs, artifacts, appUrl: config.APP_URL, quota: new GraphQuotaGuard(db.db), allowPrivateUrls: config.WEBHOOK_ALLOW_PRIVATE, ...(mailer && { mailer }) };
 
   const worker = startJobWorker(
     config.REDIS_URL,
@@ -52,6 +52,8 @@ async function main() {
     try {
       const started = await runDueSchedules(db.db, queues);
       if (started.length) log('scheduled reports started', { jobs: started });
+      const syncs = await runDueConnectors(db.db, queues.jobs);
+      if (syncs.length) log('connector syncs started', { jobs: syncs.length });
       const backups = await startScheduledBackups(db.db, queues.jobs, config.BACKUP_HOUR_UTC);
       if (backups.length) log('daily backups started', { jobs: backups.length });
       // Once an hour: delete files past the retention period.

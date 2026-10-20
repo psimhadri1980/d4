@@ -298,7 +298,7 @@ export const queryExecutions = pgTable(
   }),
 );
 
-export const JOB_KINDS = ['export', 'import-tabular', 'render', 'backup', 'verify', 'restore', 'rebuild'] as const;
+export const JOB_KINDS = ['export', 'import-tabular', 'render', 'backup', 'verify', 'restore', 'rebuild', 'sync'] as const;
 
 /**
  * Background jobs (imports, exports, renders). The queue (BullMQ in Redis) only carries the job
@@ -518,4 +518,60 @@ export const graphBackups = pgTable(
     createdAt: createdAt(),
   },
   (t) => ({ byWorkspace: index('graph_backups_workspace').on(t.tenantId, t.workspaceId, t.createdAt) }),
+);
+
+// ── Connectors (Phase 6a) ───────────────────────────────────────────────
+
+/**
+ * A source system synced into one workspace. `key` prefixes the external keys of the elements it
+ * owns (`<key>:<source id>`). `secret` is write-only through the API (like webhook secrets).
+ */
+export const connectors = pgTable(
+  'connectors',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    kind: text('kind').notNull(),
+    /** Kind-specific source settings (URL, paging, auth scheme); never the secret. */
+    config: jsonb('config').notNull(),
+    /** How source records become elements and relationships. */
+    mapping: jsonb('mapping').notNull(),
+    secret: text('secret'),
+    /** What to do when an item changed in D4 and in the source since the last sync. */
+    conflictPolicy: text('conflict_policy', { enum: ['skip', 'source-wins'] }).notNull().default('skip'),
+    /** { frequency, hour, … } as for report schedules; null = manual only. */
+    cadence: jsonb('cadence'),
+    nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+    enabled: boolean('enabled').notNull().default(true),
+    lastJobId: text('last_job_id'),
+    lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    key: uniqueIndex('connectors_workspace_key').on(t.tenantId, t.workspaceId, t.key),
+    due: index('connectors_due').on(t.enabled, t.nextRunAt),
+  }),
+);
+
+/** What the last sync wrote for each source item: to tell D4 edits from source changes. */
+export const connectorItems = pgTable(
+  'connector_items',
+  {
+    connectorId: text('connector_id')
+      .notNull()
+      .references(() => connectors.id, { onDelete: 'cascade' }),
+    externalKey: text('external_key').notNull(),
+    elementId: text('element_id').notNull(),
+    /** Element version right after the last sync wrote or confirmed it. */
+    syncedVersion: integer('synced_version').notNull(),
+    /** Hash of the mapped source values at the last sync. */
+    sourceHash: text('source_hash').notNull(),
+    syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.connectorId, t.externalKey] }) }),
 );

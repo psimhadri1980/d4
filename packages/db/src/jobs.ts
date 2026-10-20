@@ -71,6 +71,16 @@ export class JobStore {
       .limit(Math.min(opts.limit ?? 50, 200));
   }
 
+  /** A connector's sync runs, newest first. */
+  async syncRuns(tenantId: string, workspaceId: string, connectorId: string, limit = 20): Promise<JobRow[]> {
+    return this.db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.tenantId, tenantId), eq(jobs.workspaceId, workspaceId), eq(jobs.kind, 'sync'), sql`${jobs.params}->>'connectorId' = ${connectorId}`))
+      .orderBy(desc(jobs.createdAt), desc(jobs.id))
+      .limit(limit);
+  }
+
   /** Attaches an artefact (an upload to process, or the output file). */
   async setArtifact(tenantId: string, id: string, a: Artifact): Promise<void> {
     await this.db
