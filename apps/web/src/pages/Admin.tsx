@@ -54,8 +54,12 @@ function Workspaces() {
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [pack, setPack] = useState('d4-starter');
+  const packs = useQuery({ queryKey: ['admin', 'metamodel-packs'], queryFn: adminApi.metamodelPacks });
   const nameId = useId();
   const slugId = useId();
+  const packId = useId();
+  const chosenPack = packs.data?.find((p) => p.id === pack);
 
   const act = async (fn: () => Promise<unknown>) => {
     setError(null);
@@ -70,10 +74,11 @@ function Workspaces() {
   const create = (e: FormEvent) => {
     e.preventDefault();
     void act(async () => {
-      await adminApi.createWorkspace({ name, slug });
+      await adminApi.createWorkspace({ name, slug, metamodel: pack });
       setName('');
       setSlug('');
       setSlugTouched(false);
+      setPack('d4-starter');
     });
   };
 
@@ -89,6 +94,7 @@ function Workspaces() {
           <tr>
             <th scope="col">Name</th>
             <th scope="col">Slug</th>
+            <th scope="col">Metamodel</th>
             <th scope="col">Status</th>
             <th scope="col" />
           </tr>
@@ -118,6 +124,7 @@ function Workspaces() {
                 )}
               </td>
               <td className="small mono">{w.slug}</td>
+              <td className="small mono">{w.metamodel ?? '—'}</td>
               <td>{w.archived ? <span className="badge muted">archived</span> : <span className="badge job-succeeded">active</span>}</td>
               <td className="row-actions">
                 <button className="button small ghost" onClick={() => setRenaming({ id: w.id, name: w.name })}>
@@ -166,9 +173,21 @@ function Workspaces() {
             title="Lowercase letters, digits and dashes"
           />
         </div>
+        <div className="field">
+          <label htmlFor={packId}>Metamodel</label>
+          <select id={packId} value={pack} onChange={(e) => setPack(e.target.value)}>
+            {(packs.data ?? [{ id: 'd4-starter', version: '', description: '', addedNodeTypes: 0, addedRelationshipTypes: 0 }]).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.id === 'd4-starter' ? 'Starter' : p.id.replace(/^d4-/, '').replace(/^./, (c) => c.toUpperCase())}
+                {p.addedNodeTypes ? ` (+${p.addedNodeTypes} types)` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
         <button className="button primary" type="submit">
           Create workspace
         </button>
+        {chosenPack && chosenPack.id !== 'd4-starter' && <p className="muted small pack-note">{chosenPack.description}</p>}
       </form>
     </section>
   );

@@ -1,6 +1,7 @@
 # Builds the whole TypeScript monorepo in a container, so no local Node install is required.
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+# git: the Git model-as-code connector clones repositories (worker, and the test suite).
+RUN apk add --no-cache git && corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
 
 FROM base AS build

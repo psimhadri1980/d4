@@ -2800,7 +2800,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create a workspace on the active metamodel */
+        /** Create a workspace on the active metamodel, or on an industry pack */
         post: {
             parameters: {
                 query?: never;
@@ -2814,6 +2814,8 @@ export interface paths {
                         slug: string;
                         name: string;
                         description?: string;
+                        /** @enum {string} */
+                        metamodel?: "d4-starter" | "d4-banking" | "d4-insurance";
                     };
                 };
             };
@@ -3087,6 +3089,84 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/metamodel-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metamodels a new workspace can start from (starter and industry packs) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Packs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            version: string;
+                            description: string;
+                            addedNodeTypes: number;
+                            addedRelationshipTypes: number;
+                        }[];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7467,6 +7547,8 @@ export interface components {
             name: string;
             description: string | null;
             archived: boolean;
+            /** @description name@version */
+            metamodel: string | null;
         };
         Member: {
             /** @enum {string} */

@@ -387,6 +387,16 @@ export interface AdminWorkspace {
   name: string;
   description: string | null;
   archived: boolean;
+  /** `name@version` of the workspace's metamodel. */
+  metamodel: string | null;
+}
+
+export interface MetamodelPack {
+  id: string;
+  version: string;
+  description: string;
+  addedNodeTypes: number;
+  addedRelationshipTypes: number;
 }
 
 export interface Member {
@@ -442,7 +452,8 @@ export type WebhookInput = { name: string; url: string; workspace: string | null
 
 export const adminApi = {
   workspaces: () => request<AdminWorkspace[]>('GET', '/v1/admin/workspaces?archived=true'),
-  createWorkspace: (body: { slug: string; name: string; description?: string }) => request<AdminWorkspace>('POST', '/v1/admin/workspaces', body),
+  createWorkspace: (body: { slug: string; name: string; description?: string; metamodel?: string }) => request<AdminWorkspace>('POST', '/v1/admin/workspaces', body),
+  metamodelPacks: () => request<MetamodelPack[]>('GET', '/v1/admin/metamodel-packs'),
   updateWorkspace: (id: string, body: { name?: string; description?: string | null }) => request<AdminWorkspace>('PATCH', `/v1/admin/workspaces/${id}`, body),
   setArchived: (id: string, archived: boolean) => request<void>('POST', `/v1/admin/workspaces/${id}/${archived ? 'archive' : 'restore'}`),
   users: () => request<TenantUser[]>('GET', '/v1/admin/users'),
@@ -579,6 +590,9 @@ export interface SyncResult {
   applied: boolean;
   ok: boolean;
   records: number;
+  /** Git connectors: the commit read, and the model files in it. */
+  revision?: string;
+  files?: string[];
   pages: number;
   elements: { created: number; updated: number; unchanged: number };
   relationships: { created: number; updated: number; unchanged: number };

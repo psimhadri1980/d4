@@ -636,10 +636,36 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
     });
 
+    it('creates workspaces on industry metamodel packs, with their types and indexes ready', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      expect((await call('GET', '/v1/admin/metamodel-packs', admin)).body!.map((p: any) => p.id)).toEqual(['d4-starter', 'd4-banking', 'd4-insurance']);
+      expect((await call('POST', '/v1/admin/workspaces', admin, { slug: 'x-pack', name: 'x', metamodel: 'd4-unknown' })).status).toBe(400);
+      const created = await call('POST', '/v1/admin/workspaces', admin, { slug: 'bank-lab', name: 'Bank lab', metamodel: 'd4-banking' });
+      expect(created).toMatchObject({ status: 201, body: { metamodel: 'd4-banking@0.1.0' } });
+      const bank = `/v1/workspaces/${created.body!['id']}`;
+
+      const report = (await call('POST', `${bank}/elements`, admin, { type: 'RegulatoryReport', attrs: { name: 'COREP own funds', regime: 'BASEL_III', frequency: 'QUARTERLY', templateCode: 'C 01.00' } })).body!;
+      const product = (await call('POST', `${bank}/elements`, admin, { type: 'DataProduct', attrs: { name: 'Capital positions' } })).body!;
+      const rel = await call('POST', `${bank}/relationships`, admin, { type: 'SOURCED_FROM', fromId: report['id'], toId: product['id'], attrs: { lineageVerified: true } });
+      expect(rel.status).toBe(201);
+      // Reading a relationship by id uses the pack's own relationship-id index.
+      expect((await call('GET', `${bank}/relationships/${rel.body!['id']}`, admin)).body).toMatchObject({ type: 'SOURCED_FROM', attrs: { lineageVerified: true } });
+      expect((await call('GET', `${bank}/metamodel`, admin)).body).toMatchObject({ id: 'd4-banking' });
+      // Pack types do not exist in a starter workspace, and the starter's own index survived the pack.
+      expect((await call('POST', `${ws()}/elements`, admin, { type: 'RegulatoryReport', attrs: { name: 'x' } })).status).toBe(422);
+      const store = (await call('POST', `${ws()}/elements`, admin, { type: 'DataStore', attrs: { name: 'Pack-test store' } })).body!;
+      const target = (await call('POST', `${ws()}/elements`, admin, { type: 'DataProduct', attrs: { name: 'Pack-test product' } })).body!;
+      const holds = (await call('POST', `${ws()}/relationships`, admin, { type: 'HOLDS', fromId: store['id'], toId: target['id'], attrs: { role: 'REPLICA' } })).body!;
+      expect((await call('GET', `${ws()}/relationships/${holds['id']}`, admin)).status).toBe(200);
+      expect((await call('GET', '/v1/admin/workspaces', admin)).body!.find((w: any) => w.slug === 'bank-lab')).toMatchObject({ metamodel: 'd4-banking@0.1.0' });
+    });
+
     it('lets admins manage connectors: validated config and mapping, write-only secret, sync jobs', async () => {
       const admin = await sign('tenant-admin', ['admin']);
       expect((await call('GET', `${ws()}/connectors`, await sign('plain-viewer', ['viewer']))).status).toBe(403);
-      expect((await call('GET', `${ws()}/connectors/kinds`, admin)).body).toEqual([expect.objectContaining({ kind: 'http-json' })]);
+      expect((await call('GET', `${ws()}/connectors/kinds`, admin)).body!.map((k: any) => k.kind)).toEqual(['http-json', 'git']);
+      // Local repositories are for local development only (this API does not allow private URLs).
+      expect((await call('POST', `${ws()}/connectors`, admin, { key: 'repo', name: 'Repo', kind: 'git', config: { url: 'file:///srv/model' } })).body).toMatchObject({ message: 'file:// repositories are only allowed in local development' });
       const base = {
         key: 'cmdb',
         name: 'CMDB',

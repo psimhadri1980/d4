@@ -5,7 +5,9 @@ import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { z } from '../http/schemas';
 import { Database } from '../infra/database.service';
+import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { assertWorkspaceQuota, currentUsage, limitsFor } from '@d4/jobs';
+import { describeMetamodelPacks, loadMetamodelPack, METAMODEL_PACKS, MetamodelRegistry } from '@d4/metamodel';
 import { TenantGraphService } from '../infra/tenant-graph.service';
 
 const slug = z
@@ -13,7 +15,15 @@ const slug = z
   .trim()
   .toLowerCase()
   .regex(/^[a-z0-9][a-z0-9-]{1,47}$/, 'lowercase letters, digits and dashes, 2–48 characters');
-const CreateWorkspace = z.object({ slug, name: z.string().trim().min(1).max(120), description: z.string().trim().max(2000).optional() }).strict();
+const CreateWorkspace = z
+  .object({
+    slug,
+    name: z.string().trim().min(1).max(120),
+    description: z.string().trim().max(2000).optional(),
+    /** Starter (the tenant's active metamodel) or an industry pack composed on it. */
+    metamodel: z.enum(METAMODEL_PACKS).optional(),
+  })
+  .strict();
 const UpdateWorkspace = z.object({ name: z.string().trim().min(1).max(120).optional(), description: z.string().trim().max(2000).nullable().optional() }).strict();
 const Binding = z
   .object({
@@ -55,7 +65,15 @@ export class AdminController {
     const archived = parse(ListQuery, query).archived === 'true';
     const store = new WorkspaceStore(this.database.db);
     const rows = archived ? await store.listAll(p.tenantId) : await store.list(p.tenantId);
-    return rows.map((w) => ({ id: w.id, slug: w.slug, name: w.name, description: w.description, archived: !!w.archivedAt, createdAt: w.createdAt.toISOString() }));
+    const labels = await new MetamodelStore(this.database.db).labels(p.tenantId);
+    return rows.map((w) => ({ id: w.id, slug: w.slug, name: w.name, description: w.description, archived: !!w.archivedAt, metamodel: labels.get(w.metamodelId) ?? null, createdAt: w.createdAt.toISOString() }));
+  }
+
+  /** Metamodels a new workspace can start from. */
+  @Get('admin/metamodel-packs')
+  packs(@CurrentPrincipal() p: Principal) {
+    this.admin(p);
+    return describeMetamodelPacks();
   }
 
   @Post('admin/workspaces')
@@ -66,10 +84,27 @@ export class AdminController {
     const store = new WorkspaceStore(this.database.db);
     if (await store.bySlug(p.tenantId, b.slug)) throw new ConflictException(`A workspace with slug '${b.slug}' already exists`);
     await assertWorkspaceQuota(this.database.db, p.tenantId);
-    const metamodelId = await new MetamodelStore(this.database.db).activeId(p.tenantId);
+    const metamodels = new MetamodelStore(this.database.db);
+    let metamodelId: string | undefined;
+    if (b.metamodel && b.metamodel !== 'd4-starter') {
+      // A pack is registered for the tenant (once per version) and its labels and indexes are added
+      // to the tenant graph before any element of its types can be written.
+      const doc = loadMetamodelPack(b.metamodel);
+      metamodelId = await metamodels.register(p.tenantId, doc, p.userId);
+      const session = await this.graph.session(p.tenantId, 'WRITE');
+      try {
+        await applySchema(session, new MetamodelRegistry(doc));
+        await awaitSchemaOnline(session);
+      } finally {
+        await session.close();
+      }
+    } else {
+      metamodelId = await metamodels.activeId(p.tenantId);
+    }
     if (!metamodelId) throw new ConflictException('The tenant has no active metamodel');
     const w = await store.create(p.tenantId, { slug: b.slug, name: b.name, ...(b.description && { description: b.description }), metamodelId });
-    return { id: w.id, slug: w.slug, name: w.name, description: w.description, archived: false, createdAt: w.createdAt.toISOString() };
+    const label = (await metamodels.labels(p.tenantId)).get(metamodelId) ?? null;
+    return { id: w.id, slug: w.slug, name: w.name, description: w.description, archived: false, metamodel: label, createdAt: w.createdAt.toISOString() };
   }
 
   @Patch('admin/workspaces/:ws')

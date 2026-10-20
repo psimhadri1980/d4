@@ -76,6 +76,12 @@ export interface SchemaOptions {
   attempts?: number;
   /** Injectable for tests. */
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Relationship-id indexes still in use by other metamodels in the same graph (workspaces on
+   * other packs or versions). When given, every other `relationship_ids_*` index is dropped as
+   * outdated; when absent, nothing is dropped, because the caller cannot know what else is in use.
+   */
+  keepRelationshipIndexes?: string[];
 }
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -85,7 +91,7 @@ const codeOf = (e: unknown) => String((e as { code?: unknown } | null)?.code ?? 
 const ALREADY_EXISTS = /Schema\.(EquivalentSchemaRuleAlreadyExists|IndexAlreadyExists|ConstraintAlreadyExists)$/;
 const TRANSIENT = /^Neo\.TransientError\./;
 
-async function runDdl(runner: CypherRunner, stmt: string, opts: Required<SchemaOptions>) {
+async function runDdl(runner: CypherRunner, stmt: string, opts: Required<Pick<SchemaOptions, 'attempts' | 'sleep'>>) {
   for (let attempt = 1; ; attempt++) {
     try {
       return await runner.run(stmt);
@@ -99,7 +105,8 @@ async function runDdl(runner: CypherRunner, stmt: string, opts: Required<SchemaO
 }
 
 /**
- * Applies all schema statements and drops relationship-id indexes for outdated type lists.
+ * Applies all schema statements and, with `keepRelationshipIndexes`, drops relationship-id indexes
+ * that no metamodel in use needs any more.
  * Safe to run from several processes at once (tests, API start-up, the schema job): rules a
  * concurrent applier created first count as success, and lock contention is retried.
  */
@@ -109,9 +116,10 @@ export async function applySchema(runner: CypherRunner, reg: MetamodelRegistry, 
   // Schema statements cannot share a transaction with each other in Neo4j; run them one by one.
   for (const s of stmts) await runDdl(runner, s, opts);
 
+  if (!options.keepRelationshipIndexes) return stmts.length;
   const res = await runner.run(
-    'SHOW INDEXES YIELD name WHERE name STARTS WITH $prefix AND name <> $current RETURN name',
-    { prefix: RELATIONSHIP_ID_INDEX_PREFIX, current: relationshipIdIndexName(reg) },
+    'SHOW INDEXES YIELD name WHERE name STARTS WITH $prefix AND NOT name IN $keep RETURN name',
+    { prefix: RELATIONSHIP_ID_INDEX_PREFIX, keep: [relationshipIdIndexName(reg), ...options.keepRelationshipIndexes] },
   );
   for (const rec of res?.records ?? []) {
     await runDdl(runner, `DROP INDEX ${String(rec.get('name')).replace(/[^a-z0-9_]/g, '')} IF EXISTS`, opts);

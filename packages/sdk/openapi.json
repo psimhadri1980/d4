@@ -1580,6 +1580,11 @@
           },
           "archived": {
             "type": "boolean"
+          },
+          "metamodel": {
+            "type": "string",
+            "nullable": true,
+            "description": "name@version"
           }
         },
         "required": [
@@ -1587,7 +1592,8 @@
           "slug",
           "name",
           "description",
-          "archived"
+          "archived",
+          "metamodel"
         ]
       },
       "Member": {
@@ -6163,7 +6169,7 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Create a workspace on the active metamodel",
+        "summary": "Create a workspace on the active metamodel, or on an industry pack",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6178,6 +6184,14 @@
                   },
                   "description": {
                     "type": "string"
+                  },
+                  "metamodel": {
+                    "type": "string",
+                    "enum": [
+                      "d4-starter",
+                      "d4-banking",
+                      "d4-insurance"
+                    ]
                   }
                 },
                 "required": [
@@ -6424,6 +6438,98 @@
         "responses": {
           "204": {
             "description": "Restored"
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/metamodel-packs": {
+      "get": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Metamodels a new workspace can start from (starter and industry packs)",
+        "responses": {
+          "200": {
+            "description": "Packs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "addedNodeTypes": {
+                        "type": "number"
+                      },
+                      "addedRelationshipTypes": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "version",
+                      "description",
+                      "addedNodeTypes",
+                      "addedRelationshipTypes"
+                    ]
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Malformed request",

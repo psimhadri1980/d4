@@ -264,6 +264,9 @@ importers:
 
   packages/connectors:
     dependencies:
+      '@d4/codecs':
+        specifier: workspace:*
+        version: link:../codecs
       '@d4/core':
         specifier: workspace:*
         version: link:../core

@@ -1,4 +1,4 @@
-import { CONNECTOR_KINDS, Mapping, mapRecords, planSync, SourceError } from '@d4/connectors';
+import { CONNECTOR_KINDS, Mapping, mapRecords, planSync, SourceError, type MappingResult } from '@d4/connectors';
 import { DomainError, planImport, type Element } from '@d4/core';
 import { claimDueConnectors, ConnectorStore, JobStore, type ConnectorRow, type Db } from '@d4/db';
 import type { MetamodelRegistry } from '@d4/metamodel';
@@ -33,14 +33,23 @@ export async function runSync(
   if (!connector.enabled) throw new DomainError('VALIDATION', 'The connector is turned off');
   const kind = CONNECTOR_KINDS[connector.kind];
   if (!kind) throw new DomainError('VALIDATION', `Unknown connector kind '${connector.kind}'`);
-  const mapping = Mapping.parse(connector.mapping);
-
-  let fetched: { records: unknown[]; pages: number };
+  const deps = {
+    ...(opts.fetch && { fetch: opts.fetch }),
+    checkUrl: (url: string) => checkWebhookUrl(url, opts.allowPrivate),
+    allowLocal: opts.allowPrivate,
+  };
+  let mapped: MappingResult;
+  let source: { records?: number; pages?: number; revision?: string; files?: string[] };
   try {
-    fetched = await kind.fetch(connector.config, connector.secret, mapping.itemsPath, {
-      ...(opts.fetch && { fetch: opts.fetch }),
-      checkUrl: (url) => checkWebhookUrl(url, opts.allowPrivate),
-    });
+    if (kind.mode === 'records') {
+      const fetched = await kind.fetch(connector.config, connector.secret, Mapping.parse(connector.mapping).itemsPath, deps);
+      mapped = mapRecords(connector.key, Mapping.parse(connector.mapping), fetched.records);
+      source = { records: fetched.records.length, pages: fetched.pages };
+    } else {
+      const loaded = await kind.load(connector.config, connector.secret, connector.key, deps);
+      mapped = loaded.mapped;
+      source = { records: mapped.items.length, revision: loaded.revision, files: loaded.files };
+    }
   } catch (e) {
     // The source said no or sent something unusable: retrying will not help.
     if (e instanceof SourceError) throw new DomainError('VALIDATION', e.message);
@@ -48,7 +57,6 @@ export async function runSync(
   }
   await opts.progress?.(30);
 
-  const mapped = mapRecords(connector.key, mapping, fetched.records);
   const previous = await store.items(connector.id);
   const snapshot = await handles.queries.snapshot(ctx.workspaceId);
   // The snapshot holds live items only; deletions made in D4 since the last sync must be respected.
@@ -85,8 +93,9 @@ export async function runSync(
     dryRun: params.dryRun,
     applied,
     ok: imported.ok && mapped.problems.length === 0,
-    records: fetched.records.length,
-    pages: fetched.pages,
+    records: source.records ?? 0,
+    pages: source.pages ?? 1,
+    ...(source.revision && { revision: source.revision, files: source.files }),
     elements: imported.elements,
     relationships: imported.relationships,
     unchanged: plan.unchanged.length,

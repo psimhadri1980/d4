@@ -1,19 +1,7 @@
 import { z } from 'zod';
-import { get } from './mapping';
-
-/** What a source needs from its host: fetch, and the outbound URL check (private addresses etc.). */
-export interface SourceDeps {
-  fetch?: typeof fetch;
-  /** Returns why a URL may not be fetched, or null. */
-  checkUrl(url: string): Promise<string | null>;
-}
-
-export class SourceError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'SourceError';
-  }
-}
+import { readGitModel, GitConfig, modelToMapped } from './git';
+import { get, type MappingResult } from './mapping';
+import { SourceError, type SourceDeps } from './source-error';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const TIMEOUT_MS = 30_000;
@@ -81,19 +69,42 @@ export async function fetchJsonRecords(config: HttpJsonConfig, secret: string | 
   return { records, pages };
 }
 
-/** A kind of connector: how its config is validated and how records are fetched. */
-export interface ConnectorKind {
-  name: string;
-  description: string;
-  config: z.ZodTypeAny;
-  fetch(config: unknown, secret: string | null, itemsPath: string, deps: SourceDeps): Promise<{ records: unknown[]; pages: number }>;
-}
+/**
+ * A kind of connector. `records` kinds fetch source records that a mapping turns into elements;
+ * `model` kinds read D4 model documents, which need no mapping.
+ */
+export type ConnectorKind =
+  | {
+      mode: 'records';
+      name: string;
+      description: string;
+      config: z.ZodTypeAny;
+      fetch(config: unknown, secret: string | null, itemsPath: string, deps: SourceDeps): Promise<{ records: unknown[]; pages: number }>;
+    }
+  | {
+      mode: 'model';
+      name: string;
+      description: string;
+      config: z.ZodTypeAny;
+      load(config: unknown, secret: string | null, connectorKey: string, deps: SourceDeps & { allowLocal?: boolean }): Promise<{ mapped: MappingResult; revision: string; files: string[] }>;
+    };
 
 export const CONNECTOR_KINDS: Record<string, ConnectorKind> = {
   'http-json': {
+    mode: 'records',
     name: 'HTTP JSON',
     description: 'Any JSON API: a URL, optional bearer or basic auth, and link-based paging.',
     config: HttpJsonConfig,
     fetch: (config, secret, itemsPath, deps) => fetchJsonRecords(HttpJsonConfig.parse(config), secret, itemsPath, deps),
+  },
+  git: {
+    mode: 'model',
+    name: 'Git model-as-code',
+    description: 'D4 model documents (YAML/JSON) on a branch of a Git repository; each sync records the commit.',
+    config: GitConfig,
+    load: async (config, secret, connectorKey, deps) => {
+      const model = await readGitModel(GitConfig.parse(config), secret, deps);
+      return { mapped: modelToMapped(connectorKey, model.documents), revision: model.revision, files: model.files };
+    },
   },
 };

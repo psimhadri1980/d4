@@ -1,0 +1,86 @@
+# D4 insurance pack: extends the starter metamodel with an ACORD-aligned product, coverage, party
+# and claims model, underwriting, and Solvency II / IFRS 17 reporting. Versioned like code.
+id: d4-insurance
+version: 0.1.0
+extends: d4-starter
+description: Insurance — products and coverages by line of business, party roles, underwriting and claims, Solvency II and IFRS 17 reporting.
+
+enums:
+  LineOfBusiness: [LIFE, HEALTH, ANNUITIES, PROPERTY, CASUALTY, MOTOR, MARINE_AVIATION_TRANSPORT, LIABILITY, SPECIALTY, REINSURANCE]
+  InsurancePartyRole: [POLICYHOLDER, INSURED, BENEFICIARY, BROKER, AGENT, CLAIMANT, REINSURER, LOSS_ADJUSTER, THIRD_PARTY_ADMINISTRATOR]
+  ClaimStage: [FIRST_NOTICE, TRIAGE, INVESTIGATION, ASSESSMENT, SETTLEMENT, RECOVERY, CLOSED]
+  SolvencyPillar: [PILLAR_1, PILLAR_2, PILLAR_3]
+  InsuranceReportingRegime: [SOLVENCY_II, IFRS17, ORSA, LOCAL_GAAP, STATUTORY]
+  ReportingFrequency: [MONTHLY, QUARTERLY, ANNUAL, AD_HOC]
+
+nodeTypes:
+  # ── Products and cover ────────────────────────────────────────────────
+  - name: InsuranceProduct
+    layer: Strategy
+    extends: Product
+    attributes:
+      - { name: lineOfBusiness, type: enum, enum: LineOfBusiness }
+      - { name: acordProductCode, type: string }
+  - name: Coverage
+    layer: Business
+    description: A cover offered within a product (e.g. fire, theft, third-party liability)
+    attributes:
+      - { name: limit, type: number }
+      - { name: deductible, type: number }
+      - { name: currency, type: string }
+  - name: InsurancePartyRoleType
+    layer: Organisation
+    extends: Role
+    description: The role a party plays in a policy or claim (ACORD party role)
+    attributes:
+      - { name: partyRole, type: enum, enum: InsurancePartyRole }
+
+  # ── Underwriting and claims ───────────────────────────────────────────
+  - name: UnderwritingRule
+    layer: Business
+    extends: BusinessRule
+    attributes:
+      - { name: lineOfBusiness, type: enum, enum: LineOfBusiness }
+      - { name: authorityLevel, type: string }
+  - name: ClaimsProcess
+    layer: Business
+    extends: BusinessProcess
+    attributes:
+      - { name: stage, type: enum, enum: ClaimStage }
+  - name: PolicyAdministrationSystem
+    layer: Application
+    extends: Application
+    attributes:
+      - { name: linesOfBusiness, type: 'string[]' }
+
+  # ── Reporting ─────────────────────────────────────────────────────────
+  - name: SolvencyReport
+    layer: Governance
+    extends: Report
+    description: Solvency II QRT, SFCR/RSR, ORSA or IFRS 17 disclosure
+    attributes:
+      - { name: regime, type: enum, enum: InsuranceReportingRegime }
+      - { name: pillar, type: enum, enum: SolvencyPillar }
+      - { name: templateCode, type: string, description: e.g. S.02.01 }
+      - { name: frequency, type: enum, enum: ReportingFrequency }
+  - name: ActuarialModel
+    layer: Data
+    extends: MLModel
+    attributes:
+      - { name: purpose, type: string, description: Reserving, pricing, capital }
+
+relationshipTypes:
+  - { name: OFFERS_COVERAGE, from: [InsuranceProduct], to: [Coverage] }
+  - { name: ADMINISTERS, from: [PolicyAdministrationSystem, Application], to: [InsuranceProduct] }
+  - { name: UNDERWRITES_WITH, from: [InsuranceProduct, BusinessProcess], to: [UnderwritingRule] }
+  - { name: HANDLES_CLAIMS_FOR, from: [ClaimsProcess], to: [InsuranceProduct, Coverage] }
+  - { name: INVOLVES_PARTY, from: [InsuranceProduct, ClaimsProcess], to: [InsurancePartyRoleType] }
+  - name: SOURCED_FROM
+    from: [SolvencyReport]
+    to: [DataProduct, DataSet, CriticalDataElement, ActuarialModel]
+    attributes:
+      - { name: lineageVerified, type: boolean }
+  - { name: SATISFIES, from: [SolvencyReport], to: [Regulation, RegulatoryRequirement] }
+
+extendRelationships:
+  - { name: OWNS, from: [], to: [InsuranceProduct, SolvencyReport] }

@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import neo4j, { type Driver } from 'neo4j-driver';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
@@ -134,6 +138,50 @@ describe.skipIf(!PG || !NEO)('connector sync (Postgres + Neo4j)', () => {
     const wins = await sync();
     expect(wins['conflicts'].items[0]).toMatchObject({ externalKey: 'cmdb:a1', applied: true });
     expect((await byKey('cmdb:a1'))!.attrs['description']).toBe('Sales and service');
+  });
+
+  it('syncs model-as-code from a Git branch and records the commit', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'd4-model-repo-'));
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } }).toString().trim();
+    const kubernetes = (await byKey('cmdb:p1'))!;
+    const write = (desc: string) => {
+      writeFileSync(
+        join(repo, 'model.yaml'),
+        `apiVersion: d4/v1\nkind: Model\nmetadata: { name: payments }\nelements:\n  - { key: pay, type: Application, name: Payments Hub, attrs: { description: ${desc} } }\nrelationships:\n  - { type: RUNS_ON, from: pay, to: ${kubernetes.id} }\n`,
+      );
+      git('add', '-A');
+      git('commit', '-q', '-m', desc);
+      return git('rev-parse', 'HEAD');
+    };
+    try {
+      git('init', '-q', '-b', 'main');
+      const first = write('v1');
+      const gitConnector = await new ConnectorStore(handle.db).create(LOCAL_TENANT, {
+        workspaceId: ws,
+        key: 'repo',
+        name: 'Model repo',
+        kind: 'git',
+        config: { url: `file://${repo}`, branch: 'main' },
+        mapping: {},
+        conflictPolicy: 'skip',
+        createdBy: 'admin-1',
+      });
+      const run = async () => {
+        const job = await new JobStore(handle.db).create(LOCAL_TENANT, { workspaceId: ws, kind: 'sync', params: { connectorId: gitConnector.id }, createdBy: 'admin-1' });
+        await processJob({ tenantId: LOCAL_TENANT, jobId: job.id }, deps);
+        const done = (await new JobStore(handle.db).get(LOCAL_TENANT, job.id))!;
+        if (done.status !== 'succeeded') throw new Error(`git sync failed: ${done.error}`);
+        return done.result as Record<string, any>;
+      };
+      // An element id as a relationship end resolves to the existing element.
+      expect(await run()).toMatchObject({ applied: true, revision: first, files: ['model.yaml'], elements: { created: 1 }, relationships: { created: 1 }, unresolved: { count: 0 } });
+      expect((await byKey('repo:pay'))!.attrs['description']).toBe('v1');
+      const second = write('v2');
+      expect(await run()).toMatchObject({ revision: second, elements: { updated: 1 } });
+      expect((await byKey('repo:pay'))!.attrs['description']).toBe('v2');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   it('fails the job without retrying when the source refuses', async () => {

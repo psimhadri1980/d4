@@ -33,19 +33,24 @@ describe('schemaStatements', () => {
     expect(ddl).toContain("'keyword'");
   });
 
-  it('applies each statement and drops outdated relationship-id indexes', async () => {
+  it('applies each statement and drops outdated relationship-id indexes only when told what is in use', async () => {
     const ran: string[] = [];
-    const n = await applySchema(
-      {
-        run: async (s) => {
-          ran.push(s);
-          return s.startsWith('SHOW INDEXES') ? { records: [{ get: () => 'relationship_ids_deadbeef' }] } : undefined;
-        },
+    const params: unknown[] = [];
+    const runner = {
+      run: async (s: string, p?: unknown) => {
+        ran.push(s);
+        params.push(p);
+        return s.startsWith('SHOW INDEXES') ? { records: [{ get: () => 'relationship_ids_deadbeef' }] } : undefined;
       },
-      reg,
-    );
-    expect(n).toBe(stmts.length);
+    };
+    // Without the in-use list nothing is dropped: other workspaces may use other metamodels.
+    expect(await applySchema(runner, reg)).toBe(stmts.length);
+    expect(ran).toEqual(stmts);
+
+    ran.length = 0;
+    await applySchema(runner, reg, { keepRelationshipIndexes: ['relationship_ids_cafe'] });
     expect(ran.slice(0, stmts.length)).toEqual(stmts);
+    expect(params.at(-2)).toMatchObject({ keep: [relationshipIdIndexName(reg), 'relationship_ids_cafe'] });
     expect(ran.at(-1)).toBe('DROP INDEX relationship_ids_deadbeef IF EXISTS');
   });
 

@@ -2097,3 +2097,8 @@ tr.paused td {
   margin: var(--sp-03) 0 0;
   color: var(--text-secondary);
 }
+
+.admin-create .pack-note {
+  flex-basis: 100%;
+  margin: 0;
+}

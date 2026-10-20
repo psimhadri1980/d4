@@ -15,7 +15,8 @@ import { WorkspaceAccess } from './workspace-access.service';
 const fields = {
   name: z.string().trim().min(1).max(120),
   config: z.record(z.unknown()),
-  mapping: z.unknown(),
+  /** Required for record kinds (http-json); model kinds (git) need none. */
+  mapping: z.unknown().optional(),
   /** Token or user:password, depending on the source's auth; null clears it. Never returned. */
   secret: z.string().min(1).max(4000).nullable(),
   conflictPolicy: z.enum(['skip', 'source-wins']),
@@ -75,7 +76,7 @@ export class ConnectorsController {
       name: b.name,
       kind: b.kind,
       config,
-      mapping: parse(Mapping, b.mapping),
+      mapping: kind.mode === 'records' ? parse(Mapping, b.mapping) : {},
       secret: b.secret ?? null,
       conflictPolicy: b.conflictPolicy,
       cadence: b.cadence,
@@ -98,7 +99,7 @@ export class ConnectorsController {
     const changes = {
       ...(b.name !== undefined && { name: b.name }),
       ...(b.config !== undefined && { config: await this.checkConfig(row.kind, b.config) }),
-      ...(b.mapping !== undefined && { mapping: parse(Mapping, b.mapping) }),
+      ...(b.mapping !== undefined && CONNECTOR_KINDS[row.kind]?.mode === 'records' && { mapping: parse(Mapping, b.mapping) }),
       ...(b.secret !== undefined && { secret: b.secret }),
       ...(b.conflictPolicy !== undefined && { conflictPolicy: b.conflictPolicy }),
       ...(b.enabled !== undefined && { enabled: b.enabled }),
@@ -153,6 +154,11 @@ export class ConnectorsController {
   private async checkConfig(kind: string, config: Record<string, unknown>): Promise<Record<string, unknown>> {
     const parsed = parse(CONNECTOR_KINDS[kind]!.config, config) as Record<string, unknown>;
     if (typeof parsed['url'] === 'string') {
+      // Local repositories (file://) only where private addresses are allowed: local development.
+      if (parsed['url'].startsWith('file://')) {
+        if (!this.config.WEBHOOK_ALLOW_PRIVATE) throw new BadRequestException('file:// repositories are only allowed in local development');
+        return parsed;
+      }
       const bad = await checkWebhookUrl(parsed['url'], this.config.WEBHOOK_ALLOW_PRIVATE);
       if (bad) throw new BadRequestException(`Source URL ${bad}`);
     }

@@ -47,6 +47,22 @@ test.describe('administration', () => {
     await expect(renamed.locator('.badge')).toHaveText('archived');
   });
 
+  test('admins create a workspace on an industry metamodel pack', async ({ page }) => {
+    const name = `${RUN} Bank`;
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    const create = page.getByRole('form', { name: 'New workspace' });
+    await create.getByLabel('New workspace name').fill(name);
+    await create.getByLabel('Metamodel').selectOption('d4-banking');
+    await expect(create).toContainText('BIAN');
+    await create.getByRole('button', { name: 'Create workspace' }).click();
+    const row = page.getByRole('table', { name: 'All workspaces' }).locator('tr', { hasText: `${RUN.toLowerCase()}-bank` });
+    await expect(row).toContainText('d4-banking@0.1.0');
+    page.once('dialog', (d) => void d.accept());
+    await row.getByRole('button', { name: 'Archive' }).click();
+    await expect(row.locator('.badge')).toHaveText('archived');
+  });
+
   test('admins see usage against the plan limits', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('link', { name: 'Admin', exact: true }).click();

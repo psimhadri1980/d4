@@ -73,7 +73,9 @@ export function planSync(mapped: MappingResult, snapshot: ModelSnapshot, previou
   }
 
   const inImport = new Set(plan.input.elements.map((e) => e.key));
-  const end = (key: string) => (inImport.has(key) ? key : (outside.get(key) ?? byExternalKey.get(key)?.id));
+  const liveIds = new Set(live.map((e) => e.id));
+  // An end is an element of this sync, one it owns already, any element by external key, or an existing element id.
+  const end = (key: string) => (inImport.has(key) ? key : (outside.get(key) ?? byExternalKey.get(key)?.id ?? (liveIds.has(key) ? key : undefined)));
   for (const r of mapped.relationships) {
     const from = end(r.from);
     const to = end(r.to);

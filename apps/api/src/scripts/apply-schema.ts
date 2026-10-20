@@ -3,8 +3,8 @@
  * Usage: node dist/scripts/apply-schema.js [tenantId]   (defaults to the local dev tenant `t_local`)
  */
 import neo4j from 'neo4j-driver';
-import { applySchema, awaitSchemaOnline } from '@d4/cypher';
-import { createDb, TenantStore } from '@d4/db';
+import { applySchema, awaitSchemaOnline, relationshipIdIndexName } from '@d4/cypher';
+import { createDb, MetamodelStore, TenantStore } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { loadConfig } from '../config';
 
@@ -21,7 +21,11 @@ async function main() {
     );
     const session = driver.session({ defaultAccessMode: neo4j.session.WRITE });
     try {
-      const n = await applySchema(session, new MetamodelRegistry(loadStarterMetamodel()));
+      // Every metamodel a workspace uses keeps its relationship-id index; only orphans are dropped.
+      const inUse = await new MetamodelStore(handle.db).inUse(tenantId);
+      const keep = inUse.map((mm) => relationshipIdIndexName(new MetamodelRegistry(mm)));
+      for (const mm of inUse) await applySchema(session, new MetamodelRegistry(mm));
+      const n = await applySchema(session, new MetamodelRegistry(loadStarterMetamodel()), { keepRelationshipIndexes: keep });
       await awaitSchemaOnline(session);
       console.log(`Applied ${n} schema statements to tenant '${tenantId}'.`);
     } finally {

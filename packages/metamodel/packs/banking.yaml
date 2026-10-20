@@ -1,0 +1,89 @@
+# D4 banking pack: extends the starter metamodel with a BIAN-inspired service landscape,
+# banking products and regulatory reporting (BCBS 239 lineage, DORA, …). Versioned like code.
+id: d4-banking
+version: 0.1.0
+extends: d4-starter
+description: Banking — BIAN-style business areas, domains and service domains, banking products, regulatory reports and their data lineage.
+
+enums:
+  BianBusinessArea: [SALES_AND_SERVICE, OPERATIONS_AND_EXECUTION, RISK_AND_COMPLIANCE, BUSINESS_SUPPORT, REFERENCE_DATA]
+  BianFunctionalPattern: [DIRECT, MANAGE, ADMINISTER, DESIGN, DEVELOP, PROCESS, OPERATE, MAINTAIN, FULFILL, TRANSACT, ACCOUNT_FOR, TRACK, MONITOR, ASSESS, AGREE_TERMS, ANALYSE, ALLOCATE, CATALOG, ENROLL]
+  BankingProductFamily: [DEPOSITS, LENDING, PAYMENTS, CARDS, INVESTMENTS, TRADE_FINANCE, CUSTODY, TREASURY]
+  RegulatoryRegime: [BCBS239, BASEL_III, DORA, GDPR, MIFID_II, IFRS9, AML_KYC, PSD2, FATCA_CRS, LOCAL]
+  ReportFrequency: [DAILY, WEEKLY, MONTHLY, QUARTERLY, SEMI_ANNUAL, ANNUAL, AD_HOC]
+  RiskType: [CREDIT, MARKET, LIQUIDITY, OPERATIONAL, ICT, COMPLIANCE, REPUTATIONAL, CONDUCT]
+
+nodeTypes:
+  # ── BIAN service landscape ────────────────────────────────────────────
+  - name: BusinessArea
+    layer: Business
+    description: Top level of the BIAN service landscape
+    attributes:
+      - { name: bianArea, type: enum, enum: BianBusinessArea }
+  - name: BusinessDomain
+    layer: Business
+    description: BIAN business domain within a business area
+  - name: ServiceDomain
+    layer: Business
+    description: BIAN service domain — a discrete business capability with one control record
+    attributes:
+      - { name: bianId, type: string, description: BIAN service domain identifier }
+      - { name: functionalPattern, type: enum, enum: BianFunctionalPattern }
+      - { name: assetType, type: string, description: What the service domain controls, e.g. Current Account }
+      - { name: controlRecord, type: string }
+
+  # ── Products ──────────────────────────────────────────────────────────
+  - name: BankingProduct
+    layer: Strategy
+    extends: Product
+    attributes:
+      - { name: productFamily, type: enum, enum: BankingProductFamily }
+      - { name: bookingEntity, type: string }
+
+  # ── Regulatory reporting ──────────────────────────────────────────────
+  - name: RegulatoryReport
+    layer: Governance
+    extends: Report
+    description: A report owed to a regulator; its figures must trace to authoritative data
+    attributes:
+      - { name: regime, type: enum, enum: RegulatoryRegime }
+      - { name: regulator, type: string }
+      - { name: frequency, type: enum, enum: ReportFrequency }
+      - { name: submissionDeadline, type: string, description: e.g. T+10 business days }
+      - { name: templateCode, type: string, description: e.g. COREP C 07.00 }
+  - name: KeyRiskIndicator
+    layer: Governance
+    attributes:
+      - { name: riskType, type: enum, enum: RiskType }
+      - { name: threshold, type: number }
+      - { name: unit, type: string }
+  - name: IctThirdParty
+    layer: Organisation
+    extends: Vendor
+    description: ICT third-party service provider (DORA register of information)
+    attributes:
+      - { name: critical, type: boolean, description: Supports a critical or important function }
+      - { name: leiCode, type: string }
+
+relationshipTypes:
+  - { name: HAS_DOMAIN, from: [BusinessArea], to: [BusinessDomain] }
+  - { name: HAS_SERVICE_DOMAIN, from: [BusinessDomain], to: [ServiceDomain] }
+  - { name: REALIZES_SERVICE_DOMAIN, from: [Application, ApplicationService], to: [ServiceDomain] }
+  - { name: COLLABORATES_WITH, from: [ServiceDomain], to: [ServiceDomain], description: BIAN service exchange between service domains }
+  - name: SOURCED_FROM
+    from: [RegulatoryReport]
+    to: [DataProduct, DataSet, CriticalDataElement]
+    description: Where a regulatory report's figures come from (BCBS 239 lineage)
+    attributes:
+      - { name: lineageVerified, type: boolean }
+  - { name: SATISFIES, from: [RegulatoryReport], to: [Regulation, RegulatoryRequirement] }
+  - { name: MONITORS, from: [KeyRiskIndicator], to: [Risk, Capability, Application, BusinessProcess] }
+  - { name: PROVIDES_ICT_SERVICE, from: [IctThirdParty], to: [Application, Platform, PlatformService] }
+
+# Extra endpoints on starter relationship types.
+extendRelationships:
+  - { name: OWNS, from: [], to: [ServiceDomain, RegulatoryReport] }
+  - { name: SUPPORTS, from: [ServiceDomain], to: [] }
+
+rules:
+  - { id: no-service-domain-hierarchy-cycles, kind: acyclic, relationship: HAS_SERVICE_DOMAIN }

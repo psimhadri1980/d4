@@ -57,5 +57,6 @@ export function syncSummary(r: SyncResult): string {
     r.issues.length && `${r.issues.length} model rule problem${r.issues.length === 1 ? '' : 's'}`,
   ].filter(Boolean);
   const verb = r.dryRun ? 'Would write' : r.applied ? 'Wrote' : r.issues.length ? 'Nothing written' : 'Up to date';
-  return `${verb}: ${changes} from ${r.records} records${attention.length ? ` · ${attention.join(', ')}` : ''}`;
+  const from = r.revision ? `commit ${r.revision.slice(0, 8)}` : `${r.records} records`;
+  return `${verb}: ${changes} from ${from}${attention.length ? ` · ${attention.join(', ')}` : ''}`;
 }

@@ -152,6 +152,22 @@ export class MetamodelStore {
   }
 
   /** The newest active metamodel version for the tenant (what new workspaces use). */
+  /** The metamodels the tenant's workspaces (archived ones too) are on. */
+  async inUse(tenantId: string): Promise<MetamodelDoc[]> {
+    const rows = await this.db
+      .selectDistinct({ content: metamodels.content })
+      .from(metamodels)
+      .innerJoin(workspaces, eq(workspaces.metamodelId, metamodels.id))
+      .where(eq(metamodels.tenantId, tenantId));
+    return rows.map((r) => Metamodel.parse(r.content));
+  }
+
+  /** `name@version` of every metamodel the tenant has registered, by id (for listings). */
+  async labels(tenantId: string): Promise<Map<string, string>> {
+    const rows = await this.db.select({ id: metamodels.id, name: metamodels.name, version: metamodels.version }).from(metamodels).where(eq(metamodels.tenantId, tenantId));
+    return new Map(rows.map((r) => [r.id, `${r.name}@${r.version}`]));
+  }
+
   async activeId(tenantId: string): Promise<string | undefined> {
     const [row] = await this.db
       .select({ id: metamodels.id })

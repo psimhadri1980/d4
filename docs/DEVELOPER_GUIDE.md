@@ -38,7 +38,7 @@ apps/
   web/        React + Vite SPA, served by nginx in Docker
   e2e/        Playwright browser tests (run in Docker against the live stack)
 packages/
-  metamodel/  Metamodel schema (zod), loader, registry; starter.yaml
+  metamodel/  Metamodel schema (zod), loader, registry; starter.yaml; industry packs in packs/
   core/       IO-free domain: types, ULIDs, lifecycle, validity, ModelService, rules,
               planImport, validateModel, InMemoryModelRepository
   cypher/     Schema DDL, catalog checks (params, static checks, EXPLAIN contract,
@@ -53,7 +53,7 @@ packages/
               tabular-import work, S3 artefact store, BullMQ queue, processJob
   cli/        `d4` command: validate, workspaces, import, export
   sdk/        typed REST client generated from the OpenAPI document (`openapi.json` + `src/schema.ts` are generated)
-  connectors/ connector framework: record mapping, HTTP/JSON source, sync planning
+  connectors/ connector framework: record mapping, HTTP/JSON and Git sources, sync planning
   ui-kit/     React components shared by the web app and embedders: Gantt, GraphCanvas, ResultTable, styles.css
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       docker-compose, dev.sh, Keycloak realm, SeaweedFS, OTel, nginx, e2e runner
@@ -339,8 +339,14 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
    - enums go under `enums`
 2. **Bump `version`.** The local seed registers it and repoints the `default` workspace. Production needs a migration plan.
 3. Run `deploy/dev.sh test`. `@d4/metamodel` checks references and the reserved names.
-4. Run `deploy/dev.sh schema`. New relationship types change the cross-type id index name, and `applySchema` drops the stale one.
+4. Run `deploy/dev.sh schema`. New relationship types change the cross-type id index name; the schema step drops a stale one only when no workspace's metamodel still uses it (`applySchema` drops nothing unless given `keepRelationshipIndexes`).
 5. If you added a rule, add a `rules:` entry (`acyclic` or `uniqueValuePerTarget`). Both `assertRelationshipRules` and `validateModel` pick it up automatically.
+
+### Add or change an industry metamodel pack
+
+1. Packs live in `packages/metamodel/packs/*.yaml` with `extends: d4-starter`. They add enums, node types (which may `extends` starter types and so inherit their attributes and relationships), relationship types, `extendRelationships` (more endpoints for starter relationship types) and rules. A pack may never redefine something the starter has; `composePack` refuses it.
+2. Register a new pack in `METAMODEL_PACKS` and `PACK_FILES` (`packages/metamodel/src/packs.ts`) and bump its `version` on every change.
+3. Admins choose the pack when creating a workspace. The API registers the composed metamodel for the tenant and applies its constraints and indexes to the tenant graph first.
 
 ### Add a system catalog query
 
