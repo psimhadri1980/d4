@@ -28,6 +28,8 @@ const Env = z.object({
   /** Queue name; tests use their own so a running worker does not take their jobs. */
   JOB_QUEUE: optional(z.string()),
   RENDER_QUEUE: optional(z.string()),
+  /** Allow http and private-network webhook URLs. Local development only. */
+  WEBHOOK_ALLOW_PRIVATE: z.preprocess((v) => v === 'true' || v === '1', z.boolean()).default(false),
 });
 export type AppConfig = z.infer<typeof Env>;
 

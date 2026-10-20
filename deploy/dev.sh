@@ -16,7 +16,7 @@ node_env() {
   command -v node >/dev/null || { echo "Node.js >= 20.11 is required for $1" >&2; exit 1; }
   PNPM_VERSION=$(sed -nE 's/.*"packageManager": *"pnpm@([^"]+)".*/\1/p' ../package.json)
 }
-pn() { (cd .. && npx -y "pnpm@$PNPM_VERSION" "$@"); }
+pn() { (cd .. && NPM_CONFIG_UPDATE_NOTIFIER=false npx -y "pnpm@$PNPM_VERSION" "$@"); }
 port_5173_owner() { { lsof -nP -iTCP:5173 -sTCP:LISTEN -Fc 2>/dev/null || true; } | sed -n 's/^c//p' | head -1; }
 
 case "${1:-help}" in
@@ -48,7 +48,7 @@ case "${1:-help}" in
     pn turbo run build --filter '@d4/api^...'
     API_PORT=3100 POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_URI=bolt://localhost:7687 \
       NEO4J_USER=neo4j NEO4J_PASSWORD=d4-local-dev OIDC_ISSUER=http://localhost:8080/realms/d4 OIDC_AUDIENCE=d4-api \
-      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local \
+      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local WEBHOOK_ALLOW_PRIVATE=true \
       pn --filter @d4/api exec tsx watch src/main.ts ;;
   # Job worker on local Node for api-local's queue (d4-jobs-local), using the Docker data stores.
   worker-local)
@@ -56,8 +56,8 @@ case "${1:-help}" in
     [[ -d ../node_modules ]] || pn install --frozen-lockfile
     pn turbo run build --filter '@d4/worker^...'
     POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_URI=bolt://localhost:7687 NEO4J_PASSWORD=d4-local-dev \
-      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local \
-      SMTP_URL=smtp://localhost:1025 WORKER_HEALTH_PORT=3102 SCHEDULER_INTERVAL_MS=${D4_SCHEDULER_INTERVAL_MS:-0} \
+      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local WEBHOOK_ALLOW_PRIVATE=true \
+      SMTP_URL=smtp://localhost:1025 WORKER_HEALTH_PORT=3102 SCHEDULER_INTERVAL_MS=${D4_SCHEDULER_INTERVAL_MS:-0} WEBHOOK_INTERVAL_MS=${D4_WEBHOOK_INTERVAL_MS:-0} WEBHOOK_ALLOW_PRIVATE=true \
       pn --filter @d4/worker exec tsx watch src/main.ts ;;
   # Web checks on local Node: unit tests, typecheck, lint and a production build.
   web-check)
@@ -67,8 +67,10 @@ case "${1:-help}" in
   # Browser tests against the local web server from web-local (API and Keycloak stay in Docker).
   e2e-local)
     [[ -n "$(port_5173_owner)" && "$(port_5173_owner)" != com.docke* ]] || { echo "Start deploy/dev.sh web-local first" >&2; exit 1; }
-    # With D4_API_URL (as given to web-local), test setup also talks to that API.
-    dc --profile tools run --rm --build --no-deps -e E2E_WEB_TARGET=host.docker.internal:5173 \
+    # With D4_API_URL (as given to web-local), test setup also talks to that API. The webhook test's
+    # receiver is published on :3199 so worker-local can reach it.
+    dc --profile tools run --rm --build --no-deps -p 3199:3199 -e E2E_HOOK_PORT=3199 -e E2E_HOOK_URL=http://localhost:3199/d4-hook \
+      -e E2E_WEB_TARGET=host.docker.internal:5173 \
       -e E2E_API_URL="${D4_API_URL:-http://localhost:3000}" e2e "${@:2}" ;;
   # Renderer for api-local's render queue (d4-render-local). Chromium needs the Playwright image,
   # so this builds the renderer image from the current tree and runs it once, not as the service.

@@ -635,6 +635,32 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
     });
 
+    it('lets admins manage webhooks: secrets shown once, URLs checked, pings queued', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      expect((await call('GET', '/v1/admin/webhooks', await sign('plain-viewer', ['viewer']))).status).toBe(403);
+      expect((await call('POST', '/v1/admin/webhooks', admin, { name: 'Local', url: 'https://127.0.0.1/hook' })).body).toMatchObject({ error: 'BAD_REQUEST', message: 'Webhook URL must not point to a private or local address' });
+      expect((await call('POST', '/v1/admin/webhooks', admin, { name: 'Plain', url: 'http://93.184.215.14/hook' })).status).toBe(400);
+      expect((await call('POST', '/v1/admin/webhooks', admin, { name: 'Bad type', url: 'https://93.184.215.14/hook', eventTypes: ['Nope'] })).status).toBe(400);
+
+      const created = await call('POST', '/v1/admin/webhooks', admin, { name: 'CMDB sync', url: 'https://93.184.215.14/hook', workspace: 'default', eventTypes: ['ElementCreated'] });
+      expect(created).toMatchObject({ status: 201, body: { name: 'CMDB sync', enabled: true, eventTypes: ['ElementCreated'], secret: expect.stringMatching(/^whsec_/) } });
+      const id = created.body!['id'];
+      const fetched = (await call('GET', `/v1/admin/webhooks/${id}`, admin)).body!;
+      expect(fetched['secret']).toBeUndefined();
+      expect(fetched['workspaceId']).toBeTruthy();
+
+      const rotated = (await call('POST', `/v1/admin/webhooks/${id}/rotate-secret`, admin)).body!;
+      expect(rotated['secret']).not.toBe(created.body!['secret']);
+      const ping = await call('POST', `/v1/admin/webhooks/${id}/ping`, admin);
+      expect(ping).toMatchObject({ status: 202, body: { eventType: 'Ping', status: 'pending', attempts: 0 } });
+      expect((await call('GET', `/v1/admin/webhooks/${id}/deliveries`, admin)).body).toEqual([expect.objectContaining({ id: ping.body!['id'] })]);
+
+      expect((await call('PATCH', `/v1/admin/webhooks/${id}`, admin, { enabled: false, workspace: null })).body).toMatchObject({ enabled: false, workspaceId: null });
+      expect((await call('POST', `/v1/admin/webhooks/${id}/ping`, admin)).status).toBe(400);
+      expect((await call('DELETE', `/v1/admin/webhooks/${id}`, admin)).status).toBe(204);
+      expect((await call('GET', `/v1/admin/webhooks/${id}`, admin)).status).toBe(404);
+    });
+
     it('exports a document that re-imports unchanged', async () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);

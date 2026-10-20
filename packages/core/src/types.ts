@@ -41,13 +41,15 @@ export interface CommandContext {
   actor: string;
 }
 
-export type DomainEventType =
-  | 'ElementCreated'
-  | 'ElementUpdated'
-  | 'ElementDeleted'
-  | 'RelationshipCreated'
-  | 'RelationshipUpdated'
-  | 'RelationshipDeleted';
+export const DOMAIN_EVENT_TYPES = [
+  'ElementCreated',
+  'ElementUpdated',
+  'ElementDeleted',
+  'RelationshipCreated',
+  'RelationshipUpdated',
+  'RelationshipDeleted',
+] as const;
+export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
 
 /** Appended to the event log; drives audit, history, webhooks and rebuilds. */
 export interface DomainEvent {

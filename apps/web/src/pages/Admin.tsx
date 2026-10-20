@@ -3,6 +3,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { adminApi, api, can, ROLES, type AdminWorkspace } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { Webhooks } from './AdminWebhooks';
 
 const toSlug = (s: string) =>
   s
@@ -12,7 +13,7 @@ const toSlug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 48);
 
-/** Tenant administration: workspaces and role bindings. Admins only. */
+/** Tenant administration: workspaces, role bindings and webhooks. Admins only. */
 export function Admin() {
   const { ws } = useParams();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
@@ -28,6 +29,7 @@ export function Admin() {
       <h2>Administration</h2>
       <Workspaces />
       <Members defaultScope={ws!} />
+      <Webhooks />
     </div>
   );
 }

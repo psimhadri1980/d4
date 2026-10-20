@@ -2031,3 +2031,44 @@ tr.paused td {
 .mono {
   font-family: var(--font-mono);
 }
+
+/* Webhooks (Admin) */
+.notice {
+  border: 1px solid var(--support-warning);
+  background: var(--surface-2);
+  padding: var(--sp-04) var(--sp-05);
+  margin: var(--sp-04) 0;
+}
+.notice p {
+  margin: 0 0 var(--sp-03);
+}
+.notice .secret {
+  font-family: var(--font-mono);
+  word-break: break-all;
+  user-select: all;
+}
+.truncate {
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.webhook-create .field.wide input {
+  min-width: 320px;
+}
+.webhook-create fieldset.event-types {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-02) var(--sp-04);
+  flex-basis: 100%;
+}
+.webhook-create fieldset.event-types legend {
+  padding: 0;
+  margin-bottom: var(--sp-02);
+}
+.webhook-deliveries > td {
+  background: var(--surface-2);
+}

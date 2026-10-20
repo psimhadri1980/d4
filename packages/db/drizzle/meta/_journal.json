@@ -57,6 +57,13 @@
       "when": 1792388726108,
       "tag": "0007_realm_roles_recipients",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792464664420,
+      "tag": "0008_webhooks",
+      "breakpoints": true
     }
   ]
 }

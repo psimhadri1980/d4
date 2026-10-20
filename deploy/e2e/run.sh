@@ -11,4 +11,4 @@ socat TCP-LISTEN:3000,fork,reuseaddr,bind=127.0.0.1 TCP:api:3000 &
 socat TCP-LISTEN:3100,fork,reuseaddr,bind=127.0.0.1 TCP:host.docker.internal:3100 &
 sleep 0.5
 cd /repo/apps/e2e
-exec npx playwright test "$@"
+NPM_CONFIG_UPDATE_NOTIFIER=false exec npx playwright test "$@"

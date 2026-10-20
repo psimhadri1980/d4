@@ -23,6 +23,10 @@ const Env = z.object({
   SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(0).default(30_000),
   /** Export, report and picture files are deleted this many days after the job finished. */
   ARTIFACT_RETENTION_DAYS: z.coerce.number().int().min(1).default(30),
+  /** How often to relay new model events to webhooks and send due deliveries; 0 turns it off. */
+  WEBHOOK_INTERVAL_MS: z.coerce.number().int().min(0).default(5_000),
+  /** Allow http and private-network webhook URLs. Local development only. */
+  WEBHOOK_ALLOW_PRIVATE: z.preprocess((v) => v === 'true' || v === '1', z.boolean()).default(false),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
   /** Health endpoint for container checks. */
   WORKER_HEALTH_PORT: z.coerce.number().int().default(3002),

@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { JobQueue, processJob, pruneArtifacts, RENDER_QUEUE, runDueSchedules, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { JobQueue, processJob, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { loadConfig } from './config';
 
 /**
@@ -68,6 +68,21 @@ async function main() {
       ticking = false;
     }
   };
+  // Webhooks: relay new events from the outbox and send due deliveries; row locks share the work.
+  let sending = false;
+  const webhookTick = async () => {
+    if (sending) return;
+    sending = true;
+    try {
+      const r = await runWebhookPass(db.db, { allowPrivate: config.WEBHOOK_ALLOW_PRIVATE });
+      if (r.sent || r.failed) log('webhook deliveries', r);
+    } catch (e) {
+      log('webhook pass failed', { error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      sending = false;
+    }
+  };
+  const webhookTimer = config.WEBHOOK_INTERVAL_MS > 0 ? setInterval(() => void webhookTick(), config.WEBHOOK_INTERVAL_MS) : undefined;
   const timer = config.SCHEDULER_INTERVAL_MS > 0 ? setInterval(() => void tick(), config.SCHEDULER_INTERVAL_MS) : undefined;
 
   const health = createServer((req, res) => {
@@ -79,6 +94,7 @@ async function main() {
     log('shutting down', { signal });
     health.close();
     if (timer) clearInterval(timer);
+    if (webhookTimer) clearInterval(webhookTimer);
     await Promise.all([queues.jobs.close(), queues.render.close()]);
     // Lets running jobs finish; queued ones stay in Redis for the next worker.
     await worker.close();

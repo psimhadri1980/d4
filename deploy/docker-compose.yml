@@ -25,6 +25,8 @@ x-api-env: &api-env
   # Report emails go to Mailpit locally (inbox at http://localhost:8025).
   SMTP_URL: smtp://mailpit:1025
   APP_URL: http://localhost:5173
+  # Lets local webhooks point at http://… on this machine or the compose network. Never in production.
+  WEBHOOK_ALLOW_PRIVATE: 'true'
 
 services:
   # ── Data stores ───────────────────────────────────────────────────────

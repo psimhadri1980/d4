@@ -358,3 +358,61 @@ export const schedules = pgTable(
     due: index('schedules_due').on(t.enabled, t.nextRunAt),
   }),
 );
+
+// ── Webhooks (Phase 5b) ─────────────────────────────────────────────────
+
+/**
+ * An HTTPS endpoint that receives model events, signed with its own secret. `workspaceId` null
+ * means every workspace in the tenant; an empty `eventTypes` means every event type.
+ */
+export const webhooks = pgTable(
+  'webhooks',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    workspaceId: text('workspace_id'),
+    name: text('name').notNull(),
+    url: text('url').notNull(),
+    secret: text('secret').notNull(),
+    eventTypes: text('event_types').array().notNull().default(sql`'{}'::text[]`),
+    enabled: boolean('enabled').notNull().default(true),
+    /** Why the system turned the webhook off (e.g. repeated failures); null when off by a person. */
+    disabledReason: text('disabled_reason'),
+    /** Deliveries that ended in failure in a row; reset by any success. */
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byTenant: index('webhooks_tenant').on(t.tenantId),
+  }),
+);
+
+/** One event (or test ping) to one webhook, with its retry state and the last response. */
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: text('id').primaryKey(),
+    webhookId: text('webhook_id')
+      .notNull()
+      .references(() => webhooks.id, { onDelete: 'cascade' }),
+    /** null for a test ping */
+    eventId: text('event_id'),
+    eventType: text('event_type').notNull(),
+    payload: jsonb('payload').notNull(),
+    status: text('status', { enum: ['pending', 'succeeded', 'failed'] }).notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    responseStatus: integer('response_status'),
+    lastError: text('last_error'),
+    durationMs: integer('duration_ms'),
+    createdAt: createdAt(),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  },
+  (t) => ({
+    once: uniqueIndex('webhook_deliveries_once').on(t.webhookId, t.eventId),
+    due: index('webhook_deliveries_due').on(t.status, t.nextAttemptAt),
+    byWebhook: index('webhook_deliveries_webhook').on(t.webhookId, t.createdAt),
+  }),
+);

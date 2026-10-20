@@ -405,6 +405,35 @@ export interface TenantUser {
   lastSeenAt: string;
 }
 
+export interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  workspaceId: string | null;
+  eventTypes: string[];
+  enabled: boolean;
+  disabledReason: string | null;
+  consecutiveFailures: number;
+  createdAt: string;
+  secret?: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  eventId: string | null;
+  eventType: string;
+  status: 'pending' | 'succeeded' | 'failed';
+  attempts: number;
+  nextAttemptAt: string | null;
+  responseStatus: number | null;
+  lastError: string | null;
+  durationMs: number | null;
+  createdAt: string;
+  deliveredAt: string | null;
+}
+
+export type WebhookInput = { name: string; url: string; workspace: string | null; eventTypes: string[] };
+
 export const adminApi = {
   workspaces: () => request<AdminWorkspace[]>('GET', '/v1/admin/workspaces?archived=true'),
   createWorkspace: (body: { slug: string; name: string; description?: string }) => request<AdminWorkspace>('POST', '/v1/admin/workspaces', body),
@@ -415,4 +444,13 @@ export const adminApi = {
   grant: (scope: string, principalId: string, role: string) => request<void>('POST', `/v1/admin/members/${scope}`, { principalId, role }),
   revoke: (scope: string, m: Pick<Member, 'principalType' | 'principalId' | 'role'>) =>
     request<void>('DELETE', `/v1/admin/members/${scope}`, { principalType: m.principalType, principalId: m.principalId, role: m.role }),
+  webhooks: () => request<Webhook[]>('GET', '/v1/admin/webhooks'),
+  eventTypes: () => request<string[]>('GET', '/v1/admin/webhooks/event-types'),
+  createWebhook: (body: WebhookInput) => request<Webhook>('POST', '/v1/admin/webhooks', body),
+  updateWebhook: (id: string, body: Partial<WebhookInput> & { enabled?: boolean }) => request<Webhook>('PATCH', `/v1/admin/webhooks/${id}`, body),
+  deleteWebhook: (id: string) => request<void>('DELETE', `/v1/admin/webhooks/${id}`),
+  rotateSecret: (id: string) => request<Webhook>('POST', `/v1/admin/webhooks/${id}/rotate-secret`),
+  ping: (id: string) => request<WebhookDelivery>('POST', `/v1/admin/webhooks/${id}/ping`),
+  deliveries: (id: string) => request<WebhookDelivery[]>('GET', `/v1/admin/webhooks/${id}/deliveries`),
+  redeliver: (id: string, delivery: string) => request<WebhookDelivery>('POST', `/v1/admin/webhooks/${id}/deliveries/${delivery}/redeliver`),
 };

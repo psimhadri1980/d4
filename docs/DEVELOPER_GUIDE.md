@@ -137,7 +137,7 @@ For quick web changes, run Vite on the host against the API and Keycloak in Dock
 | `deploy/dev.sh web-check` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
 | `deploy/dev.sh e2e-local [args]` | The Playwright suite in Docker against the local Vite server (`E2E_WEB_TARGET=host.docker.internal:5173`, no `web` container). |
 | `deploy/dev.sh api-local` | API on local Node (tsx watch) on `:3100`, next to the container on `:3000`, using the Docker data stores. Pair with `D4_API_URL=http://localhost:3100 deploy/dev.sh web-local` and `D4_API_URL=http://localhost:3100 deploy/dev.sh e2e-local`. |
-| `deploy/dev.sh worker-local` | Job worker on local Node for `api-local`'s queues (`d4-jobs-local`, `d4-render-local`), so local jobs never reach the Docker worker. Its report scheduler is off unless `D4_SCHEDULER_INTERVAL_MS` is set, because schedules live in the shared dev database and would otherwise be started on the local queues. |
+| `deploy/dev.sh worker-local` | Job worker on local Node for `api-local`'s queues (`d4-jobs-local`, `d4-render-local`), so local jobs never reach the Docker worker. Its report scheduler is off unless `D4_SCHEDULER_INTERVAL_MS` is set, because schedules live in the shared dev database and would otherwise be started on the local queues. Webhook sending is off unless `D4_WEBHOOK_INTERVAL_MS` is set (e.g. `2000`), for the same reason. |
 | `deploy/dev.sh renderer-local` | Builds the renderer image from the tree and runs it once (not the compose service) on `api-local`'s render queue (`d4-render-local`); Chromium needs the Playwright image. |
 | `deploy/dev.sh web-deploy` | After committing: rebuilds and starts the `web` container. Refuses while something else holds port 5173, so stop `web-local` first. |
 
@@ -235,6 +235,8 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | `users`, `groups`, `group_members`, `role_bindings` | JIT users; grants per user or group, tenant-wide or per workspace |
 | `events` | Append-only domain event log + outbox (`published_at`) |
 | `queries`, `query_versions`, `query_grants`, `query_executions` | Query Catalog |
+| `jobs`, `schedules` | Background jobs and report schedules |
+| `webhooks`, `webhook_deliveries` | Webhook endpoints (with signing secrets) and one row per event sent to each, with retry state |
 
 | Migration | Contents |
 |---|---|
@@ -243,6 +245,10 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | 0002 | catalog tables |
 | 0003 | catalog guards: immutability and lifecycle trigger, one open draft, search index |
 | 0004 | `queries.archived_at` |
+| 0005 | `jobs` |
+| 0006 | `schedules`, `jobs.schedule_id` |
+| 0007 | `users.realm_roles`, `schedules.recipients`, `schedules.paused_reason` |
+| 0008 | `webhooks`, `webhook_deliveries` |
 
 ---
 
@@ -430,6 +436,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `web-local` runs Vite with `--force`; restart it after changing `packages/*` |
 | On Queries, a tall tab made the tab strip scroll instead of the page | The strip (`overflow-x: auto`) sat in a scrolling flex column, so its minimum height was 0 and it shrank | Only the active `.tab-panel` scrolls; the strip is `flex: none` |
 | Search for a hyphenated name (e.g. "cut-over") found nothing | The analyzer indexes "cut" and "over"; the escaped prefix query "cut\-over*" is not analyzed | `luceneQuery` splits on hyphens and slashes too |
+| The webhook browser test times out on "succeeded" with `e2e-local` | `worker-local` started without `D4_WEBHOOK_INTERVAL_MS`, so nothing sends deliveries (the Docker worker may take them instead and cannot reach the receiver on the host's :3199) | Start `D4_WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker-local` |
 | Background-job browser tests time out when run against `api-local` | `worker-local` / `renderer-local` not running, so jobs on the local queues are never picked up | Start `worker-local` and `renderer-local` before `e2e-local` |
 | Names in a list squeezed to one letter | `.items` rows are a grid whose first column is the 10 px layer dot | Lists without a dot override `grid-template-columns` |
 | Catalog browser test counted 9 queries instead of 8 | A tenant query had been published in the dev workspace | The test counts what is listed and checks the 8 certified system queries |

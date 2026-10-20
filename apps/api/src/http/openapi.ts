@@ -340,6 +340,27 @@ export function buildOpenApiDocument(): OpenApiDocument {
   route({ method: 'post', path: '/v1/admin/members/{ws}', tags: ['Administration'], summary: 'Grant a role', request: { params: z.object({ ws: wsOrTenant }), body: { content: { 'application/json': { schema: BindingBody } } } }, responses: { 204: { description: 'Granted' }, ...errors } });
   route({ method: 'delete', path: '/v1/admin/members/{ws}', tags: ['Administration'], summary: 'Revoke a role', request: { params: z.object({ ws: wsOrTenant }), body: { content: { 'application/json': { schema: BindingBody } } } }, responses: { 204: { description: 'Revoked' }, ...errors } });
 
+  const Webhook = z
+    .object({ id: z.string(), name: z.string(), url: z.string(), workspaceId: z.string().nullable(), eventTypes: z.array(z.string()), enabled: z.boolean(), disabledReason: z.string().nullable(), consecutiveFailures: z.number(), createdBy: z.string(), createdAt: z.string() })
+    .openapi('Webhook');
+  const WebhookWithSecret = Webhook.extend({ secret: z.string().describe('Signing secret; shown only here') }).openapi('WebhookWithSecret');
+  const Delivery = z
+    .object({ id: z.string(), eventId: z.string().nullable(), eventType: z.string(), status: z.enum(['pending', 'succeeded', 'failed']), attempts: z.number(), nextAttemptAt: z.string().nullable(), responseStatus: z.number().nullable(), lastError: z.string().nullable(), durationMs: z.number().nullable(), createdAt: z.string(), deliveredAt: z.string().nullable() })
+    .openapi('WebhookDelivery');
+  const hookId = z.string().openapi({ param: { name: 'id', in: 'path' } });
+  const hookPath = '/v1/admin/webhooks';
+  const WebhookBody = z.object({ name: z.string(), url: z.string().describe('https; must not resolve to a private address'), workspace: z.string().nullable().optional().describe('Workspace id or slug; null for all'), eventTypes: z.array(z.string()).optional().describe('Empty for every type') });
+  route({ method: 'get', path: hookPath, tags: ['Webhooks'], responses: { 200: json(z.array(Webhook), 'Webhooks'), ...errors } });
+  route({ method: 'get', path: `${hookPath}/event-types`, tags: ['Webhooks'], responses: { 200: json(z.array(z.string()), 'Event types a webhook can subscribe to'), ...errors } });
+  route({ method: 'post', path: hookPath, tags: ['Webhooks'], summary: 'Create; the response holds the signing secret', description: 'Each delivery is a JSON POST with headers D4-Event, D4-Delivery and D4-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">. Answer 2xx within 10 s; failures are retried 5 times over about 7.5 hours, and a webhook is turned off after 5 failed deliveries in a row.', request: { body: { content: { 'application/json': { schema: WebhookBody } } } }, responses: { 201: json(WebhookWithSecret, 'Created'), ...errors } });
+  route({ method: 'get', path: `${hookPath}/{id}`, tags: ['Webhooks'], request: { params: z.object({ id: hookId }) }, responses: { 200: json(Webhook, 'Webhook'), ...errors } });
+  route({ method: 'patch', path: `${hookPath}/{id}`, tags: ['Webhooks'], summary: 'Change, or turn on/off (turning on clears the failure count)', request: { params: z.object({ id: hookId }), body: { content: { 'application/json': { schema: WebhookBody.partial().extend({ enabled: z.boolean().optional() }) } } } }, responses: { 200: json(Webhook, 'Updated'), ...errors } });
+  route({ method: 'delete', path: `${hookPath}/{id}`, tags: ['Webhooks'], request: { params: z.object({ id: hookId }) }, responses: { 204: { description: 'Deleted with its delivery log' }, ...errors } });
+  route({ method: 'post', path: `${hookPath}/{id}/rotate-secret`, tags: ['Webhooks'], request: { params: z.object({ id: hookId }) }, responses: { 200: json(WebhookWithSecret, 'New secret'), ...errors } });
+  route({ method: 'post', path: `${hookPath}/{id}/ping`, tags: ['Webhooks'], summary: 'Queue a test delivery', request: { params: z.object({ id: hookId }) }, responses: { 202: json(Delivery, 'Queued'), ...errors } });
+  route({ method: 'get', path: `${hookPath}/{id}/deliveries`, tags: ['Webhooks'], summary: 'Latest 50 deliveries', request: { params: z.object({ id: hookId }) }, responses: { 200: json(z.array(Delivery), 'Deliveries, newest first'), ...errors } });
+  route({ method: 'post', path: `${hookPath}/{id}/deliveries/{delivery}/redeliver`, tags: ['Webhooks'], request: { params: z.object({ id: hookId, delivery: z.string().openapi({ param: { name: 'delivery', in: 'path' } }) }) }, responses: { 202: json(Delivery, 'Queued again'), ...errors } });
+
   // Query Catalog
   const qid = z.string().openapi({ param: { name: 'id', in: 'path' } });
   const versionParam = z.string().openapi({ param: { name: 'version', in: 'path' } });
