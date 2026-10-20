@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { JobQueue, processJob, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { GraphQuotaGuard, JobQueue, meterUsage, processJob, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { loadConfig } from './config';
 
 /**
@@ -23,7 +23,7 @@ async function main() {
     bucket: config.S3_BUCKET,
   });
   const mailer = config.SMTP_URL ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM) : undefined;
-  const deps: JobDeps = { db: db.db, graphs, artifacts, appUrl: config.APP_URL, ...(mailer && { mailer }) };
+  const deps: JobDeps = { db: db.db, graphs, artifacts, appUrl: config.APP_URL, quota: new GraphQuotaGuard(db.db), ...(mailer && { mailer }) };
 
   const worker = startJobWorker(
     config.REDIS_URL,
@@ -61,6 +61,9 @@ async function main() {
         lastPrune = Date.now();
         const removed = await pruneArtifacts(db.db, artifacts, new Date(Date.now() - config.ARTIFACT_RETENTION_DAYS * 86_400_000));
         if (removed) log('old files deleted', { removed, retentionDays: config.ARTIFACT_RETENTION_DAYS });
+        // Also hourly: today's usage reading per tenant, for billing and the Admin page's history.
+        const metered = await meterUsage(db.db, graphs);
+        log('usage recorded', { tenants: metered });
       }
     } catch (e) {
       log('scheduler tick failed', { error: e instanceof Error ? e.message : String(e) });

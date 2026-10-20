@@ -71,6 +71,13 @@
       "when": 1792467718281,
       "tag": "0009_change_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792470301986,
+      "tag": "0010_usage_quotas",
+      "breakpoints": true
     }
   ]
 }

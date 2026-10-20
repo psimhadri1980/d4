@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundExce
 import { bindParams, checkCatalogQuery, checkReadOnly, contentHash, paramDefIssues } from '@d4/cypher';
 import { DomainError } from '@d4/core';
 import { QueryCatalogStore } from '@d4/db';
+import { assertQueryRunQuota } from '@d4/jobs';
 import { DEFAULT_LIMITS, neo4jExplainer, runCatalogQuery, type QueryResultSet, type RunLimits } from '@d4/graph';
 import type { Principal } from '../auth/identity';
 import { Database } from '../infra/database.service';
@@ -129,6 +130,7 @@ export class QueryRunService {
       userId: p.userId,
       params: values,
     };
+    await assertQueryRunQuota(this.database.db, p.tenantId);
     const started = Date.now();
     try {
       const result = await runCatalogQuery(

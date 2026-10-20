@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   bigserial,
+  date,
   boolean,
   index,
   integer,
@@ -288,7 +290,10 @@ export const queryExecutions = pgTable(
     error: text('error'),
     executedAt: timestamp('executed_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ byQuery: index('query_executions_query').on(t.tenantId, t.queryId, t.seq) }),
+  (t) => ({
+    byQuery: index('query_executions_query').on(t.tenantId, t.queryId, t.seq),
+    byDay: index('query_executions_tenant_time').on(t.tenantId, t.executedAt),
+  }),
 );
 
 /**
@@ -321,7 +326,10 @@ export const jobs = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
   },
-  (t) => ({ byWorkspace: index('jobs_workspace').on(t.tenantId, t.workspaceId, t.createdAt) }),
+  (t) => ({
+    byWorkspace: index('jobs_workspace').on(t.tenantId, t.workspaceId, t.createdAt),
+    byTenant: index('jobs_tenant_time').on(t.tenantId, t.createdAt),
+  }),
 );
 
 /**
@@ -448,4 +456,34 @@ export const changeProposals = pgTable(
   (t) => ({
     byWorkspace: index('change_proposals_workspace').on(t.tenantId, t.workspaceId, t.status),
   }),
+);
+
+// ── Usage and quotas (Phase 5d) ─────────────────────────────────────────
+
+export const QUOTA_METRICS = ['elements', 'relationships', 'workspaces', 'queryRunsPerDay', 'jobsPerDay', 'storageBytes'] as const;
+
+/**
+ * Per-tenant limits that replace the built-in defaults. A metric missing from `limits` uses the
+ * default; `null` means unlimited. Set by the platform operator, not by tenant admins.
+ */
+export const tenantQuotas = pgTable('tenant_quotas', {
+  tenantId: text('tenant_id')
+    .primaryKey()
+    .references(() => tenants.id),
+  limits: jsonb('limits').notNull().default(sql`'{}'::jsonb`),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text('updated_by').notNull(),
+});
+
+/** Daily usage readings for billing and trends; the worker refreshes today's row through the day. */
+export const usageDaily = pgTable(
+  'usage_daily',
+  {
+    tenantId: text('tenant_id').notNull(),
+    day: date('day', { mode: 'string' }).notNull(),
+    metric: text('metric').notNull(),
+    value: bigint('value', { mode: 'number' }).notNull(),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.day, t.metric] }) }),
 );

@@ -1,6 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Query, Res } from '@nestjs/common';
 import { JobStore, type JobRow } from '@d4/db';
-import { inputKey, RenderParams, type TabularJobInput } from '@d4/jobs';
+import { assertJobQuota, inputKey, RenderParams, type TabularJobInput } from '@d4/jobs';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
@@ -62,6 +62,7 @@ export class JobsController {
     // Check the scenario now, so a typo fails here rather than in the worker.
     await resolveView(this.models.for(scope).queries, scope.registry, scope.workspaceId, q);
     const queue = this.infra.queue;
+    await assertJobQuota(this.database.db, scope.tenantId);
     const job = await new JobStore(this.database.db).create(scope.tenantId, {
       workspaceId: scope.workspaceId,
       kind: 'export',
@@ -84,6 +85,7 @@ export class JobsController {
       if (!(await queries.getElement(scope.workspaceId, params.root))) throw new NotFoundException(`Element '${params.root}' not found`);
     }
     const queue = this.infra.renderQueue;
+    await assertJobQuota(this.database.db, scope.tenantId);
     const job = await new JobStore(this.database.db).create(scope.tenantId, { workspaceId: scope.workspaceId, kind: 'render', params, createdBy: p.userId });
     await queue.enqueue({ tenantId: scope.tenantId, jobId: job.id });
     return jobView(job);
@@ -96,6 +98,7 @@ export class JobsController {
     const { files, mappings } = parse(TabularImportBody, body);
     const scope = await this.access.resolve(p, ws, dryRun ? 'read' : 'write');
     const { queue, artifacts } = this.infra;
+    await assertJobQuota(this.database.db, scope.tenantId);
     const store = new JobStore(this.database.db);
     const job = await store.create(scope.tenantId, {
       workspaceId: scope.workspaceId,

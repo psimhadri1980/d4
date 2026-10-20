@@ -118,6 +118,7 @@ Everything else runs in containers.
 | `deploy/dev.sh status` / `logs <svc>` | Container status, or follow one service's logs. |
 | `deploy/dev.sh down` / `reset` | Stop the stack; `reset` also **deletes all volumes**. |
 | `deploy/dev.sh migrate` / `schema` | Re-run Postgres migrations + seed, or Neo4j DDL. |
+| `deploy/dev.sh quota <tenant> [metric=value …]` | Operator: show or change a tenant's limits (`elements=200000`, `jobsPerDay=unlimited`, `workspaces=default`). Runs in the API image, so rebuild it after changing the tool. |
 | `deploy/dev.sh test` | Unit + integration tests in a container (two suites at a time, 1.5 GB cap). |
 | `deploy/dev.sh e2e [playwright args]` | Playwright suite against the running stack, e.g. `--grep catalog --retries=0`. |
 | `deploy/dev.sh sample` | Import `samples/ubs-banking.yaml` into the `default` workspace (idempotent). |
@@ -236,6 +237,7 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | `events` | Append-only domain event log + outbox (`published_at`) |
 | `queries`, `query_versions`, `query_grants`, `query_executions` | Query Catalog |
 | `jobs`, `schedules` | Background jobs and report schedules |
+| `tenant_quotas`, `usage_daily` | Per-tenant limit overrides (defaults in `@d4/jobs` `DEFAULT_LIMITS`) and daily usage readings |
 | `change_proposals` | Model changes awaiting review: steps (`operations`), status, author and reviewer |
 | `webhooks`, `webhook_deliveries` | Webhook endpoints (with signing secrets) and one row per event sent to each, with retry state |
 
@@ -251,6 +253,7 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | 0007 | `users.realm_roles`, `schedules.recipients`, `schedules.paused_reason` |
 | 0008 | `webhooks`, `webhook_deliveries` |
 | 0009 | `change_proposals` |
+| 0010 | `tenant_quotas`, `usage_daily`; indexes for per-day job and query-run counts |
 
 ---
 
@@ -422,6 +425,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | `VALIDATION` | 422 | metamodel or parameter validation (`issues[]`) |
 | `INVALID_TRANSITION` | 422 | lifecycle move not allowed |
 | `RULE_VIOLATION` | 422 | metamodel rule broken (`ruleId`) |
+| `QUOTA_EXCEEDED` | 403 | a tenant limit would be passed (`ruleId` names the metric: `elements`, `jobsPerDay`, …) |
 | `INTERNAL` | 500 | anything else (logged) |
 
 ---

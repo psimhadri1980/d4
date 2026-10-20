@@ -9,6 +9,7 @@ import { ExportParams, exportSnapshot, renderExport } from './export';
 import { modelHandles } from './model-handles';
 import type { JobMessage } from './queue';
 import { RenderParams, renderPicture, renderSvg, type Rasterize } from './render';
+import type { GraphQuotaGuard } from './usage';
 import { runTabularImport } from './tabular-import';
 
 export interface JobDeps {
@@ -21,6 +22,8 @@ export interface JobDeps {
   mailer?: Mailer;
   /** Public web address, for links in emails. */
   appUrl?: string;
+  /** Refuses imports that would pass the tenant's element or relationship limits. */
+  quota?: GraphQuotaGuard;
 }
 
 /** Files up to this size are attached to report emails; larger ones are linked. */
@@ -123,7 +126,7 @@ async function run(job: JobRow, deps: JobDeps, store: JobStore) {
   const ws = await new WorkspaceStore(deps.db).get(job.tenantId, job.workspaceId);
   if (!ws) throw new DomainError('NOT_FOUND', `Workspace '${job.workspaceId}' no longer exists`);
   const registry = await new MetamodelStore(deps.db).registryForWorkspace(job.tenantId, job.workspaceId);
-  const handles = modelHandles(deps.db, registry, deps.graphs.sessions(job.tenantId), job.tenantId);
+  const handles = modelHandles(deps.db, registry, deps.graphs.sessions(job.tenantId), job.tenantId, deps.quota);
   const progress = (p: number) => store.progress(job.tenantId, job.id, p);
 
   if (job.kind === 'export') {

@@ -28,6 +28,8 @@ case "${1:-help}" in
   logs)     dc logs -f "${@:2}" ;;
   migrate)  dc run --rm --build db-migrate ;;
   schema)   dc run --rm neo4j-schema ;;
+  # Operator: show or change a tenant's limits, e.g. `quota t_local elements=200000 jobsPerDay=unlimited`.
+  quota)    dc run --rm --no-deps db-migrate node dist/set-quota.js "${@:2}" ;;
   test)     dc --profile tools run --rm --build test ;;
   # Browser tests (Playwright) against the running stack; report in apps/e2e/results/report.
   e2e)      dc --profile tools run --rm --build e2e "${@:2}" ;;

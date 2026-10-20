@@ -47,6 +47,16 @@ test.describe('administration', () => {
     await expect(renamed.locator('.badge')).toHaveText('archived');
   });
 
+  test('admins see usage against the plan limits', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    const usage = page.getByRole('table', { name: 'Usage' });
+    const elements = usage.getByRole('row', { name: /^Elements/ });
+    await expect(elements).toContainText('100,000');
+    await expect(elements.getByRole('meter', { name: 'Elements used' })).toBeVisible();
+    await expect(usage.getByRole('row', { name: /^Stored files/ })).toContainText('5 GB');
+  });
+
   test.describe('as a viewer', () => {
     test.use({ storageState: { cookies: [], origins: [] } });
     test('there is no Admin link and the page says why', async ({ page }) => {

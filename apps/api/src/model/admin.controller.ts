@@ -1,10 +1,12 @@
 import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
-import { MetamodelStore, RoleStore, ROLES, UserStore, WorkspaceStore } from '@d4/db';
+import { MetamodelStore, QUOTA_METRICS, RoleStore, ROLES, UsageStore, UserStore, WorkspaceStore } from '@d4/db';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { z } from '../http/schemas';
 import { Database } from '../infra/database.service';
+import { assertWorkspaceQuota, currentUsage, limitsFor } from '@d4/jobs';
+import { TenantGraphService } from '../infra/tenant-graph.service';
 
 const slug = z
   .string()
@@ -29,7 +31,23 @@ const ListQuery = z.object({ archived: z.enum(['true', 'false']).optional() });
  */
 @Controller('v1')
 export class AdminController {
-  constructor(@Inject(Database) private readonly database: Database) {}
+  constructor(
+    @Inject(Database) private readonly database: Database,
+    @Inject(TenantGraphService) private readonly graph: TenantGraphService,
+  ) {}
+
+  /** Usage against the tenant's limits now, and daily readings for the last 30 days. */
+  @Get('admin/usage')
+  async usage(@CurrentPrincipal() p: Principal) {
+    this.admin(p);
+    const db = this.database.db;
+    const [usage, limits, history] = await Promise.all([
+      currentUsage(db, this.graph.sessions(p.tenantId), p.tenantId),
+      limitsFor(db, p.tenantId),
+      new UsageStore(db).history(p.tenantId, new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)),
+    ]);
+    return { metrics: QUOTA_METRICS.map((m) => ({ metric: m, used: usage[m], limit: limits[m] })), history };
+  }
 
   @Get('admin/workspaces')
   async workspaces(@CurrentPrincipal() p: Principal, @Query() query: unknown) {
@@ -47,6 +65,7 @@ export class AdminController {
     const b = parse(CreateWorkspace, body);
     const store = new WorkspaceStore(this.database.db);
     if (await store.bySlug(p.tenantId, b.slug)) throw new ConflictException(`A workspace with slug '${b.slug}' already exists`);
+    await assertWorkspaceQuota(this.database.db, p.tenantId);
     const metamodelId = await new MetamodelStore(this.database.db).activeId(p.tenantId);
     if (!metamodelId) throw new ConflictException('The tenant has no active metamodel');
     const w = await store.create(p.tenantId, { slug: b.slug, name: b.name, ...(b.description && { description: b.description }), metamodelId });
@@ -140,6 +159,8 @@ export class AdminController {
 
   private async setArchived(p: Principal, ws: string, archived: boolean) {
     this.admin(p);
+    // Restoring makes a workspace active again, so it counts against the limit.
+    if (!archived) await assertWorkspaceQuota(this.database.db, p.tenantId);
     if (!(await new WorkspaceStore(this.database.db).setArchived(p.tenantId, ws, archived))) throw new NotFoundException(`Workspace '${ws}' not found`);
   }
 }

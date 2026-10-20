@@ -27,6 +27,10 @@ export class TenantStore {
     return row;
   }
 
+  async listActive() {
+    return this.db.select().from(tenants).where(eq(tenants.status, 'active'));
+  }
+
   /** The tenant's Neo4j instance, only when both the tenant and the instance are usable. */
   async readyDbInstance(tenantId: string) {
     const [row] = await this.db

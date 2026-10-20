@@ -432,6 +432,11 @@ export interface WebhookDelivery {
   deliveredAt: string | null;
 }
 
+export interface TenantUsage {
+  metrics: { metric: string; used: number; limit: number | null }[];
+  history: { day: string; metric: string; value: number }[];
+}
+
 export type WebhookInput = { name: string; url: string; workspace: string | null; eventTypes: string[] };
 
 export const adminApi = {
@@ -444,6 +449,7 @@ export const adminApi = {
   grant: (scope: string, principalId: string, role: string) => request<void>('POST', `/v1/admin/members/${scope}`, { principalId, role }),
   revoke: (scope: string, m: Pick<Member, 'principalType' | 'principalId' | 'role'>) =>
     request<void>('DELETE', `/v1/admin/members/${scope}`, { principalType: m.principalType, principalId: m.principalId, role: m.role }),
+  usage: () => request<TenantUsage>('GET', '/v1/admin/usage'),
   webhooks: () => request<Webhook[]>('GET', '/v1/admin/webhooks'),
   eventTypes: () => request<string[]>('GET', '/v1/admin/webhooks/event-types'),
   createWebhook: (body: WebhookInput) => request<Webhook>('POST', '/v1/admin/webhooks', body),

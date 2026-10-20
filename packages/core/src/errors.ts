@@ -3,7 +3,8 @@ export type DomainErrorCode =
   | 'NOT_FOUND'
   | 'VERSION_CONFLICT' // optimistic concurrency: expectedVersion did not match
   | 'INVALID_TRANSITION' // lifecycle transition not allowed
-  | 'RULE_VIOLATION'; // a metamodel rule (acyclic, uniqueness) would be broken
+  | 'RULE_VIOLATION' // a metamodel rule (acyclic, uniqueness) would be broken
+  | 'QUOTA_EXCEEDED'; // the tenant's plan limit would be exceeded
 
 export class DomainError extends Error {
   constructor(

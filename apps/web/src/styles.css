@@ -2065,6 +2065,9 @@ tr.paused td {
   gap: var(--sp-02) var(--sp-04);
   flex-basis: 100%;
 }
+.webhook-create fieldset.event-types input {
+  min-width: 0;
+}
 .webhook-create fieldset.event-types legend {
   padding: 0;
   margin-bottom: var(--sp-02);
@@ -2155,4 +2158,29 @@ tr.paused td {
   display: flex;
   flex-direction: column;
   margin-top: var(--sp-02);
+}
+
+/* Usage (Admin) */
+.meter {
+  height: 4px;
+  width: 140px;
+  max-width: 100%;
+  background: var(--border-subtle);
+  margin-top: var(--sp-02);
+}
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--interactive);
+}
+.meter.high span {
+  background: var(--support-warning);
+}
+.meter.full span {
+  background: var(--support-error);
+}
+.spark path {
+  fill: none;
+  stroke: var(--interactive);
+  stroke-width: 1.5;
 }

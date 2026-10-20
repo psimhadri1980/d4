@@ -378,6 +378,22 @@ export function buildOpenApiDocument(): OpenApiDocument {
   route({ method: 'post', path: `${propPath}/{id}/approve`, tags: ['Proposals'], summary: 'Apply every step as one change (architect or admin, not the author); 409 names the step that no longer applies', request: { params: z.object({ ws, id: pid }), ...propBody(ReviewBody) }, responses: { 200: json(Proposal, 'Applied'), ...errors } });
   route({ method: 'post', path: `${propPath}/{id}/reject`, tags: ['Proposals'], summary: 'Reject with a comment (architect or admin, not the author)', request: { params: z.object({ ws, id: pid }), ...propBody(ReviewBody) }, responses: { 200: json(Proposal, 'Rejected'), ...errors } });
 
+  route({
+    method: 'get',
+    path: '/v1/admin/usage',
+    tags: ['Administration'],
+    summary: 'Usage against the tenant limits, and daily readings for the last 30 days',
+    responses: {
+      200: json(
+        z.object({
+          metrics: z.array(z.object({ metric: z.enum(['elements', 'relationships', 'workspaces', 'queryRunsPerDay', 'jobsPerDay', 'storageBytes']), used: z.number(), limit: z.number().nullable().describe('null: unlimited') })),
+          history: z.array(z.object({ day: z.string(), metric: z.string(), value: z.number() })),
+        }),
+        'Usage',
+      ),
+      ...errors,
+    },
+  });
   const hookPath = '/v1/admin/webhooks';
   const WebhookBody = z.object({ name: z.string(), url: z.string().describe('https; must not resolve to a private address'), workspace: z.string().nullable().optional().describe('Workspace id or slug; null for all'), eventTypes: z.array(z.string()).optional().describe('Empty for every type') });
   route({ method: 'get', path: hookPath, tags: ['Webhooks'], responses: { 200: json(z.array(Webhook), 'Webhooks'), ...errors } });

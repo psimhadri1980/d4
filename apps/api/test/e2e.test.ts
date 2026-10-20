@@ -9,7 +9,7 @@ import { Client } from 'pg';
 import { parseModelDocument } from '@d4/codecs';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { JobQueue, processJob, S3ArtifactStore, startJobWorker } from '@d4/jobs';
-import { createDb, RoleStore, runMigrations, schema, seedLocal, type DbHandle } from '@d4/db';
+import { createDb, LOCAL_TENANT, RoleStore, runMigrations, schema, seedLocal, UsageStore, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
@@ -633,6 +633,35 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(404);
       expect((await call('POST', `/v1/admin/workspaces/${id}/restore`, admin)).status).toBe(204);
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
+    });
+
+    it('meters usage and refuses writes, jobs and workspaces over the tenant limits', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      const writer = await sign('quota-writer', ['architect']);
+      expect((await call('GET', '/v1/admin/usage', writer)).status).toBe(403);
+      const usage = (await call('GET', '/v1/admin/usage', admin)).body!;
+      const metric = (m: string) => usage['metrics'].find((x: any) => x.metric === m);
+      expect(metric('elements')).toMatchObject({ used: expect.any(Number), limit: 100000 });
+      expect(metric('workspaces').used).toBeGreaterThanOrEqual(1);
+
+      const existing = (await call('POST', `${ws()}/elements`, writer, { type: 'DataProduct', attrs: { name: 'Before the limit' } })).body!;
+      const quotas = new UsageStore(handle.db);
+      try {
+        await quotas.setOverrides(LOCAL_TENANT, { elements: 0, jobsPerDay: 0, workspaces: metric('workspaces').used }, 'test');
+        const refused = await call('POST', `${ws()}/elements`, writer, { type: 'DataProduct', attrs: { name: 'Over the limit' } });
+        expect(refused).toMatchObject({ status: 403, body: { error: 'QUOTA_EXCEEDED', message: expect.stringMatching(/^The plan allows 0 elements/) } });
+        // Imports are refused the same way; dry runs are not.
+        const doc = { apiVersion: 'd4/v1', kind: 'Model', metadata: { name: 'q' }, elements: [{ key: 'x', type: 'DataProduct', name: 'Quota import' }], relationships: [] };
+        expect((await call('POST', `${ws()}/import?dryRun=true`, writer, doc)).status).toBe(200);
+        expect((await call('POST', `${ws()}/import`, writer, doc)).body).toMatchObject({ error: 'QUOTA_EXCEEDED' });
+        expect((await call('POST', `${ws()}/jobs/export`, writer, { format: 'yaml' })).body).toMatchObject({ error: 'QUOTA_EXCEEDED' });
+        expect((await call('POST', '/v1/admin/workspaces', admin, { slug: 'quota-ws', name: 'Quota' })).body).toMatchObject({ error: 'QUOTA_EXCEEDED' });
+        // Changing existing elements is never limited.
+        expect((await call('PATCH', `${ws()}/elements/${existing['id']}`, writer, { expectedVersion: 1, set: { description: 'still allowed' } })).status).toBe(200);
+      } finally {
+        await quotas.setOverrides(LOCAL_TENANT, {}, 'test');
+      }
+      expect((await call('POST', `${ws()}/elements`, writer, { type: 'DataProduct', attrs: { name: 'Within the limit' } })).status).toBe(201);
     });
 
     it('reviews change proposals: check, submit, four-eyes approval as one change, stale refusal', async () => {

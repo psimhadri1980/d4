@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ExportParams } from './export';
 import type { JobQueue } from './queue';
 import { RenderParams } from './render';
+import { assertJobQuota } from './usage';
 
 /** When a schedule runs; hours are UTC so a schedule means the same thing for everyone. */
 export const Cadence = z.discriminatedUnion('frequency', [
@@ -61,8 +62,9 @@ export interface Queues {
   render: Pick<JobQueue, 'enqueue'>;
 }
 
-/** Starts one run of a schedule now: a job owned by the schedule's owner. */
+/** Starts one run of a schedule now: a job owned by the schedule's owner, within the tenant's job quota. */
 export async function startScheduledRun(db: Db, queues: Queues, s: ScheduleRow, now: Date): Promise<string> {
+  await assertJobQuota(db, s.tenantId, now);
   const job = await new JobStore(db).create(s.tenantId, {
     workspaceId: s.workspaceId,
     kind: s.kind,
@@ -82,6 +84,13 @@ export async function startScheduledRun(db: Db, queues: Queues, s: ScheduleRow, 
 export async function runDueSchedules(db: Db, queues: Queues, now = new Date()): Promise<string[]> {
   const claimed = await claimDueSchedules(db, now, (row) => nextRun(Cadence.parse(row.cadence), now));
   const jobs: string[] = [];
-  for (const s of claimed) jobs.push(await startScheduledRun(db, queues, s, now));
+  for (const s of claimed) {
+    try {
+      jobs.push(await startScheduledRun(db, queues, s, now));
+    } catch (e) {
+      // Over quota: this run is skipped; the schedule stays on its cadence.
+      if (!(e instanceof DomainError && e.code === 'QUOTA_EXCEEDED')) throw e;
+    }
+  }
   return jobs;
 }
