@@ -1,5 +1,14 @@
-import { Link } from 'react-router-dom';
-import type { RunResult } from '../api';
+import type { ReactNode } from 'react';
+
+/** A catalog query's result, as the API returns it from `/catalog/{id}/run`. */
+export interface QueryResult {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  truncated: boolean;
+  durationMs: number;
+  version: number;
+  status: string;
+}
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
@@ -15,13 +24,16 @@ function cell(v: unknown): string {
   return String(v);
 }
 
-export function toCsv(r: RunResult): string {
+export function toCsv(r: Pick<QueryResult, 'columns' | 'rows'>): string {
   const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   return [r.columns.map(esc).join(','), ...r.rows.map((row) => r.columns.map((c) => esc(cell(row[c]))).join(','))].join('\n');
 }
 
-/** Tabular run result; element ids link to the explorer. */
-export function ResultTable({ result, workspaceId, title }: { result: RunResult; workspaceId: string; title: string }) {
+/**
+ * Tabular query result with a CSV download. Values that are element ids are shown through
+ * `renderElementLink` (e.g. a router link to the element); without it they show as text.
+ */
+export function ResultTable({ result, title, renderElementLink }: { result: QueryResult; title: string; renderElementLink?: (id: string) => ReactNode }) {
   const download = () => {
     const url = URL.createObjectURL(new Blob([toCsv(result)], { type: 'text/csv' }));
     const a = document.createElement('a');
@@ -60,7 +72,7 @@ export function ResultTable({ result, workspaceId, title }: { result: RunResult;
                     const v = row[c];
                     return (
                       <td key={c}>
-                        {typeof v === 'string' && ULID.test(v) ? <Link to={`/w/${workspaceId}/e/${v}`}>open</Link> : cell(v)}
+                        {typeof v === 'string' && ULID.test(v) && renderElementLink ? renderElementLink(v) : cell(v)}
                       </td>
                     );
                   })}

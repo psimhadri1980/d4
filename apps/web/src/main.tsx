@@ -8,6 +8,7 @@ import '@fontsource/source-sans-3/300.css';
 import '@fontsource/source-sans-3/400.css';
 import '@fontsource/source-sans-3/600.css';
 import '@fontsource/ibm-plex-mono/400.css';
+import '@d4/ui-kit/styles.css';
 import './styles.css';
 import { applyTheme, storedTheme, watchSystemTheme } from './theme';
 

@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { GraphCanvas, ResultTable } from '@d4/ui-kit';
 import type { Element, Relationship, RunResult } from '../api';
 import { useRegistry } from '../model';
 import { ErrorBanner } from './ErrorBanner';
-import { GraphCanvas } from './GraphCanvas';
-import { ResultTable } from './ResultTable';
 
 /** Node, relationship and path shapes produced by the catalog runner. */
 interface RunnerNode {
@@ -162,7 +161,7 @@ export function QueryResultView({
           <p className="muted small">Double-click a node to open it in the explorer.</p>
         </>
       ) : (
-        <ResultTable result={result} workspaceId={workspaceId} title={title} />
+        <ResultTable result={result} title={title} renderElementLink={(id) => <Link to={`/w/${workspaceId}/e/${id}`}>open</Link>} />
       )}
     </div>
   );

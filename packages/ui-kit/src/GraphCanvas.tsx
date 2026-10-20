@@ -1,9 +1,13 @@
 import cytoscape, { type Core, type ElementDefinition, type LayoutOptions } from 'cytoscape';
 import { useEffect, useRef } from 'react';
+import type { Element, Relationship } from '@d4/core';
 import type { MetamodelRegistry } from '@d4/metamodel';
-import type { Element, Relationship } from '../api';
-import { elementName, layerOf } from '../model';
-import { THEME_EVENT } from '../theme';
+
+/** Dispatch this window event after changing theme tokens; open graphs restyle themselves. */
+export const THEME_EVENT = 'd4:theme';
+
+const elementName = (e: Element) => (typeof e.attrs['name'] === 'string' ? e.attrs['name'] : e.id);
+const layerOf = (reg: MetamodelRegistry, type: string) => reg.nodeType(type)?.layer ?? 'Other';
 
 interface Props {
   registry: MetamodelRegistry;
@@ -93,8 +97,20 @@ function layoutOptions(kind: GraphLayout, rootId: string | undefined, hops: Map<
   } as LayoutOptions;
 }
 
+/** Light-theme values for apps that do not define the D4 theme tokens. */
+const FALLBACK: Record<string, string> = {
+  '--text': '#161616',
+  '--muted': '#525252',
+  '--font-sans': 'system-ui, sans-serif',
+  '--surface': '#ffffff',
+  '--accent': '#0f62fe',
+  '--edge': '#a8a8a8',
+  '--bg': '#f4f4f4',
+  '--layer-other': '#8d8d8d',
+};
+
 /** Reads a CSS custom property so the graph follows the light/dark theme tokens. */
-const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || FALLBACK[name] || '';
 const layerColor = (layer: string) => token(`--layer-${layer.toLowerCase()}`) || token('--layer-other');
 
 type GraphStyle = cytoscape.StylesheetJsonBlock[];

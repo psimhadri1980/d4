@@ -1,7 +1,9 @@
+import { THEME_EVENT } from '@d4/ui-kit';
+
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
 const KEY = 'd4-theme';
-export const THEME_EVENT = 'd4:theme';
+export { THEME_EVENT };
 
 export function storedTheme(): ThemeChoice {
   try {

@@ -5,7 +5,7 @@ import { api, type Element, type Relationship } from '../api';
 import { ElementDetails } from '../components/ElementDetails';
 import { ElementList } from '../components/ElementList';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { GraphCanvas, type GraphLayout } from '../components/GraphCanvas';
+import { GraphCanvas, type GraphLayout } from '@d4/ui-kit';
 import { useRegistry } from '../model';
 import { useView, viewQuery } from '../view';
 import { ViewBar, ViewNotice } from '../components/ViewBar';

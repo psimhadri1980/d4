@@ -53,6 +53,7 @@ packages/
               tabular-import work, S3 artefact store, BullMQ queue, processJob
   cli/        `d4` command: validate, workspaces, import, export
   sdk/        typed REST client generated from the OpenAPI document (`openapi.json` + `src/schema.ts` are generated)
+  ui-kit/     React components shared by the web app and embedders: Gantt, GraphCanvas, ResultTable, styles.css
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       docker-compose, dev.sh, Keycloak realm, SeaweedFS, OTel, nginx, e2e runner
 docs/         PLAN.md, ADRs, this guide
@@ -452,6 +453,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `web-local` runs Vite with `--force`; restart it after changing `packages/*` |
 | On Queries, a tall tab made the tab strip scroll instead of the page | The strip (`overflow-x: auto`) sat in a scrolling flex column, so its minimum height was 0 and it shrank | Only the active `.tab-panel` scrolls; the strip is `flex: none` |
 | Search for a hyphenated name (e.g. "cut-over") found nothing | The analyzer indexes "cut" and "over"; the escaped prefix query "cut\-over*" is not analyzed | `luceneQuery` splits on hyphens and slashes too |
+| The web app is blank after adding or renaming a workspace package, with "does not provide an export named …" | Vite started before the package existed and serves its CommonJS file unbundled | Add it to `optimizeDeps.include` and `build.commonjsOptions.include` in `apps/web/vite.config.ts`, then restart `web-local` |
 | A new tenant's requests fail with "No ready graph database" or a connection error from `api-local` | Local processes reach tenant instances through `NEO4J_HOSTS`, computed when they start | Restart `api-local` and `worker-local` after `tenant-create` |
 | "The graph database registered for tenant … belongs to another tenant" | The tenant's registered bolt URI (or host mapping) points at a Neo4j already claimed by another tenant (`:D4Tenant` marker) | Fix the registry entry or `NEO4J_HOSTS`; never remove the marker to get past it |
 | Neo4j exits with 137 (`OOMKilled`) or becomes very slow under test load | The JVM's off-heap memory (direct buffers, class metadata for APOC/GDS) grew past the container limit; heap and page cache alone were capped | Compose caps it with `NEO4J_server_jvm_additional` (metaspace 512 MB is the minimum with GDS: 256 MB fails at start). Peak under the full test suite is about 1.5 GB of 1.8 GB. If it happens anyway: `docker compose -f deploy/docker-compose.yml up -d neo4j` |

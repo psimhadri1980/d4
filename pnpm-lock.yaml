@@ -163,6 +163,9 @@ importers:
       '@d4/render':
         specifier: workspace:*
         version: link:../../packages/render
+      '@d4/ui-kit':
+        specifier: workspace:*
+        version: link:../../packages/ui-kit
       '@fontsource/ibm-plex-mono':
         specifier: ^5.1.0
         version: 5.3.0
@@ -391,6 +394,40 @@ importers:
       openapi-typescript:
         specifier: 7.4.1
         version: 7.4.1(typescript@5.9.3)
+
+  packages/ui-kit:
+    dependencies:
+      '@d4/core':
+        specifier: workspace:*
+        version: link:../core
+      '@d4/metamodel':
+        specifier: workspace:*
+        version: link:../metamodel
+      '@d4/render':
+        specifier: workspace:*
+        version: link:../render
+    devDependencies:
+      '@types/cytoscape':
+        specifier: ^3.21.7
+        version: 3.31.0
+      '@types/react':
+        specifier: ^18.3.5
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      cytoscape:
+        specifier: ^3.30.2
+        version: 3.34.4
+      jsdom:
+        specifier: ^25.0.0
+        version: 25.0.1
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
 
 packages:
 

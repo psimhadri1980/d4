@@ -1,0 +1,116 @@
+/*
+ * @d4/ui-kit styles. Colours come from the D4 theme tokens (custom properties such as
+ * --layer-planning); each has a light-theme fallback, so the components also look right in an
+ * app that does not define them. Override the tokens to theme the components.
+ */
+.gantt-scroll {
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--border-subtle, #e0e0e0);
+  background: var(--layer-01, #ffffff);
+}
+.gantt {
+  display: block;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 12px;
+}
+.gantt-axis-bg {
+  fill: var(--layer-02, #f4f4f4);
+}
+.gantt-axis-label,
+.gantt-lane-label {
+  fill: var(--text-secondary, #525252);
+}
+.gantt-lane-label {
+  font-weight: 600;
+}
+.gantt-grid {
+  stroke: var(--border-subtle, #e0e0e0);
+}
+.gantt-grid.strong {
+  stroke: var(--border-strong, #8d8d8d);
+  stroke-opacity: 0.5;
+}
+.gantt-lane {
+  fill: var(--layer-02, #f4f4f4);
+}
+.gantt-row {
+  fill: transparent;
+}
+.gantt-row.selected {
+  fill: var(--layer-selected-subtle, rgba(15, 98, 254, 0.06));
+}
+.gantt-today {
+  stroke: var(--interactive, #0f62fe);
+  stroke-dasharray: 3 3;
+}
+.gantt-today-label {
+  fill: var(--interactive, #0f62fe);
+  font-size: 11px;
+}
+.gantt-dep {
+  fill: none;
+  stroke: var(--edge-line, #a8a8a8);
+  stroke-width: 1.2;
+}
+.gantt-dep.critical {
+  stroke: var(--support-error, #da1e28);
+}
+.gantt-arrowhead {
+  fill: var(--edge-line, #a8a8a8);
+}
+.gantt-item {
+  cursor: pointer;
+  outline: none;
+}
+.gantt-hit {
+  fill: transparent;
+}
+.gantt-item:hover .gantt-hit,
+.gantt-item:focus-visible .gantt-hit {
+  fill: var(--layer-hover, #e8e8e8);
+}
+.gantt-item:focus-visible .gantt-bar,
+.gantt-item:focus-visible .gantt-milestone {
+  stroke: var(--focus, #0f62fe);
+  stroke-width: 2;
+}
+.gantt-label {
+  fill: var(--text-primary, #161616);
+}
+.gantt-warn {
+  fill: var(--support-error, #da1e28);
+  font-weight: 700;
+}
+.gantt-bar {
+  fill: var(--layer-planning, #198038);
+}
+.gantt-item.st-done .gantt-bar {
+  fill-opacity: 0.45;
+}
+.gantt-item.critical .gantt-bar {
+  fill: var(--support-error, #da1e28);
+}
+.gantt-milestone {
+  fill: var(--text-primary, #161616);
+}
+.gantt-item.critical .gantt-milestone {
+  fill: var(--support-error, #da1e28);
+}
+.gantt-planned {
+  fill: none;
+  stroke: var(--border-strong, #8d8d8d);
+  stroke-dasharray: 4 3;
+}
+.gantt-item.selected .gantt-bar,
+.gantt-item.selected .gantt-milestone,
+.gantt-item.lit .gantt-bar,
+.gantt-item.lit .gantt-milestone {
+  stroke: var(--text-primary, #161616);
+  stroke-width: 2;
+}
+.graph {
+  flex: 1;
+  min-height: 300px;
+  background: var(--background, #f4f4f4);
+}

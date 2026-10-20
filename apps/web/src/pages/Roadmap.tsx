@@ -5,7 +5,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, type Element } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ScheduleForm } from '../components/ScheduleForm';
-import { Gantt, type GanttZoom } from '../components/Gantt';
+import { Gantt, type GanttZoom } from '@d4/ui-kit';
 import { download, roadmapToCsv, roadmapToMermaid } from '../roadmap-export';
 
 const LANE_LABEL: Record<LaneKind, string> = {

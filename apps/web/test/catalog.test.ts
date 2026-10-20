@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { QueryParamDef, RunResult } from '../src/api';
 import { paramsFromForm } from '../src/components/ParamForm';
-import { hopDistances } from '../src/components/GraphCanvas';
+import { hopDistances } from '@d4/ui-kit';
 import { graphFromRows } from '../src/components/QueryResultView';
-import { toCsv } from '../src/components/ResultTable';
+import { toCsv } from '@d4/ui-kit';
 
 describe('paramsFromForm', () => {
   const defs: QueryParamDef[] = [

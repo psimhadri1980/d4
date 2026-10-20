@@ -681,11 +681,6 @@ button.link.danger {
   background: var(--layer-01);
   border-bottom: 1px solid var(--border-subtle);
 }
-.graph {
-  flex: 1;
-  min-height: 300px;
-  background: var(--background);
-}
 .legend {
   margin: 0;
   padding: 0;
@@ -1237,112 +1232,6 @@ tbody tr:hover td {
 .roadmap-head .actions {
   display: flex;
   gap: var(--sp-03);
-}
-.gantt-scroll {
-  overflow: auto;
-  max-height: 60vh;
-  border: 1px solid var(--border-subtle);
-  background: var(--layer-01);
-}
-.gantt {
-  display: block;
-  font-family: var(--font-sans);
-  font-size: 12px;
-}
-.gantt-axis-bg {
-  fill: var(--layer-02);
-}
-.gantt-axis-label,
-.gantt-lane-label {
-  fill: var(--text-secondary);
-}
-.gantt-lane-label {
-  font-weight: 600;
-}
-.gantt-grid {
-  stroke: var(--border-subtle);
-}
-.gantt-grid.strong {
-  stroke: var(--border-strong);
-  stroke-opacity: 0.5;
-}
-.gantt-lane {
-  fill: var(--layer-02);
-}
-.gantt-row {
-  fill: transparent;
-}
-.gantt-row.selected {
-  fill: var(--layer-selected-subtle);
-}
-.gantt-today {
-  stroke: var(--interactive);
-  stroke-dasharray: 3 3;
-}
-.gantt-today-label {
-  fill: var(--interactive);
-  font-size: 11px;
-}
-.gantt-dep {
-  fill: none;
-  stroke: var(--edge-line);
-  stroke-width: 1.2;
-}
-.gantt-dep.critical {
-  stroke: var(--support-error);
-}
-.gantt-arrowhead {
-  fill: var(--edge-line);
-}
-.gantt-item {
-  cursor: pointer;
-  outline: none;
-}
-.gantt-hit {
-  fill: transparent;
-}
-.gantt-item:hover .gantt-hit,
-.gantt-item:focus-visible .gantt-hit {
-  fill: var(--layer-hover);
-}
-.gantt-item:focus-visible .gantt-bar,
-.gantt-item:focus-visible .gantt-milestone {
-  stroke: var(--focus);
-  stroke-width: 2;
-}
-.gantt-label {
-  fill: var(--text-primary);
-}
-.gantt-warn {
-  fill: var(--support-error);
-  font-weight: 700;
-}
-.gantt-bar {
-  fill: var(--layer-planning);
-}
-.gantt-item.st-done .gantt-bar {
-  fill-opacity: 0.45;
-}
-.gantt-item.critical .gantt-bar {
-  fill: var(--support-error);
-}
-.gantt-milestone {
-  fill: var(--text-primary);
-}
-.gantt-item.critical .gantt-milestone {
-  fill: var(--support-error);
-}
-.gantt-planned {
-  fill: none;
-  stroke: var(--border-strong);
-  stroke-dasharray: 4 3;
-}
-.gantt-item.selected .gantt-bar,
-.gantt-item.selected .gantt-milestone,
-.gantt-item.lit .gantt-bar,
-.gantt-item.lit .gantt-milestone {
-  stroke: var(--text-primary);
-  stroke-width: 2;
 }
 .conflict-list {
   margin: 0;
