@@ -96,7 +96,7 @@ export const paramLabel = label;
  * has an explicit "nothing selected" entry so what is highlighted is what will be sent, and the
  * chosen element stays listed even when a later search no longer matches it.
  */
-function ElementPicker({
+export function ElementPicker({
   id,
   workspaceId,
   types,

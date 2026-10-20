@@ -10,6 +10,7 @@ import { Queries, type TabMode } from './pages/Queries';
 import { Roadmap } from './pages/Roadmap';
 import { Compare } from './pages/Compare';
 import { Decisions } from './pages/Decisions';
+import { Proposals } from './pages/Proposals';
 import { Matrices } from './pages/Matrices';
 import { Import } from './pages/Import';
 import { Jobs } from './pages/Jobs';
@@ -34,6 +35,7 @@ export function App() {
         <Route path="compare" element={<Compare />} />
         <Route path="matrices" element={<Matrices />} />
         <Route path="decisions" element={<Decisions />} />
+        <Route path="proposals/:pid?" element={<Proposals />} />
         <Route path="import" element={<Import />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="reports" element={<Reports />} />

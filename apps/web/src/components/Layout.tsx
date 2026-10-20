@@ -44,6 +44,7 @@ export function Layout() {
           <NavLink to={`/w/${ws}/compare`}>Compare</NavLink>
           <NavLink to={`/w/${ws}/matrices`}>Matrices</NavLink>
           <NavLink to={`/w/${ws}/decisions`}>Decisions</NavLink>
+          <NavLink to={`/w/${ws}/proposals`}>Proposals</NavLink>
         </nav>
         <div className="spacer" />
         <Link to={`/w/${ws}/import`} className="button ghost">

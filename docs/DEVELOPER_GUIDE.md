@@ -236,6 +236,7 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | `events` | Append-only domain event log + outbox (`published_at`) |
 | `queries`, `query_versions`, `query_grants`, `query_executions` | Query Catalog |
 | `jobs`, `schedules` | Background jobs and report schedules |
+| `change_proposals` | Model changes awaiting review: steps (`operations`), status, author and reviewer |
 | `webhooks`, `webhook_deliveries` | Webhook endpoints (with signing secrets) and one row per event sent to each, with retry state |
 
 | Migration | Contents |
@@ -249,6 +250,7 @@ Images install with `--frozen-lockfile`. A stale lockfile fails the build, not s
 | 0006 | `schedules`, `jobs.schedule_id` |
 | 0007 | `users.realm_roles`, `schedules.recipients`, `schedules.paused_reason` |
 | 0008 | `webhooks`, `webhook_deliveries` |
+| 0009 | `change_proposals` |
 
 ---
 
@@ -270,9 +272,10 @@ GraphQL authenticates lazily inside resolvers, so auth failures come back as `ex
 
 ### Workspace access
 
-`WorkspaceAccess.resolve(principal, ws, 'read' | 'write')` loads the workspace for the principal's tenant, returning 404 for other tenants' ids.
+`WorkspaceAccess.resolve(principal, ws, 'read' | 'write' | 'review')` loads the workspace for the principal's tenant, returning 404 for other tenants' ids.
 - **Read** needs any role.
 - **Write** needs contributor, planner, architect or admin, from token roles or workspace role bindings.
+- **Review** (approving or rejecting change proposals) needs architect or admin.
 
 It returns the workspace's `MetamodelRegistry` (cached by metamodel id) and a `CommandContext`.
 

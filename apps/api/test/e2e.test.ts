@@ -635,6 +635,60 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
     });
 
+    it('reviews change proposals: check, submit, four-eyes approval as one change, stale refusal', async () => {
+      const author = await sign('proposer-1', ['contributor']);
+      const reviewer = await sign('reviewer-1', ['architect']);
+      const viewer = await sign('plain-viewer', ['viewer']);
+      const product = (await call('POST', `${ws()}/elements`, author, { type: 'DataProduct', attrs: { name: 'Proposal target' } })).body!;
+
+      expect((await call('POST', `${ws()}/proposals`, viewer, { title: 'x' })).status).toBe(403);
+      const draft = await call('POST', `${ws()}/proposals`, author, {
+        title: 'Move Proposal target to the lake',
+        operations: [
+          { op: 'createElement', ref: 'store', type: 'DataStore', attrs: { name: 'Proposal lake' } },
+          { op: 'createRelationship', type: 'HOLDS', from: 'store', to: product['id'], attrs: { role: 'MASTER' } },
+          { op: 'updateElement', id: product['id'], expectedVersion: 1, set: { description: 'Mastered in the lake' } },
+        ],
+      });
+      expect(draft).toMatchObject({ status: 201, body: { status: 'draft', stepCount: 3, check: { ok: true } } });
+      expect(draft.body!['steps'].map((s: any) => s.text)).toEqual([
+        "Add DataStore 'Proposal lake'",
+        "Connect DataStore 'Proposal lake' HOLDS DataProduct 'Proposal target'",
+        "Change DataProduct 'Proposal target': description",
+      ]);
+      const id = draft.body!['id'];
+      const url = `${ws()}/proposals/${id}`;
+      // Nothing applied while it is a proposal.
+      expect((await call('GET', `${ws()}/elements?q=proposal%20lake`, author)).body!['items']).toEqual([]);
+
+      expect((await call('POST', `${url}/approve`, reviewer)).status).toBe(409); // still a draft
+      expect((await call('POST', `${url}/submit`, author)).body).toMatchObject({ status: 'submitted' });
+      expect((await call('PATCH', url, author, { title: 'late edit' })).status).toBe(409);
+      expect((await call('POST', `${url}/approve`, author)).status).toBe(403); // not their own
+      expect((await call('POST', `${url}/approve`, viewer)).status).toBe(403);
+      expect((await call('POST', `${url}/reject`, reviewer, {})).status).toBe(400); // needs a reason
+
+      const applied = await call('POST', `${url}/approve`, reviewer, { comment: 'Looks right' });
+      expect(applied.body).toMatchObject({ status: 'applied', reviewComment: 'Looks right', check: null });
+      expect((await call('POST', `${url}/approve`, reviewer)).status).toBe(409);
+      const lakeId = applied.body!['steps'][0].subjectId;
+      expect((await call('GET', `${ws()}/elements/${lakeId}`, author)).body).toMatchObject({ attrs: { name: 'Proposal lake' } });
+      const history = (await call('GET', `${ws()}/elements/${product['id']}/history`, author)).body!;
+      expect(history.at(-1)).toMatchObject({ type: 'ElementUpdated', actor: (await call('GET', '/v1/me', author)).body!['userId'], data: { proposalId: id } });
+
+      // A proposal written against version 2 is refused once the element moves on, and says which step.
+      const stale = (await call('POST', `${ws()}/proposals`, author, { title: 'Rename', operations: [{ op: 'updateElement', id: product['id'], expectedVersion: 2, set: { description: 'v3' } }] })).body!;
+      await call('POST', `${ws()}/proposals/${stale['id']}/submit`, author);
+      await call('PATCH', `${ws()}/elements/${product['id']}`, reviewer, { expectedVersion: 2, set: { description: 'changed directly' } });
+      expect((await call('GET', `${ws()}/proposals/${stale['id']}`, reviewer)).body).toMatchObject({ check: { ok: false }, steps: [{ state: 'error' }] });
+      const refused = await call('POST', `${ws()}/proposals/${stale['id']}/approve`, reviewer);
+      expect(refused).toMatchObject({ status: 409, body: { message: expect.stringMatching(/^Step 1 cannot be applied/) } });
+      expect((await call('POST', `${ws()}/proposals/${stale['id']}/reject`, reviewer, { comment: 'Out of date' })).body).toMatchObject({ status: 'rejected' });
+
+      const listed = (await call('GET', `${ws()}/proposals?status=applied&status=rejected`, viewer)).body!;
+      expect(listed.map((p: any) => p.id)).toEqual(expect.arrayContaining([id, stale['id']]));
+    });
+
     it('lets admins manage webhooks: secrets shown once, URLs checked, pings queued', async () => {
       const admin = await sign('tenant-admin', ['admin']);
       expect((await call('GET', '/v1/admin/webhooks', await sign('plain-viewer', ['viewer']))).status).toBe(403);

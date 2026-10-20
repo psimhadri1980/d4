@@ -416,3 +416,36 @@ export const webhookDeliveries = pgTable(
     byWebhook: index('webhook_deliveries_webhook').on(t.webhookId, t.createdAt),
   }),
 );
+
+// ── Change proposals (Phase 5c) ─────────────────────────────────────────
+
+export const PROPOSAL_STATUSES = ['draft', 'submitted', 'applied', 'rejected', 'withdrawn'] as const;
+
+/**
+ * Model changes held for review. `operations` are ProposalOperation steps (see `@d4/core`); they
+ * apply as one change when a reviewer approves. Applied, rejected and withdrawn are final.
+ */
+export const changeProposals = pgTable(
+  'change_proposals',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    status: text('status', { enum: PROPOSAL_STATUSES }).notNull().default('draft'),
+    operations: jsonb('operations').notNull().default(sql`'[]'::jsonb`),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    decidedBy: text('decided_by'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    reviewComment: text('review_comment'),
+    /** Element ref → id assigned when the proposal applied. */
+    appliedRefs: jsonb('applied_refs'),
+  },
+  (t) => ({
+    byWorkspace: index('change_proposals_workspace').on(t.tenantId, t.workspaceId, t.status),
+  }),
+);

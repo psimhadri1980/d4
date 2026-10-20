@@ -5,10 +5,12 @@ import { MetamodelRegistry } from '@d4/metamodel';
 import { hasAnyRole, type Principal, type Role } from '../auth/identity';
 import { Database } from '../infra/database.service';
 
-export type Access = 'read' | 'write';
+export type Access = 'read' | 'write' | 'review';
 
 /** Roles that may change the model. Any role at all grants read access. */
 export const WRITE_ROLES: readonly Role[] = ['contributor', 'planner', 'architect'];
+/** Roles that may approve or reject change proposals (admins always may). */
+export const REVIEW_ROLES: readonly Role[] = ['architect'];
 
 export interface WorkspaceScope {
   tenantId: string;
@@ -52,7 +54,8 @@ export class WorkspaceAccess {
   }
 
   private allows(roles: readonly Role[], access: Access): boolean {
-    return access === 'read' ? roles.length > 0 : hasAnyRole(roles, WRITE_ROLES);
+    if (access === 'read') return roles.length > 0;
+    return hasAnyRole(roles, access === 'review' ? REVIEW_ROLES : WRITE_ROLES);
   }
 
   /** Metamodel versions are immutable, so registries are cached by id. */

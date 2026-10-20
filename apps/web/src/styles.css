@@ -2072,3 +2072,87 @@ tr.paused td {
 .webhook-deliveries > td {
   background: var(--surface-2);
 }
+
+/* Change proposals */
+.proposals-page {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: var(--sp-06);
+  align-items: start;
+  height: 100%;
+  max-width: 1400px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  .proposals-page {
+    padding: var(--sp-04);
+  }
+}
+@media (max-width: 800px) {
+  .proposals-page {
+    grid-template-columns: 1fr;
+  }
+}
+.proposal-list .inline-form input {
+  flex: 1;
+  min-width: 0;
+}
+.proposal-items li {
+  padding: var(--sp-03) var(--sp-03);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.proposal-items li.selected {
+  background: var(--layer-selected-subtle);
+}
+.proposal-steps {
+  padding-left: var(--sp-06);
+}
+.proposal-steps li {
+  padding: var(--sp-02) 0;
+  border-left: 3px solid transparent;
+  padding-left: var(--sp-03);
+}
+.proposal-steps li.step-ok {
+  border-left-color: var(--support-success);
+}
+.proposal-steps li.step-error {
+  border-left-color: var(--support-error);
+}
+.proposal-steps li .link {
+  margin-left: var(--sp-03);
+}
+.step-builder,
+.review-box {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--sp-05);
+  padding-top: var(--sp-04);
+}
+.review-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-04);
+}
+.review-box .field {
+  flex: 1 1 320px;
+}
+.proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-03);
+  margin-top: var(--sp-05);
+}
+.review-comment {
+  border-left: 3px solid var(--border-strong);
+  margin: var(--sp-03) 0;
+  padding-left: var(--sp-04);
+}
+.connect-form {
+  align-items: flex-start;
+}
+.connect-form .field label.small {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--sp-02);
+}

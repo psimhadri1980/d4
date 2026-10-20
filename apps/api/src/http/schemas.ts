@@ -319,3 +319,30 @@ export const ErrorSchema = z
   .openapi('Error');
 
 export { z };
+
+// ── Change proposals ────────────────────────────────────────────────────
+
+const ref = z.string().min(1).max(64);
+const Versioned = { id: z.string().min(1), expectedVersion: z.number().int().positive() };
+const Period = { validFrom: IsoDate.nullable().optional(), validTo: IsoDate.nullable().optional() };
+const Changes = { set: Attrs.optional(), unset: z.array(z.string()).optional(), ...Period };
+
+/** One step; `ref` names an element created here so later steps can use it as `from`, `to` or `id`. */
+export const ProposalOperation = z
+  .discriminatedUnion('op', [
+    z.object({ op: z.literal('createElement'), ref, type: z.string(), attrs: Attrs, ...Period, scenarioId: z.string().nullable().optional() }).strict(),
+    z.object({ op: z.literal('updateElement'), ...Versioned, ...Changes }).strict(),
+    z.object({ op: z.literal('deleteElement'), ...Versioned }).strict(),
+    z
+      .object({ op: z.literal('createRelationship'), type: z.string(), from: z.string().min(1), to: z.string().min(1), attrs: Attrs.optional(), ...Period, scenarioId: z.string().nullable().optional() })
+      .strict(),
+    z.object({ op: z.literal('updateRelationship'), ...Versioned, ...Changes }).strict(),
+    z.object({ op: z.literal('deleteRelationship'), ...Versioned }).strict(),
+  ])
+  .openapi('ProposalOperation');
+
+export const CreateProposalBody = z
+  .object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(5000).nullable().optional(), operations: z.array(ProposalOperation).max(500).default([]) })
+  .strict();
+export const EditProposalBody = CreateProposalBody.partial().strict();
+export const ReviewBody = z.object({ comment: z.string().trim().max(5000).optional() }).strict();

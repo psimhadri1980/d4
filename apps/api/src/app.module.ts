@@ -17,6 +17,7 @@ import { JobsInfra } from './infra/jobs.service';
 import { TenantGraphService } from './infra/tenant-graph.service';
 import { AdminController } from './model/admin.controller';
 import { WebhooksController } from './model/webhooks.controller';
+import { ProposalsController } from './model/proposals.controller';
 import { ElementsController } from './model/elements.controller';
 import { ModelFactory } from './model/model.factory';
 import { DiffController } from './model/diff.controller';
@@ -37,6 +38,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     WorkspacesController,
     AdminController,
     WebhooksController,
+    ProposalsController,
     ElementsController,
     RelationshipsController,
     RoadmapController,

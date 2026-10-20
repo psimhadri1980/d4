@@ -454,3 +454,60 @@ export const adminApi = {
   deliveries: (id: string) => request<WebhookDelivery[]>('GET', `/v1/admin/webhooks/${id}/deliveries`),
   redeliver: (id: string, delivery: string) => request<WebhookDelivery>('POST', `/v1/admin/webhooks/${id}/deliveries/${delivery}/redeliver`),
 };
+
+// ── Change proposals ────────────────────────────────────────────────────
+
+export type ProposalStatus = 'draft' | 'submitted' | 'applied' | 'rejected' | 'withdrawn';
+
+type Period = { validFrom?: string | null; validTo?: string | null };
+export type ProposalOperation =
+  | ({ op: 'createElement'; ref: string; type: string; attrs: Record<string, unknown> } & Period)
+  | ({ op: 'updateElement'; id: string; expectedVersion: number; set?: Record<string, unknown>; unset?: string[] } & Period)
+  | { op: 'deleteElement'; id: string; expectedVersion: number }
+  | ({ op: 'createRelationship'; type: string; from: string; to: string; attrs?: Record<string, unknown> } & Period)
+  | ({ op: 'updateRelationship'; id: string; expectedVersion: number; set?: Record<string, unknown>; unset?: string[] } & Period)
+  | { op: 'deleteRelationship'; id: string; expectedVersion: number };
+
+export interface ProposalSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  status: ProposalStatus;
+  stepCount: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  submittedAt: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  reviewComment: string | null;
+}
+
+export interface ProposalStep {
+  index: number;
+  op: ProposalOperation['op'];
+  text: string;
+  subjectId: string | null;
+  state: 'ok' | 'error' | 'unchecked';
+  error: { code: string; message: string } | null;
+}
+
+export interface Proposal extends ProposalSummary {
+  operations: ProposalOperation[];
+  steps: ProposalStep[];
+  check: { ok: boolean } | null;
+}
+
+const prop = (ws: string, id = '') => `/v1/workspaces/${ws}/proposals${id ? `/${id}` : ''}`;
+export const proposalsApi = {
+  list: (ws: string, status?: ProposalStatus[]) => request<ProposalSummary[]>('GET', `${prop(ws)}${qs({ status })}`),
+  get: (ws: string, id: string) => request<Proposal>('GET', prop(ws, id)),
+  create: (ws: string, body: { title: string; description?: string; operations?: ProposalOperation[] }) => request<Proposal>('POST', prop(ws), body),
+  edit: (ws: string, id: string, body: { title?: string; description?: string | null; operations?: ProposalOperation[] }) => request<Proposal>('PATCH', prop(ws, id), body),
+  remove: (ws: string, id: string) => request<void>('DELETE', prop(ws, id)),
+  act: (ws: string, id: string, action: 'submit' | 'reopen' | 'withdraw' | 'approve' | 'reject', comment?: string) =>
+    request<Proposal>('POST', `${prop(ws, id)}/${action}`, comment ? { comment } : {}),
+};
+
+/** Architects and admins review proposals (workspace-bound roles are checked by the API). */
+export const canReview = (roles: string[] | undefined) => !!roles && (roles.includes('architect') || roles.includes('admin'));
