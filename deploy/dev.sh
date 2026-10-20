@@ -122,12 +122,12 @@ case "${1:-help}" in
       port=7701; while lsof -nP -iTCP:$port -sTCP:LISTEN >/dev/null 2>&1 || docker ps --format '{{.Ports}}' | grep -q ":$port->"; do port=$((port + 1)); done
       docker run -d --name "$c" --label "d4.tenant=$id" --network d4_default --restart unless-stopped \
         -p "127.0.0.1:$port:7687" -v "$c-data:/data" -v "$c-plugins:/plugins" \
-        -e NEO4J_AUTH="neo4j/$(cat "$secret")" -e NEO4J_PLUGINS='["apoc", "graph-data-science"]' \
-        -e NEO4J_dbms_security_procedures_unrestricted='apoc.*,gds.*' -e NEO4J_dbms_security_procedures_allowlist='apoc.*,gds.*' \
+        -e NEO4J_AUTH="neo4j/$(cat "$secret")" -e NEO4J_PLUGINS='["apoc"]' \
+        -e NEO4J_dbms_security_procedures_unrestricted='apoc.*' -e NEO4J_dbms_security_procedures_allowlist='apoc.*' \
         -e NEO4J_db_transaction_timeout=30s -e NEO4J_server_memory_heap_initial__size=256m -e NEO4J_server_memory_heap_max__size=384m \
         -e NEO4J_server_memory_pagecache_size=64m -e NEO4J_db_memory_transaction_total_max=128m \
-        -e NEO4J_server_jvm_additional='-XX:MaxDirectMemorySize=128m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=64m -Xss512k' \
-        --memory 1200m --cpus 1 neo4j:5.26-community >/dev/null
+        -e NEO4J_server_jvm_additional='-XX:MaxDirectMemorySize=128m -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=64m -Xss512k' \
+        --memory 900m --cpus 1 neo4j:5.26-community >/dev/null
       echo "Started $c on 127.0.0.1:$port"
     fi
     tenant_cli create "$id" --name "$name" --bolt "bolt://$c:7687" --secret "file:neo4j-$id"
