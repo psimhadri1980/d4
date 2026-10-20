@@ -127,7 +127,7 @@ export interface TabularImportResult {
 
 export interface Job {
   id: string;
-  kind: 'export' | 'import-tabular' | 'render';
+  kind: 'export' | 'import-tabular' | 'render' | 'backup' | 'verify' | 'restore' | 'rebuild';
   status: 'queued' | 'running' | 'succeeded' | 'failed';
   progress: number;
   params: Record<string, unknown>;
@@ -227,6 +227,7 @@ export const api = {
   deleteSchedule: (ws: string, id: string) => request<void>('DELETE', `/v1/workspaces/${ws}/schedules/${id}`),
   runSchedule: (ws: string, id: string) => request<Job>('POST', `/v1/workspaces/${ws}/schedules/${id}/run`),
   jobs: (ws: string) => request<Job[]>('GET', `/v1/workspaces/${ws}/jobs`),
+  job: (ws: string, id: string) => request<Job>('GET', `/v1/workspaces/${ws}/jobs/${id}`),
   jobFile: (ws: string, id: string) => requestFile(`/v1/workspaces/${ws}/jobs/${id}/artifact`),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>
     request<ModelDiffView>(
@@ -517,3 +518,26 @@ export const proposalsApi = {
 
 /** Architects and admins review proposals (workspace-bound roles are checked by the API). */
 export const canReview = (roles: string[] | undefined) => !!roles && (roles.includes('architect') || roles.includes('admin'));
+
+// ── Backups ─────────────────────────────────────────────────────────────
+
+export interface Backup {
+  id: string;
+  reason: 'manual' | 'scheduled' | 'safety';
+  bytes: number;
+  elements: number;
+  relationships: number;
+  eventSeq: number;
+  checksum: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+const bk = (ws: string) => `/v1/workspaces/${ws}/backups`;
+export const backupsApi = {
+  list: (ws: string) => request<Backup[]>('GET', bk(ws)),
+  backup: (ws: string) => request<Job>('POST', bk(ws)),
+  verify: (ws: string) => request<Job>('POST', `${bk(ws)}/verify`),
+  rebuild: (ws: string, confirm: string) => request<Job>('POST', `${bk(ws)}/rebuild`, { confirm }),
+  restore: (ws: string, id: string, confirm: string) => request<Job>('POST', `${bk(ws)}/${id}/restore`, { confirm }),
+};

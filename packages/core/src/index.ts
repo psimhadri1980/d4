@@ -16,3 +16,4 @@ export * from './validate-model';
 export * from './validity';
 export * from './views';
 export * from './proposals';
+export * from './replay';

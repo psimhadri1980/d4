@@ -635,6 +635,43 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', `/v1/workspaces/${id}/elements`, admin)).status).toBe(200);
     });
 
+    it.skipIf(!REDIS || !S3)('backs up a workspace, verifies it against the event log, and guards restores', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      const architect = await sign('backup-architect', ['architect']);
+      const deps = {
+        db: app.get(Database).db,
+        graphs: app.get(TenantGraphService).graphs,
+        artifacts: new S3ArtifactStore({ endpoint: S3!, accessKey: 'd4', secretKey: 'd4-local-dev', bucket: 'd4-test-artifacts' }),
+      };
+      // The queue worker started by the jobs test runs queued jobs; run alone, there is none, so run them here.
+      const runJob = async (res: { body?: Record<string, any> }) => {
+        const id = res.body!['id'];
+        if (!jobWorker) await processJob({ tenantId: 't_local', jobId: id }, deps);
+        for (let i = 0; i < 300; i++) {
+          const j = (await call('GET', `${ws()}/jobs/${id}`, admin)).body!;
+          if (j['status'] === 'succeeded' || j['status'] === 'failed') return j;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        throw new Error(`job ${id} did not finish`);
+      };
+
+      expect((await call('POST', `${ws()}/backups`, architect)).status).toBe(403);
+      const backup = await runJob(await call('POST', `${ws()}/backups`, admin));
+      expect(backup).toMatchObject({ kind: 'backup', status: 'succeeded', result: { checksum: expect.any(String) } });
+      const list = (await call('GET', `${ws()}/backups`, admin)).body!;
+      expect(list[0]).toMatchObject({ id: backup['result'].backupId, reason: 'manual', elements: backup['result'].elements });
+
+      const verify = await runJob(await call('POST', `${ws()}/backups/verify`, admin));
+      expect(verify).toMatchObject({ kind: 'verify', status: 'succeeded', result: { matches: true, differences: 0 } });
+
+      // Restore and rebuild must name the workspace.
+      expect((await call('POST', `${ws()}/backups/${list[0].id}/restore`, admin, { confirm: 'wrong' })).body).toMatchObject({ error: 'BAD_REQUEST', message: expect.stringMatching(/^Type the workspace slug/) });
+      expect((await call('POST', `${ws()}/backups/rebuild`, admin, {})).status).toBe(400);
+      expect((await call('POST', `${ws()}/backups/nope/restore`, admin, { confirm: 'default' })).status).toBe(404);
+      const restore = await runJob(await call('POST', `${ws()}/backups/${list[0].id}/restore`, admin, { confirm: 'default' }));
+      expect(restore).toMatchObject({ kind: 'restore', status: 'succeeded', result: { checksum: verify['result'].checksum } });
+    });
+
     it('meters usage and refuses writes, jobs and workspaces over the tenant limits', async () => {
       const admin = await sign('tenant-admin', ['admin']);
       const writer = await sign('quota-writer', ['architect']);

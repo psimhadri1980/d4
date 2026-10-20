@@ -2,6 +2,7 @@ import type { TableMapping } from '@d4/codecs';
 import { DomainError } from '@d4/core';
 import { JobStore, MetamodelStore, ScheduleStore, WorkspaceStore, type Db, type JobRow, type ScheduleRow } from '@d4/db';
 import { canStillRead } from './access';
+import { replaceFromLog, RestoreParams, snapshotWorkspace, verifyWorkspace, type BackupContext } from './backup';
 import type { Mailer } from './mail';
 import type { SessionProvider } from '@d4/graph';
 import type { ArtifactStore } from './artifacts';
@@ -153,6 +154,27 @@ async function run(job: JobRow, deps: JobDeps, store: JobStore) {
       result: { target: p.target, format: p.format, title, width: Math.round(svg.width), height: Math.round(svg.height) },
       artifact: { key, name: file.filename, type: file.contentType, bytes },
     };
+  }
+
+  if (job.kind === 'backup' || job.kind === 'verify' || job.kind === 'restore' || job.kind === 'rebuild') {
+    const c: BackupContext = {
+      db: deps.db,
+      artifacts: deps.artifacts,
+      sessions: deps.graphs.sessions(job.tenantId),
+      registry,
+      tenantId: job.tenantId,
+      workspaceId: ws.id,
+      actor: job.createdBy,
+      jobId: job.id,
+      progress,
+    };
+    let result: Record<string, unknown>;
+    if (job.kind === 'backup') {
+      const b = await snapshotWorkspace(c, (job.params as { reason?: 'scheduled' }).reason ?? 'manual');
+      result = { backupId: b.id, elements: b.elements, relationships: b.relationships, bytes: b.bytes, eventSeq: b.eventSeq, checksum: b.checksum };
+    } else if (job.kind === 'verify') result = await verifyWorkspace(c);
+    else result = await replaceFromLog(c, job.kind === 'restore' ? RestoreParams.parse(job.params) : 'events');
+    return { result, artifact: undefined };
   }
 
   const input = JSON.parse(new TextDecoder().decode(await deps.artifacts.get(inputKey(job.id)))) as TabularJobInput;

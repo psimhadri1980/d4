@@ -3,6 +3,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { adminApi, api, can, ROLES, type AdminWorkspace } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { Backups } from './AdminBackups';
 import { Usage } from './AdminUsage';
 import { Webhooks } from './AdminWebhooks';
 
@@ -14,7 +15,7 @@ const toSlug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 48);
 
-/** Tenant administration: workspaces, role bindings, webhooks, usage. Admins only. */
+/** Tenant administration: workspaces, role bindings, webhooks, usage, backups. Admins only. */
 export function Admin() {
   const { ws } = useParams();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
@@ -32,8 +33,15 @@ export function Admin() {
       <Members defaultScope={ws!} />
       <Webhooks />
       <Usage />
+      <CurrentBackups ws={ws!} />
     </div>
   );
+}
+
+function CurrentBackups({ ws }: { ws: string }) {
+  const list = useQuery({ queryKey: ['admin', 'workspaces'], queryFn: adminApi.workspaces });
+  const slug = list.data?.find((w) => w.id === ws)?.slug;
+  return slug ? <Backups ws={ws} slug={slug} /> : null;
 }
 
 function Workspaces() {

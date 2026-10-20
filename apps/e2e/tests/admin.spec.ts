@@ -57,6 +57,18 @@ test.describe('administration', () => {
     await expect(usage.getByRole('row', { name: /^Stored files/ })).toContainText('5 GB');
   });
 
+  test('admins back up the workspace and check it against the event log', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Admin', exact: true }).click();
+    const backups = page.getByRole('region', { name: 'Backups' });
+    await backups.getByRole('button', { name: 'Back up now' }).click();
+    await expect(backups.getByRole('status')).toContainText('Back up the graph: Saved:', { timeout: 30_000 });
+    await expect(backups.getByRole('table', { name: 'Backup list' }).getByRole('row').nth(1)).toContainText('manual');
+
+    await backups.getByRole('button', { name: 'Check against the event log' }).click();
+    await expect(backups.getByRole('status')).toContainText('Matches the event log', { timeout: 30_000 });
+  });
+
   test.describe('as a viewer', () => {
     test.use({ storageState: { cookies: [], origins: [] } });
     test('there is no Admin link and the page says why', async ({ page }) => {

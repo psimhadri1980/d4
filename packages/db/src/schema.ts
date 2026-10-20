@@ -80,6 +80,8 @@ export const workspaces = pgTable(
       .references(() => metamodels.id),
     createdAt: createdAt(),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
+    /** Set while a restore or rebuild replaces the graph; model writes are refused meanwhile. */
+    lockedReason: text('locked_reason'),
   },
   (t) => ({ slug: uniqueIndex('workspaces_tenant_slug').on(t.tenantId, t.slug) }),
 );
@@ -296,6 +298,8 @@ export const queryExecutions = pgTable(
   }),
 );
 
+export const JOB_KINDS = ['export', 'import-tabular', 'render', 'backup', 'verify', 'restore', 'rebuild'] as const;
+
 /**
  * Background jobs (imports, exports, renders). The queue (BullMQ in Redis) only carries the job
  * id; this table is the durable record users see: status, progress, result and the artefact.
@@ -306,7 +310,7 @@ export const jobs = pgTable(
     id: text('id').primaryKey(),
     tenantId: text('tenant_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
-    kind: text('kind', { enum: ['export', 'import-tabular', 'render'] }).notNull(),
+    kind: text('kind', { enum: JOB_KINDS }).notNull(),
     status: text('status', { enum: ['queued', 'running', 'succeeded', 'failed'] }).notNull().default('queued'),
     params: jsonb('params').notNull(),
     /** 0–100. */
@@ -486,4 +490,32 @@ export const usageDaily = pgTable(
     recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.day, t.metric] }) }),
+);
+
+// ── Graph backups (Phase 5e) ────────────────────────────────────────────
+
+/**
+ * A snapshot of one workspace's graph in object storage. `eventSeq` is the event-log position
+ * when the snapshot started: restoring loads the snapshot, then replays events after it.
+ */
+export const graphBackups = pgTable(
+  'graph_backups',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    /** manual, scheduled, or safety (taken automatically before a restore or rebuild) */
+    reason: text('reason', { enum: ['manual', 'scheduled', 'safety'] }).notNull(),
+    objectKey: text('object_key').notNull(),
+    bytes: integer('bytes').notNull(),
+    elements: integer('elements').notNull(),
+    relationships: integer('relationships').notNull(),
+    eventSeq: bigint('event_seq', { mode: 'number' }).notNull(),
+    /** SHA-256 over the canonical items, to compare graphs without reading them. */
+    checksum: text('checksum').notNull(),
+    jobId: text('job_id'),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => ({ byWorkspace: index('graph_backups_workspace').on(t.tenantId, t.workspaceId, t.createdAt) }),
 );

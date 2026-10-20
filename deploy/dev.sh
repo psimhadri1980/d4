@@ -59,7 +59,7 @@ case "${1:-help}" in
     pn turbo run build --filter '@d4/worker^...'
     POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_URI=bolt://localhost:7687 NEO4J_PASSWORD=d4-local-dev \
       REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local WEBHOOK_ALLOW_PRIVATE=true \
-      SMTP_URL=smtp://localhost:1025 WORKER_HEALTH_PORT=3102 SCHEDULER_INTERVAL_MS=${D4_SCHEDULER_INTERVAL_MS:-0} WEBHOOK_INTERVAL_MS=${D4_WEBHOOK_INTERVAL_MS:-0} WEBHOOK_ALLOW_PRIVATE=true \
+      SMTP_URL=smtp://localhost:1025 WORKER_HEALTH_PORT=3102 SCHEDULER_INTERVAL_MS=${D4_SCHEDULER_INTERVAL_MS:-0} WEBHOOK_INTERVAL_MS=${D4_WEBHOOK_INTERVAL_MS:-0} WEBHOOK_ALLOW_PRIVATE=true BACKUP_HOUR_UTC=-1 \
       pn --filter @d4/worker exec tsx watch src/main.ts ;;
   # Web checks on local Node: unit tests, typecheck, lint and a production build.
   web-check)

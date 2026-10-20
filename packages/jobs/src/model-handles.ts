@@ -1,5 +1,5 @@
-import { ModelService } from '@d4/core';
-import { EventStore, type Db } from '@d4/db';
+import { DomainError, ModelService } from '@d4/core';
+import { EventStore, WorkspaceLock, type Db } from '@d4/db';
 import { GraphQueries, Neo4jModelRepository, type EventSink, type SessionProvider } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import type { GraphQuotaGuard } from './usage';
@@ -21,7 +21,10 @@ export interface ModelHandles {
 export function eventSink(db: Db, tenantId: string, quota?: { guard: GraphQuotaGuard; sessions: SessionProvider }): EventSink {
   return {
     withEvents: async (events, write) => {
-      // Every model write (commands, imports, approved proposals) passes here, so quotas hold everywhere.
+      // Every model write (commands, imports, approved proposals) passes here, so locks and quotas hold everywhere.
+      const ws = events[0]?.workspaceId;
+      const locked = ws ? await new WorkspaceLock(db).reason(tenantId, ws) : null;
+      if (locked) throw new DomainError('LOCKED', `The workspace cannot be changed now: ${locked}`);
       const counted = quota ? await quota.guard.check(tenantId, quota.sessions, events) : undefined;
       await db.transaction(async (tx) => {
         await new EventStore(tx).append(tenantId, events);

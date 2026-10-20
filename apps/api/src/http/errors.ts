@@ -10,6 +10,7 @@ export const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
   NOT_FOUND: 404,
   VERSION_CONFLICT: 409,
   QUOTA_EXCEEDED: 403,
+  LOCKED: 423,
 };
 
 export interface ErrorBody {

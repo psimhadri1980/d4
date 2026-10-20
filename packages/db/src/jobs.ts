@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import { ulid } from '@d4/core';
 import type { DbOrTx } from './client';
 import { jobs } from './schema';
@@ -30,6 +30,16 @@ export interface Artifact {
  */
 export class JobStore {
   constructor(private readonly db: DbOrTx) {}
+
+  /** Whether the workspace has a job of this kind created since `since` (any status). */
+  async hasKindSince(tenantId: string, workspaceId: string, kind: JobKind, since: Date): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(and(eq(jobs.tenantId, tenantId), eq(jobs.workspaceId, workspaceId), eq(jobs.kind, kind), gte(jobs.createdAt, since)))
+      .limit(1);
+    return !!row;
+  }
 
   async create(tenantId: string, j: NewJob): Promise<JobRow> {
     const [row] = await this.db

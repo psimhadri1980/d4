@@ -3,37 +3,10 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, type Job } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { describe, outcome } from '../jobText';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
 const size = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
-
-function describe(j: Job): string {
-  if (j.kind === 'render') return `Picture (${String(j.params['format']).toUpperCase()}) of ${j.params['target'] === 'roadmap' ? 'a roadmap' : 'a graph'}`;
-  if (j.kind === 'export') {
-    const p = j.params;
-    const bits = [String(p['format'] ?? 'yaml'), p['scope'] ? 'of a graph' : 'of the workspace', p['asOf'] ? `as of ${String(p['asOf'])}` : '', p['scenario'] ? 'in a scenario' : ''];
-    return `Export ${bits.filter(Boolean).join(' ')}`;
-  }
-  const files = (j.params['files'] as string[] | undefined) ?? [];
-  return `${j.params['dryRun'] ? 'Check' : 'Import'} ${files.join(', ')}`;
-}
-
-function outcome(j: Job): string {
-  if (j.status === 'failed') return j.error ?? 'Failed';
-  if (j.status !== 'succeeded' || !j.result) return '';
-  interface Counts {
-    created?: number;
-    updated?: number;
-  }
-  const r = j.result as { elements?: Counts | number; relationships?: Counts | number; rowIssues?: unknown[]; issues?: unknown[]; applied?: boolean; ok?: boolean };
-  if (j.kind === 'render') return String((j.result as { title?: string }).title ?? '');
-  if (j.kind === 'export') return `${String(r.elements)} elements, ${String(r.relationships)} relationships`;
-  const issues = (r.rowIssues?.length ?? 0) + (r.issues?.length ?? 0);
-  const el = (r.elements ?? {}) as Counts;
-  const rel = (r.relationships ?? {}) as Counts;
-  const counts = `${el.created ?? 0} new, ${el.updated ?? 0} changed elements; ${rel.created ?? 0} new relationships`;
-  return r.applied ? `Imported: ${counts}` : r.ok ? `Ready: ${counts}` : `Not imported: ${issues} problem${issues === 1 ? '' : 's'} (run a check in Import to see them)`;
-}
 
 /** Your background jobs in this workspace; refreshes while any is still running. */
 export function Jobs() {

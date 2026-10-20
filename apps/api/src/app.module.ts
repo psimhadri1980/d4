@@ -18,6 +18,7 @@ import { TenantGraphService } from './infra/tenant-graph.service';
 import { AdminController } from './model/admin.controller';
 import { WebhooksController } from './model/webhooks.controller';
 import { ProposalsController } from './model/proposals.controller';
+import { BackupsController } from './model/backups.controller';
 import { ElementsController } from './model/elements.controller';
 import { ModelFactory } from './model/model.factory';
 import { DiffController } from './model/diff.controller';
@@ -39,6 +40,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     AdminController,
     WebhooksController,
     ProposalsController,
+    BackupsController,
     ElementsController,
     RelationshipsController,
     RoadmapController,

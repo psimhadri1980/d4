@@ -27,6 +27,8 @@ const Env = z.object({
   WEBHOOK_INTERVAL_MS: z.coerce.number().int().min(0).default(5_000),
   /** Allow http and private-network webhook URLs. Local development only. */
   WEBHOOK_ALLOW_PRIVATE: z.preprocess((v) => v === 'true' || v === '1', z.boolean()).default(false),
+  /** UTC hour after which each active workspace gets its daily backup; -1 turns daily backups off. */
+  BACKUP_HOUR_UTC: z.coerce.number().int().min(-1).max(23).default(2),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
   /** Health endpoint for container checks. */
   WORKER_HEALTH_PORT: z.coerce.number().int().default(3002),

@@ -28,6 +28,8 @@ function friendly(e: ApiError): string {
       return 'This would break a modelling rule.';
     case 'INVALID_TRANSITION':
       return 'That lifecycle change is not allowed.';
+    case 'LOCKED':
+      return 'This workspace is being restored. Try again in a few minutes.';
     case 'QUOTA_EXCEEDED':
       return 'Your plan limit is reached. An admin can see usage on the Admin page.';
     case 'VALIDATION':

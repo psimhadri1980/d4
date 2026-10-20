@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createDb } from '@d4/db';
-import { GraphQuotaGuard, JobQueue, meterUsage, processJob, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { GraphQuotaGuard, JobQueue, meterUsage, processJob, pruneBackups, startScheduledBackups, pruneArtifacts, RENDER_QUEUE, runDueSchedules, runWebhookPass, S3ArtifactStore, SmtpMailer, startJobWorker, TenantGraphs, type JobDeps } from '@d4/jobs';
 import { loadConfig } from './config';
 
 /**
@@ -56,6 +56,8 @@ async function main() {
     try {
       const started = await runDueSchedules(db.db, queues);
       if (started.length) log('scheduled reports started', { jobs: started });
+      const backups = await startScheduledBackups(db.db, queues.jobs, config.BACKUP_HOUR_UTC);
+      if (backups.length) log('daily backups started', { jobs: backups.length });
       // Once an hour: delete files past the retention period.
       if (Date.now() - lastPrune > 3_600_000) {
         lastPrune = Date.now();
@@ -64,6 +66,8 @@ async function main() {
         // Also hourly: today's usage reading per tenant, for billing and the Admin page's history.
         const metered = await meterUsage(db.db, graphs);
         log('usage recorded', { tenants: metered });
+        const prunedBackups = await pruneBackups(db.db, artifacts);
+        if (prunedBackups) log('old backups deleted', { removed: prunedBackups });
       }
     } catch (e) {
       log('scheduler tick failed', { error: e instanceof Error ? e.message : String(e) });

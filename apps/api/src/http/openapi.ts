@@ -307,7 +307,7 @@ export function buildOpenApiDocument(): OpenApiDocument {
   });
 
   const jobPath = '/v1/workspaces/{ws}/jobs';
-  const JobSchema = z.object({ id: z.string(), kind: z.enum(['export', 'import-tabular', 'render']), status: z.enum(['queued', 'running', 'succeeded', 'failed']), progress: z.number(), params: z.record(z.unknown()), result: z.record(z.unknown()).nullable(), error: z.string().nullable(), artifact: z.object({ name: z.string(), type: z.string().nullable(), bytes: z.number().nullable() }).nullable(), attempts: z.number(), createdBy: z.string(), createdAt: z.string(), startedAt: z.string().nullable(), finishedAt: z.string().nullable() }).openapi('Job');
+  const JobSchema = z.object({ id: z.string(), kind: z.enum(['export', 'import-tabular', 'render', 'backup', 'verify', 'restore', 'rebuild']), status: z.enum(['queued', 'running', 'succeeded', 'failed']), progress: z.number(), params: z.record(z.unknown()), result: z.record(z.unknown()).nullable(), error: z.string().nullable(), artifact: z.object({ name: z.string(), type: z.string().nullable(), bytes: z.number().nullable() }).nullable(), attempts: z.number(), createdBy: z.string(), createdAt: z.string(), startedAt: z.string().nullable(), finishedAt: z.string().nullable() }).openapi('Job');
   const jobId = z.string().openapi({ param: { name: 'id', in: 'path' } });
   route({ method: 'post', path: `${jobPath}/export`, tags: ['Jobs'], summary: 'Start an export in the background (same parameters as GET /export)', request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: ExportQuery } } } }, responses: { 202: json(JobSchema, 'Queued job'), ...errors } });
   route({ method: 'post', path: `${jobPath}/import-tabular`, tags: ['Jobs'], summary: 'Start a spreadsheet import in the background (write access unless dryRun=true)', request: { params: z.object({ ws }), query: z.object({ dryRun: z.enum(['true', 'false']).optional() }), body: { content: { 'application/json': { schema: TabularImportBody } } } }, responses: { 202: json(JobSchema, 'Queued job'), ...writeErrors } });
@@ -394,6 +394,17 @@ export function buildOpenApiDocument(): OpenApiDocument {
       ...errors,
     },
   });
+  const BackupSchema = z
+    .object({ id: z.string(), reason: z.enum(['manual', 'scheduled', 'safety']), bytes: z.number(), elements: z.number(), relationships: z.number(), eventSeq: z.number(), checksum: z.string(), jobId: z.string().nullable(), createdBy: z.string(), createdAt: z.string() })
+    .openapi('Backup');
+  const bkPath = '/v1/workspaces/{ws}/backups';
+  const ConfirmBody = { body: { content: { 'application/json': { schema: z.object({ confirm: z.string().describe("The workspace's slug") }) } } } };
+  route({ method: 'get', path: bkPath, tags: ['Backups'], summary: 'Backups of the workspace graph, newest first (admin)', request: { params: z.object({ ws }) }, responses: { 200: json(z.array(BackupSchema), 'Backups'), ...errors } });
+  route({ method: 'post', path: bkPath, tags: ['Backups'], summary: 'Start a backup job (admin)', request: { params: z.object({ ws }) }, responses: { 202: json(JobSchema, 'Started job'), ...errors } });
+  route({ method: 'post', path: `${bkPath}/verify`, tags: ['Backups'], summary: 'Start a job that replays the event log and compares it with the graph (admin)', request: { params: z.object({ ws }) }, responses: { 202: json(JobSchema, 'Started job'), ...errors } });
+  route({ method: 'post', path: `${bkPath}/rebuild`, tags: ['Backups'], summary: 'Replace the graph with the replayed event log (admin; locks writes, takes a safety backup first)', request: { params: z.object({ ws }), ...ConfirmBody }, responses: { 202: json(JobSchema, 'Started job'), ...errors } });
+  route({ method: 'post', path: `${bkPath}/{id}/restore`, tags: ['Backups'], summary: 'Restore a backup, then replay every event recorded after it (admin; locks writes, takes a safety backup first)', request: { params: z.object({ ws, id: z.string().openapi({ param: { name: 'id', in: 'path' } }) }), ...ConfirmBody }, responses: { 202: json(JobSchema, 'Started job'), ...errors } });
+
   const hookPath = '/v1/admin/webhooks';
   const WebhookBody = z.object({ name: z.string(), url: z.string().describe('https; must not resolve to a private address'), workspace: z.string().nullable().optional().describe('Workspace id or slug; null for all'), eventTypes: z.array(z.string()).optional().describe('Empty for every type') });
   route({ method: 'get', path: hookPath, tags: ['Webhooks'], responses: { 200: json(z.array(Webhook), 'Webhooks'), ...errors } });
