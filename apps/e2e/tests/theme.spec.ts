@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { api, defaultWorkspaceId, RUN } from './helpers';
 
 test.describe('design system', () => {
   test('uses the open stand-in brand font', async ({ page }) => {
@@ -38,6 +39,17 @@ test.describe('design system', () => {
   });
 
   test('a tall query tab scrolls its own panel; the tab strip stays put', async ({ page }) => {
+    // Orphans of our own, so the result table exists on a fresh database too.
+    const ws = await defaultWorkspaceId();
+    const orphans: { id: string; version: number }[] = [];
+    for (let i = 1; i <= 6; i++) {
+      orphans.push(
+        await api(`/v1/workspaces/${ws}/elements`, {
+          method: 'POST',
+          body: JSON.stringify({ type: 'DataStore', attrs: { name: `${RUN} orphan ${i}`, category: 'OPERATIONAL' } }),
+        }),
+      );
+    }
     await page.setViewportSize({ width: 1280, height: 480 });
     await page.goto('/');
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Queries' }).click();
@@ -57,5 +69,7 @@ test.describe('design system', () => {
     const after = await strip.boundingBox();
     expect(after).toEqual(before);
     expect(await strip.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+
+    for (const o of orphans) await api(`/v1/workspaces/${ws}/elements/${o.id}?expectedVersion=${o.version}`, { method: 'DELETE' });
   });
 });
