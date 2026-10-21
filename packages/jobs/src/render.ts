@@ -6,7 +6,6 @@ import { z } from 'zod';
 import type { WorkspaceMeta } from './export';
 
 export const RENDER_FORMATS = ['svg', 'png', 'pdf'] as const;
-export type RenderFormat = (typeof RENDER_FORMATS)[number];
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const RenderParams = z.discriminatedUnion('target', [

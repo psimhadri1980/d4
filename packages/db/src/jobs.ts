@@ -5,7 +5,6 @@ import { jobs } from './schema';
 
 export type JobRow = typeof jobs.$inferSelect;
 export type JobKind = JobRow['kind'];
-export type JobStatus = JobRow['status'];
 
 export interface NewJob {
   workspaceId: string;

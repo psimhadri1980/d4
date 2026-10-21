@@ -4,7 +4,7 @@ Capture, decide, plan, develop and deliver design elements as a connected graph.
 
 Stack: TypeScript end to end, Neo4j 5 Community (one instance per tenant), PostgreSQL control plane, Redis, S3, Keycloak.
 
-For low-level details (architecture, request flows, recipes, testing, pitfalls) see **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)**.
+For how to use the product see the **[User Manual](user-manual/README.md)**. For low-level details (architecture, request flows, recipes, testing, pitfalls) see **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)**.
 
 ## Layout
 
@@ -62,28 +62,9 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
 | `dev-admin` | admin, query-author, query-steward | Everything |
 | `dev-viewer` | viewer | Browse and run granted catalog queries (read-only) |
 | `dev-author` | query-author, viewer | Write catalog queries in the Query Studio and submit them |
-| `dev-steward` | query-steward, viewer | Review, publish, grant and deprecate catalog queries | Run `deploy/dev.sh sample` first to get something to explore.
+| `dev-steward` | query-steward, viewer | Review, publish, grant and deprecate catalog queries |
 
-- **Left:** search names and descriptions, filter by layer and type.
-- **Centre:** the selected element's neighbourhood (depth 1–3), coloured by layer. Layouts: **Radial** (default; the element in the centre, rings by hop distance), **Force** and **Hierarchy**, plus **Fit**. Large graphs stay at a readable zoom; pan to see the rest. Double-click a node to expand it; dashed edges are not valid yet (e.g. a planned hand-over).
-- **Right:** attributes, relationships (add or remove; only types the metamodel allows are offered), and change history.
-- **New element / Edit:** forms come from the metamodel. Lifecycle offers only the allowed moves, and the same validation as the server runs in the browser.
-- **Queries** (one page for everything query-related): the left panel is an accordion with a count on each section, and every query you open becomes a closable tab, so you can run, edit and review several at once. Open tabs are kept in the URL, so a reload or a shared link restores them.
-  - **Catalog** (everyone): queries you can run. A Run tab has the parameter form (element pickers, choice lists, dates), results as a table or graph, and CSV download.
-  - **Studio** (query-author): create queries and open Edit tabs: Cypher and parameters, check results on save, test-run the saved draft, submit for review, delete a never-published query.
-  - **Stewardship** (query-steward): the review queue (count = waiting for review) plus "Manage any query". A Review tab shows submitted vs published Cypher, publish or send back, test run, grants, certification, version lifecycle, archive and recent runs.
-  - The old `/catalog`, `/studio` and `/stewardship` links still work and open the matching tab.
-- **As of / Scenario** (Explorer toolbar): view the model on a date, or a scenario on top of the baseline. Applies to the list, graph and details until reset; a notice shows while active. With a scenario selected, new relationships are added to that scenario.
-- **Compare**: two views side by side (dates and/or scenarios): elements added and removed, relationships added, removed and changed (e.g. a store going from MASTER to REPLICA). The URL holds both sides, so a comparison can be shared.
-- **Import** (top bar): CSV files or Excel workbooks. Each table (sheet) gets a suggested mapping that you can change: element or relationship rows, a type for the whole sheet or a Type column, and a field or attribute per column. "Check" is a dry run that lists problems by row and column; "Import" writes everything as one change, only once every row is valid. Relationship ends can be keys from the same upload or existing elements' ids, external keys or names. The Excel export imports back with no changes.
-- **Pictures**: the Roadmap page's PDF / PNG / SVG buttons and the Explorer's "Picture of this graph" export render in the background (renderer service with headless Chromium); files appear on the Jobs page.
-- **Admin** (top bar, admins only): create, rename, archive and restore workspaces, and grant or remove roles per workspace or tenant-wide for people who have signed in.
-- **Reports** (top bar): exports and pictures that run on a schedule (daily, weekly or monthly at a UTC hour), created with "Schedule…" on the Roadmap page or in the Explorer's Export control. Run now, change the schedule, pause or delete; the last file is a click away. Runs can use the run date as their "as of" date (or "today" for roadmaps). Add email recipients to get each file by email (attached up to 5 MB); locally, mail is caught by Mailpit at http://localhost:8025. A schedule pauses itself, with the reason shown, if its owner loses access to the workspace. Files are kept for 30 days.
-- **Jobs** (top bar): exports and imports started "In background" run in the job worker; this page shows their progress and results and offers the export files for download. Jobs are private to whoever started them.
-- **Export** (Explorer toolbar): the graph on screen or the whole workspace as Mermaid, ArchiMate Open Exchange XML, elements/relationships CSV, an Excel workbook, model-as-code YAML or a Cypher script, in the current as-of date and scenario.
-- **Matrices**: CRUD-I (process steps × data), capability × application (cells show TIME class), data store roles, and a lifecycle heat-map. Each has findings (e.g. data nothing creates, products without a master, capabilities without applications) and CSV export, and follows the as-of date and scenario.
-- **Decisions**: the ADR log, newest first, with search and status filter. A record shows context, options (chosen and considered), consequences, the elements it decides and what it supersedes; findings flag gaps such as an accepted decision without a chosen option. "New decision" opens the editor with the type preselected.
-- **Roadmap** (everyone): pick a scope (initiatives, divisions, or search for any element that deliverables change) and see a Gantt chart with lanes (by initiative, division, status, type or milestone), week/month/quarter zoom, dependency arrows, the critical path in red, and dashed outlines where the plan is earlier than its dependencies allow. Conflicts are listed below the chart; picking one, or a bar, shows planned vs earliest dates, slack, dependencies and the elements it changes. Export as CSV or Mermaid. Scope, lanes and zoom are kept in the URL.
+Run `deploy/dev.sh sample` first to get something to explore. Every screen, feature and end-to-end journey is described, with screenshots, in the **[User Manual](user-manual/README.md)**.
 
 ### Look and feel
 
@@ -93,7 +74,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs 61 Playwright tests in Chromium against the live stack:
+`deploy/dev.sh e2e` runs the Playwright suite in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete

@@ -16,8 +16,6 @@ export type ProposalOperation =
   | { op: 'updateRelationship'; id: string; expectedVersion: number; set?: Attributes; unset?: string[]; validFrom?: IsoDate | null; validTo?: IsoDate | null }
   | { op: 'deleteRelationship'; id: string; expectedVersion: number };
 
-export const PROPOSAL_OPS = ['createElement', 'updateElement', 'deleteElement', 'createRelationship', 'updateRelationship', 'deleteRelationship'] as const;
-
 export interface StepResult {
   index: number;
   op: ProposalOperation['op'];

@@ -6,6 +6,7 @@ Related documents:
 - [`PLAN.md`](PLAN.md): product plan, decision log (D1–D30) and status.
 - [`adr/`](adr): architecture decisions.
 - [`../README.md`](../README.md): quick start.
+- [`../user-manual/`](../user-manual/README.md): end-user documentation with screenshots.
 
 ---
 
@@ -506,7 +507,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
   - ends with the attribution trailer required by the repo's tooling
   - one logical change per commit
 - **Docs:**
-  - user-facing behaviour goes in the README
+  - user-facing behaviour goes in the user manual (`user-manual/`); keep the README to setup and an overview; regenerate screenshots with `deploy/dev.sh e2e -c screenshots.config.ts` when screens change
   - decisions go in the PLAN.md decision log (add the next `D<n>` row)
   - structural decisions get an ADR in `docs/adr/`
 

@@ -15,8 +15,6 @@ export interface ModelView {
   scenarioId?: string | null;
 }
 
-export const BASELINE: ModelView = { asOf: null, scenarioId: null };
-
 export function visibleIn(item: Pick<SystemFields, 'validFrom' | 'validTo' | 'scenarioId' | 'deleted'>, view: ModelView = {}): boolean {
   if (item.deleted) return false;
   if (item.scenarioId !== null && item.scenarioId !== (view.scenarioId ?? null)) return false;
