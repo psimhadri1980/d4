@@ -8,14 +8,14 @@
     {
       "name": "web-local",
       "runtimeExecutable": "deploy/dev.sh",
-      "runtimeArgs": ["web-local"],
+      "runtimeArgs": ["web"],
       "port": 5173,
       "autoPort": false
     },
     {
       "name": "stack",
-      "runtimeExecutable": "/Applications/Docker.app/Contents/Resources/bin/docker",
-      "runtimeArgs": ["compose", "-f", "deploy/docker-compose.yml", "up", "--build", "web"],
+      "runtimeExecutable": "deploy/dev-deploy.sh",
+      "runtimeArgs": ["web"],
       "port": 5173,
       "autoPort": false
     }

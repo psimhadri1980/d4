@@ -24,21 +24,23 @@ packages/render       SVG pictures: roadmap Gantt and graph neighbourhood (share
 packages/jobs         Job queue, S3 artefacts, tenant graph routing and the work shared by api and worker
 packages/cli          `d4` command line: validate, import, export, workspaces
 samples/              Example models, e.g. ubs-banking.yaml (illustrative)
-deploy/               docker-compose for local infra, Keycloak realm, Postgres bootstrap
+deploy/               compose files, env files, dev-infra/dev-deploy/dev/test scripts, Keycloak realm
 docs/adr/             Architecture decision records
 ```
 
-## Local stack (Docker only, no Node needed)
+## Local stack (Podman only, no Node needed)
 
-Prerequisite: Docker Desktop running. On an 8 GB machine, give it at least 4 GB of memory under Settings → Resources.
+Prerequisite: rootless Podman 5 with `podman compose`, and `systemctl --user enable --now podman.socket`. `deploy/dev-infra.sh doctor` checks the setup. Settings are in `deploy/env/`.
 
 ```bash
-deploy/dev.sh up        # build the API image, start the core stack, apply the Neo4j schema, create buckets
-deploy/dev.sh smoke     # health checks + Keycloak login + /v1/me
-deploy/dev.sh test      # unit + integration tests inside a container
-deploy/dev.sh e2e       # Playwright browser tests against the running stack (report: apps/e2e/results/report)
-deploy/dev.sh up-obs    # also start OTel collector, Tempo, Prometheus, Grafana
-deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volumes
+deploy/dev-infra.sh up            # data stores, Keycloak, S3/SMTP mocks; migrations and Neo4j schema
+deploy/dev-deploy.sh              # build and start api, worker, renderer, web (or name one: dev-deploy.sh api)
+deploy/test.sh smoke              # health checks + Keycloak login + /v1/me
+deploy/test.sh static             # typecheck, lint, knip
+deploy/test.sh integration        # unit + integration tests inside a container
+deploy/test.sh e2e                # Playwright browser tests against the running stack (report: apps/e2e/results/report)
+deploy/dev-infra.sh up --obs      # also start OTel collector, Tempo, Prometheus, Grafana
+deploy/dev-infra.sh status | logs <svc> | down | reset   # reset also deletes all volumes
 ```
 
 | Component | Purpose | Memory cap |
@@ -74,7 +76,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs the Playwright suite in Chromium against the live stack:
+`deploy/test.sh e2e` runs the Playwright suite in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
@@ -92,9 +94,9 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 - the Roadmap Studio: scope, lanes, zoom, conflicts, item details, reload and Mermaid export
 - the Query Catalog end to end: viewer runs a system query; author drafts (checks shown), fixes and submits; steward publishes and grants; viewer runs the new query; steward deprecates and retires it
 
-Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `deploy/dev.sh e2e --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
+Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `deploy/test.sh e2e --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
 
-The stack needs about 3.3 GB, and the browser tests add about 1 GB. On a 4 GB Docker VM it fits, but only just; 6 GB under Docker Desktop → Settings → Resources is more comfortable.
+The stack needs about 3.3 GB, and the browser tests add about 1 GB. Rootless Podman runs containers directly on the host, so keep about 4–5 GB free.
 
 ## API
 
@@ -103,7 +105,7 @@ The stack needs about 3.3 GB, and the browser tests add about 1 GB. On a 4 GB Do
 | REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap; `asOf` and `scenario` on reads; `GET /v1/workspaces/{ws}/diff?fromAsOf=&fromScenario=&toAsOf=&toScenario=`; `GET /v1/workspaces/{ws}/matrix/{crud|capability-application|data-store-roles|lifecycle}` and `/decisions` |
 | GraphQL | `POST /graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
 
-All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/dev.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
+All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/test.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
 
 ## Query Catalog
 
@@ -139,13 +141,12 @@ Export formats: `yaml`, `json`, `elements-csv`, `relationships-csv`, `xlsx` (web
 
 ## Developing with Node locally (optional)
 
-For the web app, the quickest loop is `deploy/dev.sh web-local` (Vite with hot reload on :5173, using the API and Keycloak in Docker), then `web-check` and `e2e-local`; after committing, `deploy/dev.sh web-deploy` updates the container. See the developer guide, §3.
+For the web app, the quickest loop is `deploy/dev.sh web` (Vite with hot reload on :5173, using the API and Keycloak in containers), then `deploy/test.sh web --local` and `test.sh e2e --web-local`; after committing, `deploy/dev-deploy.sh web` updates the container. See the developer guide, §3.
 
-For everything else: Node.js ≥ 20.11 and pnpm 9 (`corepack enable`, or `npx pnpm@9.12.0` on Node versions without corepack).
+For everything else: Node.js 24 and pnpm 9 (`corepack enable`). `deploy/dev.sh api|worker|renderer` run the services on local Node with the settings from `deploy/env/host.env`; `deploy/test.sh <suite> --local` runs tests there.
 
 ```bash
-cp .env.example .env && pnpm install && pnpm build && pnpm test
-pnpm --filter @d4/api dev    # with the data stores from deploy/dev.sh up
+pnpm install && pnpm build && deploy/test.sh unit --local
 ```
 
 Local consoles:

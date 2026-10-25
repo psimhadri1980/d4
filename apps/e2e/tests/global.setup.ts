@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test as setup } from '@playwright/test';
 import { parse } from 'yaml';
-import { api, defaultWorkspaceId, signIn } from './helpers';
+import { api, defaultWorkspaceId, signIn, USERS } from './helpers';
 
 setup('import the sample model', async () => {
   // Idempotent: re-importing the sample changes nothing when it is already there.
@@ -13,6 +13,12 @@ setup('import the sample model', async () => {
     body: JSON.stringify(doc),
   });
   if (!res.ok) throw new Error(`sample import failed: ${JSON.stringify(res.issues)}`);
+});
+
+setup('provision every dev user', async () => {
+  // Users exist in D4 once they have called the API; admin tests pick people from that list,
+  // so a fresh database needs them before any test runs.
+  for (const as of Object.keys(USERS) as (keyof typeof USERS)[]) await api('/v1/me', { as });
 });
 
 setup('sign in as admin', async ({ page }) => {

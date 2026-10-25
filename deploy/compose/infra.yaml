@@ -1,0 +1,161 @@
+# Data stores, identity, local mocks and one-shot init jobs. Combined with the other files in
+# this directory by deploy/lib/common.sh (paths are relative to this directory); settings come
+# from deploy/env through the environment the scripts export. Ports bind to 127.0.0.1 only.
+name: d4
+
+networks:
+  default:
+    # Named, so tenant Neo4j containers from `dev-infra.sh tenant create` can join it.
+    name: d4
+
+# What the D4 services read (later files win; local.env is optional and git-ignored).
+x-app-env: &app-env
+  env_file:
+    - ../env/common.env
+    - ../env/container.env
+    - ../env/dev-secrets.env
+    - { path: ../env/local.env, required: false }
+
+services:
+  neo4j:
+    image: docker.io/library/neo4j:5.26-community
+    ports: ['127.0.0.1:7474:7474', '127.0.0.1:7687:7687']
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?run through deploy/dev-infra.sh}
+      # APOC only: nothing uses Graph Data Science, and it costs several hundred MB of class metadata.
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: 'apoc.*'
+      NEO4J_dbms_security_procedures_allowlist: 'apoc.*'
+      NEO4J_db_transaction_timeout: 30s
+      # Keep transaction logs small: after a crash Neo4j replays them on start, and 500 MB of logs made
+      # recovery itself run out of memory. D4 backups come from the event log, not from these.
+      NEO4J_db_tx__log_rotation_retention__policy: '100M size'
+      # Sized for an 8 GB laptop running the whole stack: every JVM memory area is capped, so the
+      # total stays well inside mem_limit (heap 512 + page cache 128 + direct 128 + metaspace 256 +
+      # code cache 64 MB, plus threads and native). A 384 MB heap gave multi-second GC pauses when
+      # several test suites imported at once.
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 128m
+      NEO4J_db_memory_transaction_total_max: 128m
+      NEO4J_server_jvm_additional: '-XX:MaxDirectMemorySize=128m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=64m -Xss512k'
+    volumes:
+      - neo4j-data:/data
+      - neo4j-plugins:/plugins
+    mem_limit: 1400m
+    cpus: 2.0
+    healthcheck:
+      test: ['CMD-SHELL', 'cypher-shell -u neo4j -p "$${NEO4J_AUTH#neo4j/}" "RETURN 1" >/dev/null 2>&1']
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    ports: ['127.0.0.1:5432:5432']
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?run through deploy/dev-infra.sh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run through deploy/dev-infra.sh}
+      POSTGRES_DB: ${POSTGRES_DB:?run through deploy/dev-infra.sh}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    mem_limit: 256m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '96mb', '--maxmemory-policy', 'noeviction']
+    ports: ['127.0.0.1:6379:6379']
+    volumes:
+      - redis-data:/data
+    mem_limit: 128m
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 20
+
+  # S3 for local development: the file-backed mock in mocks/s3 (S3 REST and SigV4, buckets
+  # from S3_MOCK_BUCKETS created at start, so no bucket job is needed).
+  s3:
+    build: { context: ../.., dockerfile: mocks/s3/Containerfile }
+    image: localhost/d4-mock-s3:local
+    ports: ['127.0.0.1:8333:8333']
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?run through deploy/dev-infra.sh}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?run through deploy/dev-infra.sh}
+      S3_MOCK_BUCKETS: ${S3_MOCK_BUCKETS:-d4-exports}
+    volumes:
+      - s3-mock-data:/data
+    mem_limit: 128m
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8333/_health >/dev/null']
+      interval: 5s
+      retries: 20
+
+  # Catches report emails locally (mocks/smtp); nothing leaves the machine. Inbox: http://localhost:8025
+  smtp:
+    build: { context: ../.., dockerfile: mocks/smtp/Containerfile }
+    image: localhost/d4-mock-smtp:local
+    ports: ['127.0.0.1:8025:8025', '127.0.0.1:1025:1025']
+    mem_limit: 64m
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8025/readyz >/dev/null']
+      interval: 5s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    command: start-dev --import-realm
+    ports: ['127.0.0.1:8080:8080']
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?run through deploy/dev-infra.sh}
+      KC_HEALTH_ENABLED: 'true'
+      # Fixed public issuer; containers may still call keycloak:8080 on the back channel.
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?run through deploy/dev-infra.sh}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
+      JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=60
+      # Placeholders in the realm file (read on first import only).
+      D4_PUBLIC_URL: ${D4_PUBLIC_URL:?run through deploy/dev-infra.sh}
+      DEV_USER_PASSWORD: ${DEV_USER_PASSWORD:?run through deploy/dev-infra.sh}
+    volumes:
+      - ../keycloak/d4-realm.json:/opt/keycloak/data/import/d4-realm.json:ro,Z
+    mem_limit: 768m
+    cpus: 1.5
+    healthcheck:
+      test: ['CMD-SHELL', 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /health/ready HTTP/1.0\r\n\r\n" >&3 && grep -q UP <&3']
+      interval: 10s
+      retries: 30
+      start_period: 30s
+
+  # ── One-shot init jobs (API image) ───────────────────────────────────
+  # Applies control-plane migrations, then seeds the local tenant, metamodel and workspace.
+  db-migrate:
+    build: { context: ../.., dockerfile: apps/api/Containerfile }
+    image: localhost/d4-api:local
+    volumes: ['../secrets:/run/d4-secrets:ro,z']
+    depends_on:
+      postgres: { condition: service_healthy }
+    <<: *app-env
+    command: ['node', 'node_modules/@d4/db/dist/seed-local.js']
+    restart: 'no'
+
+  neo4j-schema:
+    image: localhost/d4-api:local
+    depends_on:
+      neo4j: { condition: service_healthy }
+      db-migrate: { condition: service_completed_successfully }
+    <<: *app-env
+    command: ['node', 'dist/scripts/apply-schema.js', 't_local']
+    restart: 'no'
+
+volumes:
+  neo4j-data:
+  neo4j-plugins:
+  pg-data:
+  redis-data:
+  s3-mock-data:

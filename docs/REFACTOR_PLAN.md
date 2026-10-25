@@ -1,6 +1,6 @@
 # D4 refactor plan: production readiness
 
-**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
+**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
 
 Scope, as requested:
 1. Prune the code base: remove duplication, use well-defined patterns, delete dead code.
@@ -573,3 +573,7 @@ Changes beyond the original P1 list:
 - Local S3, mail and the bucket job are in-repo mocks (`mocks/s3`, `mocks/smtp`), at the user's request; compose services `s3` and `smtp`.
 - `deploy/dev.sh up` now starts the whole default stack (it only started `web` and its dependencies, so the worker and renderer could run stale images).
 - `deploy/dev.sh check` runs typecheck, lint and knip.
+
+**After P2 (Podman):** all services run rootless on Podman 5.7 with `podman compose` (Docker Compose v5 as provider). Images: api 355 MB, worker 280 MB, renderer 2.27 GB, web 56 MB, mocks 175 MB each. `test.sh static` clean, 351 tests and 72 browser tests pass (a setup step now provisions every dev user, so the suite passes on a fresh database).
+
+Deviations from the P2 design: no turbo prune (a filtered `pnpm install` plus `pnpm deploy` gives the same pruning with fewer moving parts); the operator image (`apps/ops`) stays in P4, so init jobs still use the API image; unit and integration tests are split by environment (integration suites skip without their services) rather than by renaming files.

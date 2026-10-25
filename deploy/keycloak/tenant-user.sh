@@ -2,12 +2,13 @@
 # Local Keycloak: makes the `tenant` token claim come from a per-user attribute (instead of the
 # hard-coded t_local), then creates or updates a dev user for a tenant. Safe to re-run.
 #   tenant-user.sh <tenant> <username> [realm-role ...]      (default role: admin; password $DEV_USER_PASSWORD)
-# Run through `deploy/dev.sh tenant-user`, which loads KEYCLOAK_ADMIN_PASSWORD and DEV_USER_PASSWORD from deploy/env.
+# Run through `deploy/dev-infra.sh tenant user`, which loads KEYCLOAK_ADMIN_PASSWORD and DEV_USER_PASSWORD from deploy/env.
 set -euo pipefail
-: "${KEYCLOAK_ADMIN_PASSWORD:?run through deploy/dev.sh}" "${DEV_USER_PASSWORD:?run through deploy/dev.sh}"
+: "${KEYCLOAK_ADMIN_PASSWORD:?run through deploy/dev-infra.sh}" "${DEV_USER_PASSWORD:?run through deploy/dev-infra.sh}"
 tenant="${1:?tenant}"; user="${2:?username}"; shift 2
 roles=("${@:-admin}")
-kc() { docker exec d4-keycloak-1 /opt/keycloak/bin/kcadm.sh "$@"; }
+ENGINE="${D4_CONTAINER_ENGINE:-podman}"
+kc() { "$ENGINE" exec d4-keycloak-1 /opt/keycloak/bin/kcadm.sh "$@"; }
 kc config credentials --server http://localhost:8080 --realm master --user admin --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null
 
 # 1. Declare `tenant` in the user profile: only admins can see or change it (users cannot move
@@ -20,7 +21,7 @@ p = json.loads(sys.argv[1])
 p["attributes"].append({"name": "tenant", "displayName": "Tenant", "permissions": {"view": ["admin"], "edit": ["admin"]}, "multivalued": False})
 print(json.dumps(p))
 PY
-)" "$profile" | docker exec -i d4-keycloak-1 /opt/keycloak/bin/kcadm.sh update users/profile -r d4 -f -
+)" "$profile" | "$ENGINE" exec -i d4-keycloak-1 /opt/keycloak/bin/kcadm.sh update users/profile -r d4 -f -
   echo "Declared the tenant attribute."
 fi
 
