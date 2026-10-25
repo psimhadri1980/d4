@@ -11,6 +11,7 @@ import { WorkspaceAccess } from '../model/workspace-access.service';
 import { CatalogService, isAuthor, isSteward } from './catalog.service';
 import { PackInstaller } from './pack-installer.service';
 
+/** @public Named in the controller's emitted declarations. */
 export interface RunResponse extends QueryResultSet {
   queryId: string;
   version: number;
@@ -18,7 +19,7 @@ export interface RunResponse extends QueryResultSet {
 }
 
 /** Draft test runs are for checking shape and correctness, so they get tighter limits. */
-export const TEST_LIMITS: RunLimits = { timeoutMs: 10_000, maxRows: 100 };
+const TEST_LIMITS: RunLimits = { timeoutMs: 10_000, maxRows: 100 };
 
 /** Neo4j reports transaction timeouts with these status codes. */
 const TIMEOUT_CODES = [

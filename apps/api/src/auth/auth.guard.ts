@@ -16,7 +16,11 @@ const PUBLIC_KEY = 'd4:public';
 const ROLES_KEY = 'd4:roles';
 /** Skip authentication (health probes, OpenAPI document). */
 export const Public = () => SetMetadata(PUBLIC_KEY, true);
-/** Require at least one of the given tenant-wide roles; `admin` always passes. */
+/**
+ * Require at least one of the given tenant-wide roles; `admin` always passes. Not used yet: it
+ * replaces the per-handler admin checks in the planned refactor (docs/REFACTOR_PLAN.md, P4).
+ * @public
+ */
 export const RequireRoles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
 
 @Injectable()

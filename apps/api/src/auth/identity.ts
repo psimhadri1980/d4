@@ -3,10 +3,10 @@ import { createRemoteJWKSet, type JWTPayload, type JWTVerifyGetKey } from 'jose'
 import { ROLES, type Role } from '@d4/db';
 import { APP_CONFIG, type AppConfig } from '../config';
 
-export { ROLES, type Role };
+export type { Role };
 
 /** Identity taken from a verified token, before D4's own records are consulted. */
-export interface TokenIdentity {
+interface TokenIdentity {
   subject: string;
   tenantId: string;
   roles: Role[];

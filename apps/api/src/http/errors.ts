@@ -3,7 +3,7 @@ import { ZodError, type ZodType, type ZodTypeDef } from 'zod';
 import { CodecError } from '@d4/codecs';
 import { DomainError, type DomainErrorCode } from '@d4/core';
 
-export const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
+const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
   VALIDATION: 422,
   INVALID_TRANSITION: 422,
   RULE_VIOLATION: 422,
@@ -13,7 +13,7 @@ export const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
   LOCKED: 423,
 };
 
-export interface ErrorBody {
+interface ErrorBody {
   error: string;
   message: string;
   issues?: string[];

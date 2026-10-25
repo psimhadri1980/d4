@@ -53,7 +53,7 @@ const writeErrors = {
 const ws = z.string().openapi({ param: { name: 'ws', in: 'path' } });
 const id = z.string().openapi({ param: { name: 'id', in: 'path' } });
 
-export type OpenApiDocument = ReturnType<OpenApiGeneratorV3['generateDocument']>;
+type OpenApiDocument =ReturnType<OpenApiGeneratorV3['generateDocument']>;
 
 export function buildOpenApiDocument(): OpenApiDocument {
   const registry = new OpenAPIRegistry();

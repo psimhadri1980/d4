@@ -1,0 +1,22 @@
+{
+  // Unused files, exports and dependencies: `pnpm knip`, `deploy/dev.sh check` and CI.
+  // Mark an export that is deliberately kept with a `@public` JSDoc tag and say why.
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {},
+    "apps/api": { "entry": ["src/scripts/*.ts"] },
+    "apps/web": {
+      // Not imported directly, but Vite pre-bundles it (optimizeDeps), which needs it resolvable from here.
+      "ignoreDependencies": ["@d4/render"]
+    },
+    "apps/e2e": { "entry": ["tests/**/*.ts", "screenshots/**/*.shots.ts", "*.config.ts"] },
+    "packages/db": { "entry": ["src/index.ts", "src/migrate.ts", "src/seed-local.ts", "src/set-quota.ts"] },
+    "packages/jobs": { "entry": ["src/index.ts", "src/tenant-cli.ts"] },
+    "packages/cli": { "entry": ["src/index.ts", "src/main.ts"] },
+    // The README example is compiled by the typecheck so the docs stay correct.
+    "packages/sdk": { "entry": ["src/index.ts", "test/readme-example.ts"] },
+    "packages/*": { "entry": ["src/index.ts"] },
+    "mocks/*": { "entry": ["src/main.ts"] }
+  },
+  "ignore": ["packages/sdk/src/schema.ts"]
+}

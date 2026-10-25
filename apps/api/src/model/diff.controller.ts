@@ -10,7 +10,7 @@ import { ModelFactory } from './model.factory';
 import { resolveView } from './view';
 import { WorkspaceAccess } from './workspace-access.service';
 
-export type DiffResult = ModelDiff & { names: Record<string, string> };
+type DiffResult =ModelDiff & { names: Record<string, string> };
 
 /** Compares two views of a workspace; shared by REST and GraphQL. */
 export async function diffFor(

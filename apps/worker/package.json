@@ -6,11 +6,13 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
   },
   "dependencies": {
+    "@d4/config": "workspace:*",
     "@d4/db": "workspace:*",
     "@d4/jobs": "workspace:*",
     "zod": "^3.23.8"

@@ -11,7 +11,7 @@ import { PackInstaller } from './pack-installer.service';
 export const isAuthor = (p: Principal) => hasAnyRole(p.roles, ['query-author']);
 export const isSteward = (p: Principal) => hasAnyRole(p.roles, ['query-steward']);
 
-export interface DraftInput {
+interface DraftInput {
   cypher: string;
   params: unknown[];
   resultShape: 'table' | 'graph';

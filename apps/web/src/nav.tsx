@@ -48,7 +48,7 @@ export interface NavGroup {
 const admins = (a: Access) => a.admin;
 
 /** The whole navigation: groups, menus and sub-items. The sidebar, breadcrumb and search read it. */
-export const NAV: NavGroup[] = [
+const NAV: NavGroup[] = [
   {
     label: 'Explore',
     items: [

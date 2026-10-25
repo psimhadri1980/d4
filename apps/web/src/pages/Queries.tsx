@@ -9,7 +9,7 @@ import { StewardPanel } from './Stewardship';
 
 /** What a tab does with its query. */
 export type TabMode = 'run' | 'edit' | 'review';
-export interface QueryTab {
+interface QueryTab {
   mode: TabMode;
   id: string;
 }

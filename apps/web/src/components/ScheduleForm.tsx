@@ -6,14 +6,14 @@ import { ErrorBanner } from './ErrorBanner';
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** "a@x.com, b@y.org" → ["a@x.com", "b@y.org"] (blank entries dropped). */
-export const parseRecipients = (text: string) =>
+const parseRecipients = (text: string) =>
   text
     .split(/[,;\s]+/)
     .map((x) => x.trim())
     .filter(Boolean);
 
 /** "06:00 UTC (08:00 here)" so people in any time zone pick the right hour. */
-export function hourLabel(h: number): string {
+function hourLabel(h: number): string {
   const local = new Date(Date.UTC(2027, 0, 4, h)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return `${String(h).padStart(2, '0')}:00 UTC (${local} here)`;
 }

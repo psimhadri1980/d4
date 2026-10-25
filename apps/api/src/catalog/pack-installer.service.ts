@@ -4,7 +4,7 @@ import { QueryCatalogStore } from '@d4/db';
 import { Database } from '../infra/database.service';
 
 /** Actor recorded on system-pack entries and versions. */
-export const SYSTEM_ACTOR = 'system';
+const SYSTEM_ACTOR = 'system';
 
 /**
  * Keeps each tenant's catalog in step with the built-in system pack. Runs once per tenant per

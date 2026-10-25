@@ -11,7 +11,7 @@ import { WorkspaceAccess } from './workspace-access.service';
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
 const PREVIEW_ROWS = 5;
 
-export const decodeUploads = (files: { name: string; content: string }[]) =>
+const decodeUploads =(files: { name: string; content: string }[]) =>
   files.map((f) => ({ name: f.name, bytes: new Uint8Array(Buffer.from(f.content, 'base64')) }));
 
 /**

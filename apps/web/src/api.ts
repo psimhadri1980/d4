@@ -3,7 +3,7 @@ import type { Metamodel } from '@d4/metamodel';
 import { userManager } from './auth';
 import { config } from './config';
 
-export type { Element, Relationship, RoadmapView };
+export type { Element, Relationship };
 
 /** Error body shared by REST and GraphQL (`extensions.code`). */
 export class ApiError extends Error {
@@ -61,7 +61,7 @@ export interface Workspace {
   description: string | null;
 }
 
-export interface ElementPage {
+interface ElementPage {
   items: Element[];
   endCursor: string | null;
   hasMore: boolean;
@@ -72,14 +72,14 @@ export interface Connection {
   other: Element;
 }
 
-export interface Subgraph {
+interface Subgraph {
   root: Element;
   elements: Element[];
   relationships: Relationship[];
   truncated: boolean;
 }
 
-export interface DomainEvent {
+interface DomainEvent {
   seq: number;
   id: string;
   type: string;
@@ -95,7 +95,7 @@ export interface ViewParams {
   scenario?: string;
 }
 
-export type ModelDiffView = ModelDiff & { names: Record<string, string> };
+type ModelDiffView =ModelDiff & { names: Record<string, string> };
 
 export interface Upload {
   name: string;
@@ -164,7 +164,7 @@ export interface Schedule {
   createdBy: string;
 }
 
-export interface ListFilter {
+interface ListFilter {
   type?: string[];
   layer?: string;
   lifecycle?: string[];
@@ -183,7 +183,7 @@ const qs = (params: Record<string, string | number | string[] | undefined>) => {
   return s ? `?${s}` : '';
 };
 
-export interface AttrChanges {
+interface AttrChanges {
   set?: Record<string, unknown>;
   unset?: string[];
   validFrom?: string | null;
@@ -310,7 +310,7 @@ export interface QueryGrant {
   principal: string;
 }
 
-export interface CatalogDetail extends CatalogEntry {
+interface CatalogDetail extends CatalogEntry {
   versions: QueryVersion[];
   grants?: QueryGrant[];
 }
@@ -325,7 +325,7 @@ export interface RunResult {
   status: string;
 }
 
-export interface Execution {
+interface Execution {
   seq: number;
   version: number;
   workspaceId: string;
@@ -391,7 +391,7 @@ export interface AdminWorkspace {
   metamodel: string | null;
 }
 
-export interface MetamodelPack {
+interface MetamodelPack {
   id: string;
   version: string;
   description: string;
@@ -399,7 +399,7 @@ export interface MetamodelPack {
   addedRelationshipTypes: number;
 }
 
-export interface Member {
+interface Member {
   principalType: 'user' | 'group';
   principalId: string;
   label: string;
@@ -408,7 +408,7 @@ export interface Member {
   createdAt: string;
 }
 
-export interface TenantUser {
+interface TenantUser {
   id: string;
   email: string | null;
   displayName: string | null;
@@ -429,7 +429,7 @@ export interface Webhook {
   secret?: string;
 }
 
-export interface WebhookDelivery {
+interface WebhookDelivery {
   id: string;
   eventId: string | null;
   eventType: string;
@@ -443,12 +443,12 @@ export interface WebhookDelivery {
   deliveredAt: string | null;
 }
 
-export interface TenantUsage {
+interface TenantUsage {
   metrics: { metric: string; used: number; limit: number | null }[];
   history: { day: string; metric: string; value: number }[];
 }
 
-export type WebhookInput = { name: string; url: string; workspace: string | null; eventTypes: string[] };
+type WebhookInput ={ name: string; url: string; workspace: string | null; eventTypes: string[] };
 
 export const adminApi = {
   workspaces: () => request<AdminWorkspace[]>('GET', '/v1/admin/workspaces?archived=true'),
@@ -486,7 +486,7 @@ export type ProposalOperation =
   | ({ op: 'updateRelationship'; id: string; expectedVersion: number; set?: Record<string, unknown>; unset?: string[] } & Period)
   | { op: 'deleteRelationship'; id: string; expectedVersion: number };
 
-export interface ProposalSummary {
+interface ProposalSummary {
   id: string;
   title: string;
   description: string | null;
@@ -572,7 +572,7 @@ export interface Connector {
   lastRunAt: string | null;
 }
 
-export interface ConnectorInput {
+interface ConnectorInput {
   key?: string;
   name?: string;
   kind?: string;

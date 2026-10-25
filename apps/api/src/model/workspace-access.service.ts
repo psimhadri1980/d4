@@ -8,9 +8,9 @@ import { Database } from '../infra/database.service';
 export type Access = 'read' | 'write' | 'review';
 
 /** Roles that may change the model. Any role at all grants read access. */
-export const WRITE_ROLES: readonly Role[] = ['contributor', 'planner', 'architect'];
+const WRITE_ROLES: readonly Role[] = ['contributor', 'planner', 'architect'];
 /** Roles that may approve or reject change proposals (admins always may). */
-export const REVIEW_ROLES: readonly Role[] = ['architect'];
+const REVIEW_ROLES: readonly Role[] = ['architect'];
 
 export interface WorkspaceScope {
   tenantId: string;
