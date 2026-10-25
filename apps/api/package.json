@@ -5,16 +5,16 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "dev": "tsx watch --env-file=../../.env src/main.ts",
-    "start": "node --env-file=../../.env dist/main.js",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint": "eslint src test",
-    "db:schema": "tsx --env-file=../../.env src/scripts/apply-schema.ts"
+    "lint": "eslint src test"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.1.1",
     "@d4/codecs": "workspace:*",
+    "@d4/config": "workspace:*",
     "@d4/connectors": "workspace:*",
     "@d4/core": "workspace:*",
     "@d4/cypher": "workspace:*",

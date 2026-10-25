@@ -55,9 +55,11 @@ packages/
   cli/        `d4` command: validate, workspaces, import, export
   sdk/        typed REST client generated from the OpenAPI document (`openapi.json` + `src/schema.ts` are generated)
   connectors/ connector framework: record mapping, HTTP/JSON and Git sources, sync planning
+  config/     environment settings for every service: zod fragments, NAME_FILE secrets, derived URLs
   ui-kit/     React components shared by the web app and embedders: Gantt, GraphCanvas, ResultTable, styles.css
 samples/      ubs-banking.yaml (illustrative sample model)
-deploy/       docker-compose, dev.sh, Keycloak realm, SeaweedFS, OTel, nginx, e2e runner
+deploy/       docker-compose, dev.sh, env/ (layered settings), Keycloak realm, OTel, nginx, e2e runner
+mocks/        development-only S3 (file-backed, S3 REST + SigV4) and SMTP (Mailpit-compatible inbox API)
 docs/         PLAN.md, ADRs, this guide
 ```
 
@@ -127,6 +129,7 @@ Everything else runs in containers.
 | `deploy/dev.sh tenant-remove t_acme` | Marks the tenant deleted and removes its container; the data volume stays. |
 | `deploy/dev.sh tenant-user t_acme acme-admin [role …]` | Local Keycloak: a dev user (password `d4-local-dev`, default role admin) for a tenant. The first run also switches the `tenant` claim from the hard-coded `t_local` to an admin-only user attribute and gives existing users `t_local`. A fresh realm import still has the hard-coded claim until this runs. |
 | `deploy/dev.sh quota <tenant> [metric=value …]` | Operator: show or change a tenant's limits (`elements=200000`, `jobsPerDay=unlimited`, `workspaces=default`). Runs in the API image, so rebuild it after changing the tool. |
+| `deploy/dev.sh check` | Typecheck, lint and `knip` (unused files, exports, dependencies) in the test image. |
 | `deploy/dev.sh test` | Unit + integration tests in a container (two suites at a time, 1.5 GB cap). |
 | `deploy/dev.sh e2e [playwright args]` | Playwright suite against the running stack, e.g. `--grep catalog --retries=0`. |
 | `deploy/dev.sh sample` | Import `samples/ubs-banking.yaml` into the `default` workspace (idempotent). |
@@ -136,9 +139,13 @@ Everything else runs in containers.
 
 **Bringing the stack up on a busy machine:** start it in stages so image builds and JVM start-ups do not overlap: `docker compose -f deploy/docker-compose.yml up -d --wait postgres redis s3 neo4j keycloak`, then `deploy/dev.sh up`. Neo4j, Keycloak, the API and the test container have CPU caps (2, 1.5, 1, 2).
 
+### Settings
+
+All settings live in `deploy/env` and are loaded in order, later files winning: `common.env` (public URLs, ids, flags), `container.env` or `host.env` (how a process reaches the services from inside the compose network or from the host), `dev-secrets.env` (local credentials only), then your git-ignored `local.env`. A variable set in your shell wins over the files, e.g. `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker-local`. Compose reads the same files (`env_file`, and `${...}` from the environment `dev.sh` exports), so call compose through `deploy/dev.sh` or export the files first. Services parse settings with `@d4/config`; `D4_ENV` defaults to `production`, which refuses the dev password. To add a setting: add it to a fragment in `packages/config` (or the app's `config.ts`), put the local value in the right env file (secrets in `dev-secrets.env`), and never default a secret in code.
+
 ### Web app on local Node (optional)
 
-For quick web changes, run Vite on the host against the API and Keycloak in Docker. Needs Node ≥ 20.11 (`/opt/homebrew/bin/node` is found even when not on PATH); pnpm runs at the version pinned in `package.json` via `npx`, so corepack is not needed. Host `node_modules` and `dist` are ignored by Docker builds (`.dockerignore`).
+For quick web changes, run Vite on the host against the API and Keycloak in Docker. Needs Node ≥ 24 (`/opt/homebrew/bin/node` is found even when not on PATH); pnpm runs at the version pinned in `package.json` via `npx`, so corepack is not needed. Host `node_modules` and `dist` are ignored by Docker builds (`.dockerignore`).
 
 | Command | What it does |
 |---|---|
@@ -146,7 +153,7 @@ For quick web changes, run Vite on the host against the API and Keycloak in Dock
 | `deploy/dev.sh web-check` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
 | `deploy/dev.sh e2e-local [args]` | The Playwright suite in Docker against the local Vite server (`E2E_WEB_TARGET=host.docker.internal:5173`, no `web` container). |
 | `deploy/dev.sh api-local` | API on local Node (tsx watch) on `:3100`, next to the container on `:3000`, using the Docker data stores. Pair with `D4_API_URL=http://localhost:3100 deploy/dev.sh web-local` and `D4_API_URL=http://localhost:3100 deploy/dev.sh e2e-local`. |
-| `deploy/dev.sh worker-local` | Job worker on local Node for `api-local`'s queues (`d4-jobs-local`, `d4-render-local`), so local jobs never reach the Docker worker. Its report scheduler is off unless `D4_SCHEDULER_INTERVAL_MS` is set, because schedules live in the shared dev database and would otherwise be started on the local queues. Webhook sending is off unless `D4_WEBHOOK_INTERVAL_MS` is set (e.g. `2000`), for the same reason. Daily backups are off (`BACKUP_HOUR_UTC=-1`); start backups from the Admin page. |
+| `deploy/dev.sh worker-local` | Job worker on local Node for `api-local`'s queues (`d4-jobs-local`, `d4-render-local`), so local jobs never reach the Docker worker. Its report scheduler is off unless `SCHEDULER_INTERVAL_MS` is set, because schedules live in the shared dev database and would otherwise be started on the local queues. Webhook sending is off unless `WEBHOOK_INTERVAL_MS` is set (e.g. `2000`), for the same reason. Daily backups are off (`BACKUP_HOUR_UTC=-1`); start backups from the Admin page. |
 | `deploy/dev.sh renderer-local` | Builds the renderer image from the tree and runs it once (not the compose service) on `api-local`'s render queue (`d4-render-local`); Chromium needs the Playwright image. |
 | `deploy/dev.sh web-deploy` | After committing: rebuilds and starts the `web` container. Refuses while something else holds port 5173, so stop `web-local` first. |
 
@@ -166,9 +173,9 @@ Vite serves the dev build, so React StrictMode runs effects twice. That surfaces
 | 7474 / 7687 | neo4j |
 | 5432 | postgres |
 | 6379 | redis |
-| 8333 | S3 (SeaweedFS) |
+| 8333 | S3 (mocks/s3, data in the `s3-mock-data` volume) |
 | 3001 | grafana (observability profile) |
-| 8025 / 1025 | Mailpit inbox / SMTP (report emails stay local) |
+| 8025 / 1025 | mail catcher inbox and API / SMTP (mocks/smtp; report emails stay local) |
 | 3002 / 3003 | worker / renderer health (`/healthz`, inside the containers) |
 | 3100 / 3102 | `api-local` / `worker-local` health, on the host |
 | 7701+ | Bolt of tenant Neo4j containers from `tenant-create` (127.0.0.1 only) |
@@ -206,7 +213,7 @@ Integration tests need `D4_TEST_POSTGRES_URL`, `D4_TEST_NEO4J_URL` and `D4_TEST_
 Edit the `package.json`, then regenerate the lockfile in a container:
 
 ```bash
-docker run --rm -v "$PWD":/repo -w /repo node:20-alpine sh -c \
+docker run --rm -v "$PWD":/repo -w /repo node:24-alpine sh -c \
   "corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install --lockfile-only"
 ```
 
@@ -377,7 +384,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 1. Edit `packages/db/src/schema.ts`.
 2. Generate the migration in a container:
    ```bash
-   docker run --rm -v "$PWD":/src node:20-alpine sh -c 'set -e; corepack enable; corepack prepare pnpm@9.12.0 --activate;
+   docker run --rm -v "$PWD":/src node:24-alpine sh -c 'set -e; corepack enable; corepack prepare pnpm@9.12.0 --activate;
      mkdir /work; cd /src; tar --exclude=node_modules --exclude=.git -cf - . | tar -xf - -C /work;
      cd /work; pnpm install --frozen-lockfile; cd packages/db; pnpm drizzle-kit generate --name <name>;
      cp drizzle/00* /src/packages/db/drizzle/; cp drizzle/meta/* /src/packages/db/drizzle/meta/'
@@ -471,7 +478,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | "The graph database registered for tenant … belongs to another tenant" | The tenant's registered bolt URI (or host mapping) points at a Neo4j already claimed by another tenant (`:D4Tenant` marker) | Fix the registry entry or `NEO4J_HOSTS`; never remove the marker to get past it |
 | Neo4j exits with 137 (`OOMKilled`), freezes (`stop-the-world pause` with `gcTime=0` in `debug.log`), or everything times out | The machine is over-committed: the stack, a Docker test build and local servers together exceed RAM, so the Docker VM swaps (seen on an 8 GB Mac with Docker at 6.2 GB: load average above 100) | Neo4j is sized to ~1.2 GB (APOC only, every JVM area capped). On 8 GB: do not run the local servers while `dev.sh test` builds and runs, run browser tests against one stack at a time, and give macOS room (Docker ≤ 5 GB). `docker compose -f deploy/docker-compose.yml up -d neo4j` restarts it |
 | `@d4/jobs`, `@d4/graph` or `@d4/db` integration tests time out | Several database-heavy files ran at once (Neo4j's 30 s transaction limit, or Postgres database creation) | These packages run their test files one at a time with longer limits (`vitest.config.ts`); keep it that way |
-| The webhook browser test times out on "succeeded" with `e2e-local` | `worker-local` started without `D4_WEBHOOK_INTERVAL_MS`, so nothing sends deliveries (the Docker worker may take them instead and cannot reach the receiver on the host's :3199) | Start `D4_WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker-local` |
+| The webhook browser test times out on "succeeded" with `e2e-local` | `worker-local` started without `WEBHOOK_INTERVAL_MS`, so nothing sends deliveries (the Docker worker may take them instead and cannot reach the receiver on the host's :3199) | Start `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker-local` |
 | Background-job browser tests time out when run against `api-local` | `worker-local` / `renderer-local` not running, so jobs on the local queues are never picked up | Start `worker-local` and `renderer-local` before `e2e-local` |
 | Names in a list squeezed to one letter | `.items` rows are a grid whose first column is the 10 px layer dot | Lists without a dot override `grid-template-columns` |
 | Catalog browser test counted 9 queries instead of 8 | A tenant query had been published in the dev workspace | The test counts what is listed and checks the 8 certified system queries |
@@ -489,7 +496,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Preview on port 5174 can't sign in | Keycloak only allows `localhost:5173` | `launch.json` attaches to 5173 (`autoPort: false` for `stack`) |
 | Nest provider undefined at run time | No decorator metadata under tsx/esbuild | Always `@Inject(Token)` explicitly |
 | `pnpm` / `node` not found | No local toolchain | Use `deploy/dev.sh` and the container commands above |
-| MinIO image pull denied | MinIO stopped publishing images | SeaweedFS for local S3 |
+| MinIO image pull denied | MinIO stopped publishing images | In-repo S3 mock (`mocks/s3`) for local S3 (D59) |
 
 ---
 

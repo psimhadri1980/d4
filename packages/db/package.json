@@ -16,6 +16,7 @@
     "seed:local": "node dist/seed-local.js"
   },
   "dependencies": {
+    "@d4/config": "workspace:*",
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "drizzle-orm": "^0.33.0",

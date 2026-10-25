@@ -22,7 +22,7 @@ export interface JobDeps {
   rasterize?: Rasterize;
   /** Emails scheduled reports to their recipients when configured. */
   mailer?: Mailer;
-  /** Public web address, for links in emails. */
+  /** Public web address, for links in emails (which have no link without it). */
   appUrl?: string;
   /** Refuses imports that would pass the tenant's element or relationship limits. */
   quota?: GraphQuotaGuard;
@@ -89,7 +89,7 @@ async function deliver(job: JobRow, s: ScheduleRow, artifact: { key: string; nam
     await store.addResult(job.tenantId, job.id, { delivery: { status: 'skipped', reason: 'email is not configured' } });
     return;
   }
-  const link = `${(deps.appUrl ?? 'http://localhost:5173').replace(/\/$/, '')}/w/${job.workspaceId}/reports`;
+  const link = deps.appUrl && `${deps.appUrl.replace(/\/$/, '')}/w/${job.workspaceId}/reports`;
   const attach = artifact.bytes <= MAX_ATTACHMENT_BYTES;
   try {
     await deps.mailer.send({
@@ -98,7 +98,7 @@ async function deliver(job: JobRow, s: ScheduleRow, artifact: { key: string; nam
       text: [
         `The scheduled report "${s.name}" is ready.`,
         attach ? `The file ${artifact.name} is attached.` : `The file ${artifact.name} is too large to attach; download it from Reports.`,
-        `Reports: ${link}`,
+        ...(link ? [`Reports: ${link}`] : []),
         '',
         'You receive this because you are a recipient of this D4 report.',
       ].join('\n'),

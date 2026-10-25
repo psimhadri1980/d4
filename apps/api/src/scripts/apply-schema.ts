@@ -6,11 +6,11 @@ import neo4j from 'neo4j-driver';
 import { applySchema, awaitSchemaOnline, relationshipIdIndexName } from '@d4/cypher';
 import { createDb, MetamodelStore, TenantStore } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
-import { loadConfig } from '../config';
+import { loadConfig, neo4j as neo4jEnv, postgres } from '@d4/config';
 
 async function main() {
   const tenantId = process.argv[2] ?? 't_local';
-  const config = loadConfig();
+  const config = loadConfig({ ...postgres, ...neo4jEnv });
   const handle = createDb(config.POSTGRES_URL, 1);
   try {
     const inst = await new TenantStore(handle.db).readyDbInstance(tenantId);

@@ -87,6 +87,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
         .sign(privateKey);
 
     const config = loadConfig({
+      D4_ENV: 'dev',
       POSTGRES_URL: url.toString(),
       NEO4J_PASSWORD: NEO_PASSWORD,
       NEO4J_URI: NEO,
@@ -94,6 +95,8 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       // Jobs: a queue of our own, so a running dev worker does not take these jobs.
       REDIS_URL: REDIS ?? '',
       S3_ENDPOINT: S3 ?? '',
+      S3_ACCESS_KEY: 'd4',
+      S3_SECRET_KEY: 'd4-local-dev',
       S3_BUCKET: 'd4-test-artifacts',
       JOB_QUEUE: `d4-jobs-e2e-${dbName}`,
     });

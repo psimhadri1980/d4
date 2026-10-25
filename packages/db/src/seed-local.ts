@@ -1,3 +1,4 @@
+import { loadConfig, postgres } from '@d4/config';
 import { loadStarterMetamodel } from '@d4/metamodel';
 import { createDb, type Db } from './client';
 import { runMigrations } from './migrate';
@@ -51,9 +52,7 @@ export async function seedLocal(db: Db): Promise<{ workspaceId: string; metamode
 }
 
 if (require.main === module) {
-  const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error('POSTGRES_URL is required');
-  const handle = createDb(url, 1);
+  const handle = createDb(loadConfig(postgres).POSTGRES_URL, 1);
   runMigrations(handle.db)
     .then(() => seedLocal(handle.db))
     .then((r) => console.log(`Migrated and seeded tenant '${LOCAL_TENANT}':`, r))

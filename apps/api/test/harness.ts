@@ -68,7 +68,7 @@ export async function startHarness(): Promise<Harness> {
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(APP_CONFIG)
-    .useValue(loadConfig({ POSTGRES_URL: url.toString(), NEO4J_PASSWORD: NEO_PASSWORD, NEO4J_URI: NEO, OIDC_ISSUER: ISSUER }))
+    .useValue(loadConfig({ D4_ENV: 'dev', POSTGRES_URL: url.toString(), NEO4J_PASSWORD: NEO_PASSWORD, NEO4J_URI: NEO, OIDC_ISSUER: ISSUER }))
     .overrideProvider(JWKS)
     .useValue(createLocalJWKSet({ keys: [jwk] }))
     .compile();

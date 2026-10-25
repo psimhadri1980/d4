@@ -19,9 +19,9 @@ async function main() {
     secretKey: config.S3_SECRET_KEY,
     bucket: config.S3_BUCKET,
   });
-  const browser = new Chromium();
+  const browser = new Chromium(config.CHROMIUM_PATH);
   const mailer = config.SMTP_URL ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM) : undefined;
-  const deps: JobDeps = { db: db.db, graphs, artifacts, rasterize: browser.rasterize, appUrl: config.APP_URL, ...(mailer && { mailer }) };
+  const deps: JobDeps = { db: db.db, graphs, artifacts, rasterize: browser.rasterize, appUrl: config.D4_PUBLIC_URL, ...(mailer && { mailer }) };
 
   const worker = startJobWorker(
     config.REDIS_URL,

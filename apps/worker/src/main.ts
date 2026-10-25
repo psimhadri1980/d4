@@ -19,7 +19,7 @@ async function main() {
     bucket: config.S3_BUCKET,
   });
   const mailer = config.SMTP_URL ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM) : undefined;
-  const deps: JobDeps = { db: db.db, graphs, artifacts, appUrl: config.APP_URL, quota: new GraphQuotaGuard(db.db), allowPrivateUrls: config.WEBHOOK_ALLOW_PRIVATE, ...(mailer && { mailer }) };
+  const deps: JobDeps = { db: db.db, graphs, artifacts, appUrl: config.D4_PUBLIC_URL, quota: new GraphQuotaGuard(db.db), allowPrivateUrls: config.WEBHOOK_ALLOW_PRIVATE, ...(mailer && { mailer }) };
 
   const worker = startJobWorker(
     config.REDIS_URL,

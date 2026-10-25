@@ -6,3 +6,4 @@
 .claude
 **/.DS_Store
 deploy/data
+deploy/env/local.env

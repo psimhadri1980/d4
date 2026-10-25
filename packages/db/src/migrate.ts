@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { loadConfig, postgres } from '@d4/config';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { createDb, type Db } from './client';
 
@@ -10,9 +11,7 @@ export async function runMigrations(db: Db): Promise<void> {
 }
 
 if (require.main === module) {
-  const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error('POSTGRES_URL is required');
-  const handle = createDb(url, 1);
+  const handle = createDb(loadConfig(postgres).POSTGRES_URL, 1);
   runMigrations(handle.db)
     .then(() => console.log('Control-plane migrations applied.'))
     .catch((e) => {

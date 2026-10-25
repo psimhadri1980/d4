@@ -22,8 +22,11 @@ export class Chromium {
   private browser?: Promise<Browser>;
   private readonly fonts = fontCss();
 
+  /** `executablePath`: a Chromium other than the one Playwright installed. */
+  constructor(private readonly executablePath?: string) {}
+
   private get(): Promise<Browser> {
-    this.browser ??= chromium.launch({ headless: true, ...(process.env['CHROMIUM_PATH'] && { executablePath: process.env['CHROMIUM_PATH'] }) });
+    this.browser ??= chromium.launch({ headless: true, ...(this.executablePath && { executablePath: this.executablePath }) });
     this.browser.catch(() => (this.browser = undefined));
     return this.browser;
   }

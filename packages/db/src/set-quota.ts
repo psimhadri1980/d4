@@ -1,3 +1,4 @@
+import { loadConfig, postgres } from '@d4/config';
 import { createDb } from './client';
 import { QUOTA_METRICS } from './schema';
 import { UsageStore, type Limits, type QuotaMetric } from './usage';
@@ -28,12 +29,11 @@ export function applySettings(current: Partial<Limits>, settings: string[]): Par
 
 if (require.main === module) {
   const [tenant, ...settings] = process.argv.slice(2);
-  const url = process.env.POSTGRES_URL;
-  if (!url || !tenant) {
-    console.error('usage: POSTGRES_URL=… node dist/set-quota.js <tenant> [metric=value …]');
+  if (!tenant) {
+    console.error('usage: node dist/set-quota.js <tenant> [metric=value …]   (POSTGRES_URL or its parts in the environment)');
     process.exit(2);
   }
-  const handle = createDb(url, 1);
+  const handle = createDb(loadConfig(postgres).POSTGRES_URL, 1);
   const store = new UsageStore(handle.db);
   (async () => {
     const current = await store.overrides(tenant);

@@ -9,4 +9,5 @@ Essentials:
 - **Never let users send raw Cypher.** Catalog queries go through the checks in `packages/cypher`. Only `TenantGraphService` opens Neo4j connections.
 - **Metamodel:** changes go in `packages/metamodel/starter.yaml` with a version bump. Never hard-code type lists.
 - **Web:** port 5173 is required (OIDC). Use `useId()` for field ids, an explicit empty option in list boxes, and theme tokens for colours.
+- **Settings:** `deploy/env/*.env` (layered) loaded through `@d4/config`; no hard-coded URLs or secret defaults. Run `deploy/dev.sh check` (typecheck, lint, knip) before committing.
 - **Recording decisions:** add a row to the decision log in `docs/PLAN.md`.

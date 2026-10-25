@@ -1,3 +1,4 @@
+import { loadConfig, neo4j, postgres } from '@d4/config';
 import { createDb, TenantStore } from '@d4/db';
 import { checkTenant, ManualInstanceDriver, provisionTenant } from './provisioning';
 import { graphConfig } from './tenant-graphs';
@@ -8,8 +9,8 @@ import { graphConfig } from './tenant-graphs';
  *   create <tenant> --name "Acme" --bolt bolt://host:7687 --secret file:neo4j-t_acme [--slug acme]
  *   list | check <tenant> | suspend <tenant> | resume <tenant> | delete <tenant>
  *
- * Environment: POSTGRES_URL, NEO4J_USER, NEO4J_PASSWORD, and optionally NEO4J_HOSTS and
- * NEO4J_SECRETS_DIR (see TenantGraphs).
+ * Environment: POSTGRES_URL (or its parts), NEO4J_USER, NEO4J_PASSWORD, and optionally
+ * NEO4J_HOSTS and NEO4J_SECRETS_DIR (see TenantGraphs).
  */
 const USAGE = `usage: tenant-cli create <tenant> --name <name> --bolt <uri> --secret <ref> [--slug <slug>] [--version <neo4j>]
        tenant-cli list | check <tenant> | suspend <tenant> | resume <tenant> | delete <tenant>`;
@@ -26,15 +27,10 @@ function flags(args: string[]): Record<string, string> {
 
 async function main() {
   const [command, tenantId, ...rest] = process.argv.slice(2);
-  const url = process.env.POSTGRES_URL;
-  if (!url || !command) throw new Error(USAGE);
-  const graph = graphConfig({
-    NEO4J_USER: process.env.NEO4J_USER ?? 'neo4j',
-    NEO4J_PASSWORD: process.env.NEO4J_PASSWORD ?? '',
-    NEO4J_HOSTS: process.env.NEO4J_HOSTS,
-    NEO4J_SECRETS_DIR: process.env.NEO4J_SECRETS_DIR,
-  });
-  const handle = createDb(url, 2);
+  if (!command) throw new Error(USAGE);
+  const config = loadConfig({ ...postgres, ...neo4j });
+  const graph = graphConfig(config);
+  const handle = createDb(config.POSTGRES_URL, 2);
   const tenants = new TenantStore(handle.db);
   const need = () => {
     if (!tenantId) throw new Error(USAGE);

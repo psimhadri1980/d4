@@ -8,12 +8,30 @@ cd "$(dirname "$SELF")"
 if ! command -v docker >/dev/null; then
   export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
 fi
+
+# Settings live in deploy/env (see common.env). Variables already set by the caller win, e.g.
+# `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker-local`; compose interpolates from this environment.
+CALLER_ENV=" $(compgen -e | tr '\n' ' ') "
+# Exports the env files in order, later files winning: common, the network view given as $1
+# (container or host), dev secrets, then your git-ignored local.env.
+load_env() {
+  local f line key
+  for f in common.env ${1:+$1.env} dev-secrets.env local.env; do
+    [[ -f "env/$f" ]] || continue
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+      key="${line%%=*}"
+      [[ "$CALLER_ENV" == *" $key "* ]] || export "$key=${line#*=}"
+    done < "env/$f"
+  done
+}
+load_env
 dc() { docker compose -f docker-compose.yml "$@"; }
 
 # Local Node (optional; only the web-* commands use it). pnpm runs at the version pinned in package.json.
 node_env() {
   for d in /opt/homebrew/bin /usr/local/bin; do [[ -x "$d/node" ]] && export PATH="$d:$PATH"; done
-  command -v node >/dev/null || { echo "Node.js >= 20.11 is required for $1" >&2; exit 1; }
+  command -v node >/dev/null || { echo "Node.js >= 24 is required for $1" >&2; exit 1; }
   PNPM_VERSION=$(sed -nE 's/.*"packageManager": *"pnpm@([^"]+)".*/\1/p' ../package.json)
 }
 pn() { (cd .. && NPM_CONFIG_UPDATE_NOTIFIER=false npx -y "pnpm@$PNPM_VERSION" "$@"); }
@@ -31,8 +49,8 @@ tenant_cli() {
   if [[ "${D4_TENANT_CLI:-}" == local ]]; then
     node_env tenant
     pn turbo run build --filter '...@d4/jobs' >/dev/null
-    (cd .. && POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_PASSWORD=d4-local-dev \
-      NEO4J_HOSTS="$(cd deploy && neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/deploy/secrets" node packages/jobs/dist/tenant-cli.js "$@")
+    load_env host
+    (cd .. && NEO4J_HOSTS="$(cd deploy && neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/deploy/secrets" node packages/jobs/dist/tenant-cli.js "$@")
   else
     dc run --rm --no-deps -w /repo/packages/jobs db-migrate node dist/tenant-cli.js "$@"
   fi
@@ -40,7 +58,7 @@ tenant_cli() {
 port_5173_owner() { { lsof -nP -iTCP:5173 -sTCP:LISTEN -Fc 2>/dev/null || true; } | sed -n 's/^c//p' | head -1; }
 
 case "${1:-help}" in
-  up)       dc up -d --build --wait web && "$SELF" status ;;
+  up)       dc up -d --build --wait --remove-orphans && "$SELF" status ;;
   up-obs)   D4_OTEL_ENDPOINT=http://otel-collector:4318 dc --profile observability up -d --build --wait && "$SELF" status ;;
   down)     dc --profile observability --profile tools down ;;
   reset)    dc --profile observability --profile tools down -v ;;
@@ -51,6 +69,8 @@ case "${1:-help}" in
   # Operator: show or change a tenant's limits, e.g. `quota t_local elements=200000 jobsPerDay=unlimited`.
   quota)    dc run --rm --no-deps db-migrate node dist/set-quota.js "${@:2}" ;;
   test)     dc --profile tools run --rm --build test ;;
+  # Typecheck, lint and knip (unused files, exports and dependencies) in the test image.
+  check)    dc --profile tools run --rm --build --no-deps test sh -c 'pnpm turbo run typecheck lint && pnpm knip' ;;
   # Browser tests (Playwright) against the running stack; report in apps/e2e/results/report.
   e2e)      dc --profile tools run --rm --build e2e "${@:2}" ;;
   # Web app on local Node with hot reload at :5173 (stops the web container, which uses that port).
@@ -61,26 +81,23 @@ case "${1:-help}" in
     pn turbo run build --filter '@d4/web^...'
     # D4_API_URL=http://localhost:3100 points the web app at api-local instead of the container.
     # --force: re-bundle @d4/core and @d4/metamodel, which Vite caches; restart after changing packages/*.
-    VITE_API_URL="${D4_API_URL:-http://localhost:3000}" pn --filter @d4/web exec vite --host 127.0.0.1 --port 5173 --strictPort --force ;;
+    # vite.config.ts serves /config.json from D4_PUBLIC_API_URL, OIDC_ISSUER and OIDC_CLIENT_ID.
+    D4_PUBLIC_API_URL="${D4_API_URL:-$D4_PUBLIC_API_URL}" pn --filter @d4/web exec vite --host 127.0.0.1 --port 5173 --strictPort --force ;;
   # API on local Node with reload, on :3100 next to the container (which keeps :3000), using the
   # data stores and Keycloak in Docker. Pair with: D4_API_URL=http://localhost:3100 deploy/dev.sh web-local
   api-local)
     node_env api-local
     [[ -d ../node_modules ]] || pn install --frozen-lockfile
     pn turbo run build --filter '@d4/api^...'
-    API_PORT=3100 POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_HOSTS="$(neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/secrets" \
-      NEO4J_USER=neo4j NEO4J_PASSWORD=d4-local-dev OIDC_ISSUER=http://localhost:8080/realms/d4 OIDC_AUDIENCE=d4-api \
-      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local WEBHOOK_ALLOW_PRIVATE=true \
-      pn --filter @d4/api exec tsx watch src/main.ts ;;
+    load_env host
+    NEO4J_HOSTS="$(neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/secrets" pn --filter @d4/api run dev ;;
   # Job worker on local Node for api-local's queue (d4-jobs-local), using the Docker data stores.
   worker-local)
     node_env worker-local
     [[ -d ../node_modules ]] || pn install --frozen-lockfile
     pn turbo run build --filter '@d4/worker^...'
-    POSTGRES_URL=postgres://d4:d4-local-dev@localhost:5432/d4 NEO4J_HOSTS="$(neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/secrets" NEO4J_PASSWORD=d4-local-dev \
-      REDIS_URL=redis://localhost:6379 S3_ENDPOINT=http://localhost:8333 JOB_QUEUE=d4-jobs-local RENDER_QUEUE=d4-render-local WEBHOOK_ALLOW_PRIVATE=true \
-      SMTP_URL=smtp://localhost:1025 WORKER_HEALTH_PORT=3102 SCHEDULER_INTERVAL_MS=${D4_SCHEDULER_INTERVAL_MS:-0} WEBHOOK_INTERVAL_MS=${D4_WEBHOOK_INTERVAL_MS:-0} WEBHOOK_ALLOW_PRIVATE=true BACKUP_HOUR_UTC=-1 \
-      pn --filter @d4/worker exec tsx watch src/main.ts ;;
+    load_env host
+    NEO4J_HOSTS="$(neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/secrets" pn --filter @d4/worker run dev ;;
   # Web checks on local Node: unit tests, typecheck, lint and a production build.
   web-check)
     node_env web-check
@@ -93,16 +110,17 @@ case "${1:-help}" in
     # receiver is published on :3199 so worker-local can reach it.
     dc --profile tools run --rm --build --no-deps -p 3199:3199 -e E2E_HOOK_PORT=3199 -e E2E_HOOK_URL=http://localhost:3199/d4-hook \
       -e E2E_WEB_TARGET=host.docker.internal:5173 \
-      -e E2E_API_URL="${D4_API_URL:-http://localhost:3000}" e2e "${@:2}" ;;
+      -e E2E_API_URL="${D4_API_URL:-$D4_PUBLIC_API_URL}" e2e "${@:2}" ;;
   # Renderer for api-local's render queue (d4-render-local). Chromium needs the Playwright image,
   # so this builds the renderer image from the current tree and runs it once, not as the service.
   renderer-local)
     dc build renderer
     docker run --rm --name d4-renderer-local --add-host host.docker.internal:host-gateway \
-      -e POSTGRES_URL=postgres://d4:d4-local-dev@host.docker.internal:5432/d4 -e NEO4J_HOSTS="$(neo4j_hosts host.docker.internal)" \
+      --env-file env/common.env --env-file env/host.env --env-file env/dev-secrets.env $([[ -f env/local.env ]] && echo --env-file env/local.env) \
+      -e POSTGRES_HOST=host.docker.internal -e NEO4J_HOSTS="$(neo4j_hosts host.docker.internal)" \
       -v "$PWD/secrets:/run/d4-secrets:ro" -e NEO4J_SECRETS_DIR=/run/d4-secrets \
-      -e NEO4J_PASSWORD=d4-local-dev -e REDIS_URL=redis://host.docker.internal:6379 -e S3_ENDPOINT=http://host.docker.internal:8333 \
-      -e SMTP_URL=smtp://host.docker.internal:1025 -e RENDER_QUEUE=d4-render-local d4-renderer:local ;;
+      -e REDIS_URL=redis://host.docker.internal:6379 -e S3_ENDPOINT=http://host.docker.internal:8333 \
+      -e SMTP_URL=smtp://host.docker.internal:1025 d4-renderer:local ;;
   # Builds and (re)starts the web container from the current tree, e.g. after committing.
   web-deploy)
     owner=$(port_5173_owner)
@@ -143,8 +161,8 @@ case "${1:-help}" in
   tenant-user) ./keycloak/tenant-user.sh "${@:2}" ;;
   # Prints an access token for a dev user (default dev-admin).
   token)
-    curl -fsS -d client_id=d4-web -d grant_type=password -d username="${2:-dev-admin}" \
-      -d password=d4-local-dev localhost:8080/realms/d4/protocol/openid-connect/token \
+    curl -fsS -d client_id="$OIDC_CLIENT_ID" -d grant_type=password -d username="${2:-dev-admin}" \
+      -d password="$DEV_USER_PASSWORD" "$OIDC_ISSUER/protocol/openid-connect/token" \
       | sed -E 's/.*"access_token":"([^"]+)".*/\1/' ;;
   # Runs the d4 CLI in a container against the local API; paths are relative to the repo root.
   cli)
@@ -154,12 +172,9 @@ case "${1:-help}" in
   # Imports the illustrative UBS banking model into the default workspace.
   sample)   "$SELF" cli import samples/ubs-banking.yaml -w default ;;
   smoke)
-    curl -fsS localhost:3000/healthz && echo
-    curl -fsS localhost:3000/readyz && echo
-    TOKEN=$(curl -fsS -d client_id=d4-web -d grant_type=password -d username=dev-admin \
-      -d password=d4-local-dev localhost:8080/realms/d4/protocol/openid-connect/token \
-      | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
-    curl -fsS -H "Authorization: Bearer $TOKEN" localhost:3000/v1/me && echo ;;
+    curl -fsS "$D4_PUBLIC_API_URL/healthz" && echo
+    curl -fsS "$D4_PUBLIC_API_URL/readyz" && echo
+    curl -fsS -H "Authorization: Bearer $("$SELF" token)" "$D4_PUBLIC_API_URL/v1/me" && echo ;;
   *)
-    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy|api-local|worker-local|renderer-local" ;;
+    echo "usage: deploy/dev.sh up|up-obs|down|reset|status|logs [svc]|migrate|schema|test|check|e2e|smoke|token [user]|cli <args>|sample|web-local|web-check|e2e-local|web-deploy|api-local|worker-local|renderer-local" ;;
 esac

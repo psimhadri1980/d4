@@ -1,49 +1,35 @@
+import { loadConfig as load, neo4j, oidc, optional, postgres, queues, s3, telemetry, webhooks, type Config, type Env } from '@d4/config';
 import { z } from 'zod';
 
-/** Compose passes unset variables as empty strings; treat them as absent. */
-const optional = <T extends z.ZodTypeAny>(t: T) =>
-  z.preprocess((v) => (v === '' ? undefined : v), t.optional());
-
-const Env = z.object({
+const ApiEnv = {
   API_PORT: z.coerce.number().default(3000),
-  POSTGRES_URL: z.string().url(),
-  NEO4J_USER: z.string().default('neo4j'),
-  NEO4J_PASSWORD: z.string().min(1),
-  /** Overrides tenant bolt URIs in local dev, where the registry stores in-cluster hostnames. */
-  NEO4J_URI: optional(z.string()),
-  /** host=host:port pairs: how this process reaches tenant instances by the host in their registered URI. */
-  NEO4J_HOSTS: optional(z.string()),
-  /** Directory of `file:` secrets (tenant Neo4j passwords). */
-  NEO4J_SECRETS_DIR: optional(z.string()),
-  OIDC_ISSUER: z.string().url(),
-  OIDC_AUDIENCE: z.string().default('d4-api'),
-  /**
-   * Where to fetch signing keys when it differs from the public issuer URL, e.g. inside
-   * docker-compose (`http://keycloak:8080/...`) while tokens say `http://localhost:8080/...`.
-   */
-  OIDC_JWKS_URI: optional(z.string().url()),
-  OTEL_EXPORTER_OTLP_ENDPOINT: optional(z.string().url()),
+  ...postgres,
+  ...neo4j,
+  ...oidc,
+  ...telemetry,
   /** Background jobs; without these the jobs endpoints answer 503. */
   REDIS_URL: optional(z.string().url()),
-  S3_ENDPOINT: optional(z.string().url()),
-  S3_ACCESS_KEY: z.string().default('d4'),
-  S3_SECRET_KEY: z.string().default('d4-local-dev'),
-  S3_BUCKET: z.string().default('d4-exports'),
-  /** Queue name; tests use their own so a running worker does not take their jobs. */
-  JOB_QUEUE: optional(z.string()),
-  RENDER_QUEUE: optional(z.string()),
-  /** Allow http and private-network webhook URLs. Local development only. */
-  WEBHOOK_ALLOW_PRIVATE: z.preprocess((v) => v === 'true' || v === '1', z.boolean()).default(false),
-});
-export type AppConfig = z.infer<typeof Env>;
+  S3_ENDPOINT: optional(s3.S3_ENDPOINT),
+  S3_ACCESS_KEY: optional(s3.S3_ACCESS_KEY),
+  S3_SECRET_KEY: optional(s3.S3_SECRET_KEY),
+  S3_BUCKET: s3.S3_BUCKET,
+  ...queues,
+  ...webhooks,
+  /** The browser-facing web address; the default CORS origin. */
+  D4_PUBLIC_URL: optional(z.string().url()),
+  /** Comma-separated browser origins allowed to call the API (embedders); defaults to D4_PUBLIC_URL. */
+  CORS_ORIGINS: optional(z.string()),
+};
+export type AppConfig = Config<typeof ApiEnv>;
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const parsed = Env.safeParse(env);
-  if (!parsed.success) {
-    const msg = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
-    throw new Error(`Invalid configuration: ${msg}`);
-  }
-  return parsed.data;
+export function loadConfig(env: Env = process.env): AppConfig {
+  return load(ApiEnv, env);
+}
+
+/** Origins allowed by CORS; none when the web app and the API share an origin. */
+export function corsOrigins(config: AppConfig): string[] {
+  const list = config.CORS_ORIGINS ?? config.D4_PUBLIC_URL ?? '';
+  return list.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean);
 }
