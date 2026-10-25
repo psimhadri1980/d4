@@ -115,11 +115,13 @@ web ──► core, metamodel (bundled for the browser)
 
 **Prerequisite:** Podman 5 (rootless) with `podman compose` and `systemctl --user enable --now podman.socket`; `deploy/dev-infra.sh doctor` checks the setup. About 4 GB of free memory for the stack; Node 24 only for local runs.
 
-Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/common.sh`. Compose files are split by concern in `deploy/compose/` (`infra`, `apps`, `web`, `observability`, `tools`); every app has its own `Containerfile`.
+Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/common.sh`. Compose files are split by concern in `deploy/compose/` (`infra`, `apps`, `web`, `gateway`, `observability`, `tools`); every app has its own `Containerfile`.
+
+**Gateway:** the browser reaches everything through one origin, `D4_PUBLIC_URL` (http://localhost:5173, the only browser-facing port; `GATEWAY_PORT`): the web app at `/`, the API at `/api` (prefix stripped, so the API keeps `/v1/...`, `/graphql`, `/healthz`), Keycloak at `/auth` (`KC_HTTP_RELATIVE_PATH`), and in development the mail inbox at `/mail/` and Grafana at `/grafana/`. The gateway (`apps/gateway`, nginx) resolves upstreams per request, so a stopped app gives 502 rather than a dead gateway, and `deploy/dev.sh` can point one upstream at a process on the host. No CORS: everything is same-origin. It starts with the infrastructure.
 
 | Command | What it does |
 |---|---|
-| `deploy/dev-infra.sh up [--obs]` | Start Postgres, Neo4j, Redis, Keycloak and the S3/SMTP mocks (plus OTel, Tempo, Prometheus and Grafana with `--obs`), then run `db-migrate` (migrations + local seed) and `neo4j-schema`. |
+| `deploy/dev-infra.sh up [--obs]` | Start Postgres, Neo4j, Redis, Keycloak, the gateway and the S3/SMTP mocks (plus OTel, Tempo, Prometheus and Grafana with `--obs`), then run `db-migrate` (migrations + local seed) and `neo4j-schema`. |
 | `deploy/dev-infra.sh status` / `logs <svc>` / `down` / `reset [--yes]` | Status, logs, stop; `reset` also **deletes all volumes** (asks first). |
 | `deploy/dev-infra.sh migrate` / `schema` | Re-run Postgres migrations + seed, or Neo4j DDL. |
 | `deploy/dev-infra.sh tenant create t_acme "Acme Ltd"` | Operator: a new tenant with its own Neo4j container `d4-neo4j-t_acme` on 127.0.0.1:7701+ (password in `deploy/secrets/`, git-ignored), registered, claimed, schema applied, starter metamodel and `default` workspace seeded. Re-runnable; no service gets the container engine's socket. `D4_TENANT_CLI=local` runs the control-plane step on local Node. |
@@ -127,11 +129,11 @@ Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/comm
 | `deploy/dev-infra.sh tenant user t_acme acme-admin [role …]` | Local Keycloak user for a tenant (password `DEV_USER_PASSWORD`, default role admin); the first run switches the `tenant` claim to an admin-only user attribute. |
 | `deploy/dev-infra.sh quota <tenant> [metric=value …]` | Operator: show or change a tenant's limits. |
 | `deploy/dev-infra.sh token [user]` / `doctor` | An access token (default `dev-admin`) / environment checks. |
-| `deploy/dev-deploy.sh [api\|worker\|renderer\|web\|backend\|all]` | Build and (re)start app containers, all by default; starts the infrastructure first if needed. `build` and `stop` take the same names; `status` lists images. Set `D4_OTEL_ENDPOINT=http://otel-collector:4318` to trace the API. |
+| `deploy/dev-deploy.sh [api\|worker\|renderer\|web\|gateway\|backend\|all]` | Build and (re)start app containers, all by default; starts the infrastructure first if needed. `build` and `stop` take the same names; `status` lists images. Set `D4_OTEL_ENDPOINT=http://otel-collector:4318` to trace the API. |
 | `deploy/test.sh static` | Typecheck, lint and `knip` (unused files, exports, dependencies). |
 | `deploy/test.sh unit` / `integration [--filter pkg]` | Unit tests only, or all tests with Postgres, Neo4j, Redis and S3 (two suites at a time, 1.5 GB cap). |
-| `deploy/test.sh e2e [playwright args]` | Playwright suite against the running stack, e.g. `--grep catalog --retries=0`; `--web-local` targets `deploy/dev.sh web`. |
-| `deploy/test.sh web` / `smoke` / `all` | Web checks and build / health + login + `/v1/me` / static, integration and browser tests (the pre-commit gate). Add `--local` to run on host Node. |
+| `deploy/test.sh e2e [playwright args]` | Playwright suite through the gateway (container on the host network), e.g. `--grep catalog --retries=0`; it tests whatever mix of container and `dev.sh` apps is behind the gateway. |
+| `deploy/test.sh web` / `smoke` / `all` | Web checks and build / gateway and API health + login + `/api/v1/me` / static, integration and browser tests (the pre-commit gate). Add `--local` to run on host Node. |
 | `deploy/dev.sh sample` / `cli <args>` | Import `samples/ubs-banking.yaml` (idempotent) / run the `d4` CLI in a container; paths are relative to the repo root. |
 
 **Bringing the stack up on a busy machine:** `dev-infra.sh up` first, then `dev-deploy.sh backend`, then `dev-deploy.sh web`, so image builds and JVM start-ups do not overlap. Neo4j, Keycloak, the API and the test container have CPU caps (2, 1.5, 1, 2).
@@ -140,21 +142,21 @@ Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/comm
 
 All settings live in `deploy/env` and are loaded in order, later files winning: `common.env` (public URLs, ids, flags), `container.env` or `host.env` (how a process reaches the services from inside the compose network or from the host), `dev-secrets.env` (local credentials only), then your git-ignored `local.env`. A variable set in your shell wins over the files, e.g. `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker`. Compose reads the same files (`env_file`, and `${...}` from the environment `dev.sh` exports), so call compose through `deploy/dev.sh` or export the files first. Services parse settings with `@d4/config`; `D4_ENV` defaults to `production`, which refuses the dev password. To add a setting: add it to a fragment in `packages/config` (or the app's `config.ts`), put the local value in the right env file (secrets in `dev-secrets.env`), and never default a secret in code.
 
-### Web app on local Node (optional)
+### Apps on local Node (optional)
 
-For quick web changes, run Vite on the host against the API and Keycloak in containers. Needs Node ≥ 24 on PATH; pnpm runs at the version pinned in `package.json` via `npx`, so corepack is not needed. Host `node_modules` and `dist` are ignored by image builds (`.containerignore`).
+For quick changes, run an app on the host with hot reload, behind the same gateway: `dev.sh` stops the app's container, points the gateway's upstream for it at `host.containers.internal:<port>` (recreating the gateway takes about a second), and on Ctrl-C starts the container and routes back. The browser and the tests keep using http://localhost:5173. Needs Node ≥ 24 on PATH; pnpm runs at the version pinned in `package.json` via `npx`, so corepack is not needed. Host `node_modules` and `dist` are ignored by image builds (`.containerignore`). Local servers listen on all interfaces so the gateway container can reach them.
 
 | Command | What it does |
 |---|---|
-| `deploy/dev.sh web` | Stops the `web` container, installs dependencies if missing, builds the packages the web app imports, then runs Vite on `127.0.0.1:5173` with hot reload; `/config.json` comes from the env files. |
-| `deploy/test.sh web --local` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
-| `deploy/test.sh e2e --web-local [args]` | The Playwright suite (container on the host network) against the local Vite server. |
-| `deploy/dev.sh api` | API on local Node (tsx watch) on `:3100` (`host.env`), next to the container on `:3000`. Pair with `D4_API_URL=http://localhost:3100 deploy/dev.sh web` and `D4_API_URL=http://localhost:3100 deploy/test.sh e2e --web-local`. |
+| `deploy/dev.sh web` | Installs dependencies if missing, builds the packages the web app imports, then runs Vite on `:5174` behind the gateway, with hot reload (HMR through the gateway's port); `/config.json` comes from the env files. |
+| `deploy/dev.sh api` | API on local Node (tsx watch) on `:3100` (`host.env`), behind the gateway at `/api`. It uses the local queues, so run `dev.sh worker` and `dev.sh renderer` for background jobs. |
 | `deploy/dev.sh worker` | Job worker on local Node for the local API's queues (`d4-jobs-local`, `d4-render-local`). Scheduler, webhook sending and daily backups are off (`host.env`) unless set, e.g. `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker`, because they share the dev database with the container worker. |
 | `deploy/dev.sh renderer` | Builds the renderer image from the tree and runs it once on the local render queue; Chromium needs the Playwright image. |
-| `deploy/dev-deploy.sh web` | After committing: rebuilds and starts the `web` container. Refuses while something else holds port 5173, so stop `dev.sh web` first. |
+| `deploy/dev.sh restore` | Routes the gateway back to the containers and starts them (if a `dev.sh` run was killed). |
+| `deploy/test.sh web --local` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
+| `deploy/dev-deploy.sh web` | After committing: rebuilds and starts the `web` container. |
 
-Loop: `dev.sh web` (plus `dev.sh api` when the API changes) → edit (hot reload) → `test.sh web --local` and `test.sh e2e --web-local` → commit → ask before deploying → stop the local servers → `dev-deploy.sh web` (and `api`) → `test.sh e2e`.
+Loop: `dev.sh web` (plus `dev.sh api` when the API changes) → edit (hot reload) → `test.sh web --local` and `test.sh e2e` → commit → ask before deploying → stop the local servers → `dev-deploy.sh web` (and `api`) → `test.sh e2e`.
 
 Hot reload covers `apps/web` only. After changing `packages/*`, restart `dev.sh web` (it rebuilds the packages and Vite's pre-bundle with `--force`) and `dev.sh api`; otherwise the page uses the old package and fails with errors such as an export being undefined.
 
@@ -164,17 +166,15 @@ Vite serves the dev build, so React StrictMode runs effects twice. That surfaces
 
 | Port | Service |
 |---|---|
-| 5173 | web (**must** be 5173: Keycloak redirect URIs) |
-| 3000 | api (`/v1/openapi.json`, `/graphql`) |
-| 8080 | keycloak |
+| 5173 | gateway, the only browser-facing port (`D4_PUBLIC_URL`; Keycloak redirect URIs follow it): web `/`, api `/api` (`/api/v1/openapi.json`, `/api/graphql`), keycloak `/auth`, inbox `/mail/`, grafana `/grafana/` |
+| 5174 | `dev.sh web` (Vite, behind the gateway) |
 | 7474 / 7687 | neo4j |
 | 5432 | postgres |
 | 6379 | redis |
 | 8333 | S3 (mocks/s3, data in the `s3-mock-data` volume) |
-| 3001 | grafana (observability profile) |
-| 8025 / 1025 | mail catcher inbox and API / SMTP (mocks/smtp; report emails stay local) |
+| 1025 | SMTP (mocks/smtp; report emails stay local; inbox at `/mail/`) |
 | 3002 / 3003 | worker / renderer health (`/healthz`, inside the containers) |
-| 3100 / 3102 | `dev.sh api` / `dev.sh worker` health, on the host |
+| 3100 / 3102 | `dev.sh api` (behind the gateway) / `dev.sh worker` health, on the host |
 | 7701+ | Bolt of tenant Neo4j containers from `tenant-create` (127.0.0.1 only) |
 
 ### Local users
@@ -413,7 +413,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 1. Edit `deploy/keycloak/d4-realm.json`. It's used only on first import into a fresh Keycloak.
 2. Apply the same change to the running Keycloak:
    ```bash
-   podman exec d4-keycloak-1 /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 \
+   podman exec d4-keycloak-1 /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080/auth \
      --realm master --user admin --password "$KEYCLOAK_ADMIN_PASSWORD"
    # then e.g. kcadm.sh create users -r d4 …; set-password; add-roles; update clients/<id> -s 'attributes={…}'
    ```
@@ -474,8 +474,9 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | "The graph database registered for tenant … belongs to another tenant" | The tenant's registered bolt URI (or host mapping) points at a Neo4j already claimed by another tenant (`:D4Tenant` marker) | Fix the registry entry or `NEO4J_HOSTS`; never remove the marker to get past it |
 | Neo4j exits with 137 (`OOMKilled`), freezes (`stop-the-world pause` with `gcTime=0` in `debug.log`), or everything times out | The machine is over-committed: the stack, a Docker test build and local servers together exceed RAM, so the Docker VM swaps (seen on an 8 GB Mac with Docker at 6.2 GB: load average above 100) | Neo4j is sized to ~1.2 GB (APOC only, every JVM area capped). On 8 GB: do not run the local servers while `dev.sh test` builds and runs, run browser tests against one stack at a time, and give macOS room (Docker ≤ 5 GB). `docker compose -f deploy/docker-compose.yml up -d neo4j` restarts it |
 | `@d4/jobs`, `@d4/graph` or `@d4/db` integration tests time out | Several database-heavy files ran at once (Neo4j's 30 s transaction limit, or Postgres database creation) | These packages run their test files one at a time with longer limits (`vitest.config.ts`); keep it that way |
-| The webhook browser test times out on "succeeded" with `test.sh e2e --web-local` | `dev.sh worker` started without `WEBHOOK_INTERVAL_MS`, so nothing sends deliveries (the Docker worker may take them instead and cannot reach the receiver on the host's :3199) | Start `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker` |
-| Background-job browser tests time out when run against `dev.sh api` | `dev.sh worker` / `dev.sh renderer` not running, so jobs on the local queues are never picked up | Start `dev.sh worker` and `dev.sh renderer` before `test.sh e2e --web-local` |
+| Sign-in hangs on "Signing in…"; Keycloak's discovery document names `localhost:8080` | A proxy sent `X-Forwarded-Port` with its own listen port, and Keycloak (`KC_PROXY_HEADERS=xforwarded`) used it | The gateway sends `X-Forwarded-Host` with the public port and no `X-Forwarded-Port` |
+| The gateway answers 502 for an app on the host (`could not be resolved` in its log) | nginx's resolver asks DNS only; `host.containers.internal` is in `/etc/hosts` | The gateway's start script replaces `/etc/hosts` names in `UPSTREAM_*` with their address; local servers must listen on all interfaces |
+| Background-job browser tests time out when run against `dev.sh api` | `dev.sh worker` / `dev.sh renderer` not running, so jobs on the local queues are never picked up | Start `dev.sh worker` and `dev.sh renderer` before `test.sh e2e` |
 | Names in a list squeezed to one letter | `.items` rows are a grid whose first column is the 10 px layer dot | Lists without a dot override `grid-template-columns` |
 | Catalog browser test counted 9 queries instead of 8 | A tenant query had been published in the dev workspace | The test counts what is listed and checks the 8 certified system queries |
 | Neo4j and API test suites time out on a brand-new Neo4j | `CALL db.awaitIndexes(120)` is one transaction, killed by the 30 s server timeout while ~100 indexes populate; concurrent appliers also collided | `awaitSchemaOnline` polls `SHOW INDEXES` in short queries; `applySchema` treats "already exists" from a concurrent applier as success and retries transient lock errors |

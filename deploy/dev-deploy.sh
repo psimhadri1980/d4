@@ -9,7 +9,7 @@ usage: deploy/dev-deploy.sh [app ...]        build and (re)start apps (default: 
        deploy/dev-deploy.sh build [app ...]  build images only
        deploy/dev-deploy.sh stop [app ...]   stop apps
        deploy/dev-deploy.sh status
-apps: api worker renderer web, or the groups backend (api worker renderer) and all
+apps: api worker renderer web gateway, or the groups backend (api worker renderer) and all
 U
   exit 2
 }
@@ -21,7 +21,7 @@ services() {
     case "$a" in
       all) out+=("${APP_SERVICES[@]}") ;;
       backend) out+=(api worker renderer) ;;
-      api|worker|renderer|web) out+=("$a") ;;
+      api|worker|renderer|web|gateway) out+=("$a") ;;
       *) usage ;;
     esac
   done
@@ -35,9 +35,6 @@ case "${1:-}" in
   status) compose ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}\t{{.RunningFor}}' ;;
   *)
     mapfile -t s < <(services "$@")
-    if [[ " ${s[*]} " == *" web "* ]]; then
-      o=$(port_owner 5173); [[ -z "$o" ]] || is_container_owner "$o" || die "Port 5173 is used by '$o' (deploy/dev.sh web?). Stop it first."
-    fi
     [[ "$(compose ps --format '{{.Service}}' 2>/dev/null)" == *postgres* ]] || ./dev-infra.sh up
     compose up -d --build --wait "${s[@]}"
     compose ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}' ;;

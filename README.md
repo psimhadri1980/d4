@@ -33,7 +33,7 @@ docs/adr/             Architecture decision records
 Prerequisite: rootless Podman 5 with `podman compose`, and `systemctl --user enable --now podman.socket`. `deploy/dev-infra.sh doctor` checks the setup. Settings are in `deploy/env/`.
 
 ```bash
-deploy/dev-infra.sh up            # data stores, Keycloak, S3/SMTP mocks; migrations and Neo4j schema
+deploy/dev-infra.sh up            # data stores, Keycloak, gateway, S3/SMTP mocks; migrations and Neo4j schema
 deploy/dev-deploy.sh              # build and start api, worker, renderer, web (or name one: dev-deploy.sh api)
 deploy/test.sh smoke              # health checks + Keycloak login + /v1/me
 deploy/test.sh static             # typecheck, lint, knip
@@ -49,11 +49,12 @@ deploy/dev-infra.sh status | logs <svc> | down | reset   # reset also deletes al
 | postgres 16 | Control plane (tenants, events) | 256 MB |
 | redis 7 | Queue / cache | 128 MB |
 | s3 (mocks/s3, file-backed) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
-| keycloak 25 | OIDC realm `d4`, roles, dev users | 768 MB |
+| keycloak 25 | OIDC realm `d4`, roles, dev users (at `/auth`) | 768 MB |
+| gateway (nginx) | The one browser-facing origin, http://localhost:5173: web `/`, API `/api`, Keycloak `/auth`, inbox `/mail/` | 64 MB |
 | db-migrate, neo4j-schema, s3-init | One-shot jobs: Postgres migrations + local seed, Neo4j schema, S3 buckets | — |
-| api | D4 API on :3000 | 384 MB |
+| api | D4 API at http://localhost:5173/api | 384 MB |
 | web | D4 Explorer on http://localhost:5173 (nginx, static build) | 64 MB |
-| otel-collector, tempo, prometheus, grafana (:3001) | Observability profile (optional) | ~1 GB |
+| otel-collector, tempo, prometheus, grafana (`/grafana/`) | Observability profile (optional) | ~1 GB |
 
 ## Web app
 
@@ -102,8 +103,8 @@ The stack needs about 3.3 GB, and the browser tests add about 1 GB. Rootless Pod
 
 | Interface | Where | Use |
 |---|---|---|
-| REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap; `asOf` and `scenario` on reads; `GET /v1/workspaces/{ws}/diff?fromAsOf=&fromScenario=&toAsOf=&toScenario=`; `GET /v1/workspaces/{ws}/matrix/{crud|capability-application|data-store-roles|lifecycle}` and `/decisions` |
-| GraphQL | `POST /graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
+| REST | `/v1/...`, OpenAPI at http://localhost:5173/api/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap; `asOf` and `scenario` on reads; `GET /v1/workspaces/{ws}/diff?fromAsOf=&fromScenario=&toAsOf=&toScenario=`; `GET /v1/workspaces/{ws}/matrix/{crud|capability-application|data-store-roles|lifecycle}` and `/decisions` |
+| GraphQL | `POST /api/graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
 
 All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/test.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
 
@@ -141,9 +142,9 @@ Export formats: `yaml`, `json`, `elements-csv`, `relationships-csv`, `xlsx` (web
 
 ## Developing with Node locally (optional)
 
-For the web app, the quickest loop is `deploy/dev.sh web` (Vite with hot reload on :5173, using the API and Keycloak in containers), then `deploy/test.sh web --local` and `test.sh e2e --web-local`; after committing, `deploy/dev-deploy.sh web` updates the container. See the developer guide, §3.
+For the web app, the quickest loop is `deploy/dev.sh web` (Vite with hot reload behind the gateway, still at http://localhost:5173), then `deploy/test.sh web --local` and `test.sh e2e`; after committing, `deploy/dev-deploy.sh web` updates the container. See the developer guide, §3.
 
-For everything else: Node.js 24 and pnpm 9 (`corepack enable`). `deploy/dev.sh api|worker|renderer` run the services on local Node with the settings from `deploy/env/host.env`; `deploy/test.sh <suite> --local` runs tests there.
+For everything else: Node.js 24 and pnpm 9 (`corepack enable`). `deploy/dev.sh api|worker|renderer` run the services on local Node (the API behind the gateway) with the settings from `deploy/env/host.env`; `deploy/test.sh <suite> --local` runs tests there.
 
 ```bash
 pnpm install && pnpm build && deploy/test.sh unit --local
@@ -154,8 +155,9 @@ Local consoles:
 | Service | URL |
 |---|---|
 | Neo4j Browser | http://localhost:7474 (neo4j / d4-local-dev) |
-| Keycloak | http://localhost:8080 (admin / d4-local-dev) |
+| Keycloak | http://localhost:5173/auth (admin / d4-local-dev) |
+| Mail inbox (mocks/smtp) | http://localhost:5173/mail/ |
 | S3 API (mocks/s3) | http://localhost:8333 (access key d4 / d4-local-dev) |
-| Grafana | http://localhost:3001 (admin / d4-local-dev) |
+| Grafana | http://localhost:5173/grafana/ (admin / d4-local-dev; `up --obs`) |
 
 All of these are local development credentials only.

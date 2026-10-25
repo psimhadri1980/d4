@@ -1,0 +1,19 @@
+# The gateway: the only browser-facing port. Upstreams default to the compose services;
+# deploy/dev.sh points one at an app on the host (host.containers.internal:<port>) and recreates it.
+services:
+  gateway:
+    build: { context: ../.., dockerfile: apps/gateway/Containerfile }
+    image: localhost/d4-gateway:local
+    ports: ['127.0.0.1:${GATEWAY_PORT:-5173}:8080']
+    environment:
+      D4_ENV: ${D4_ENV:-production}
+      UPSTREAM_API: ${UPSTREAM_API:-api:3000}
+      UPSTREAM_KEYCLOAK: ${UPSTREAM_KEYCLOAK:-keycloak:8080}
+      UPSTREAM_WEB: ${UPSTREAM_WEB:-web:8080}
+      UPSTREAM_MAIL: ${UPSTREAM_MAIL:-smtp:8025}
+      UPSTREAM_GRAFANA: ${UPSTREAM_GRAFANA:-grafana:3000}
+    mem_limit: 64m
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/healthz >/dev/null']
+      interval: 10s
+      retries: 6

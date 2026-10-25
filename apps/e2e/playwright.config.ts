@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Runs against the local stack (deploy/dev.sh up). Inside the e2e container, localhost:5173,
- * :8080 and :3000 are forwarded to the web, keycloak and api services, so the browser sees the
- * same URLs (and OIDC redirect/issuer) as a developer's browser.
+ * Runs against the gateway (E2E_BASE_URL, default http://localhost:5173), whatever mix of
+ * container and local apps is behind it; the e2e container uses the host network, so the browser
+ * sees the same URLs (and OIDC redirect/issuer) as a developer's browser.
  */
 export default defineConfig({
   testDir: './tests',

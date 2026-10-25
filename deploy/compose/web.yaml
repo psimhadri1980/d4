@@ -3,7 +3,7 @@ services:
   web:
     build: { context: ../.., dockerfile: apps/web/Containerfile }
     image: localhost/d4-web:local
-    ports: ['127.0.0.1:5173:8080']
+    # Behind the gateway (gateway.yaml), which owns the browser-facing port.
     # Written to /config.json at start (deploy/web/config.sh): public values only.
     environment:
       D4_PUBLIC_API_URL: ${D4_PUBLIC_API_URL:?run through deploy/dev-deploy.sh}

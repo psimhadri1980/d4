@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
-import { RUN } from './helpers';
+import { BASE, RUN } from './helpers';
 
-/** The local mail catcher's Mailpit-compatible API (mocks/smtp) as seen from the test container. */
-const INBOX = process.env.E2E_INBOX_URL ?? 'http://smtp:8025';
+/** The local mail catcher's Mailpit-compatible API (mocks/smtp), behind the gateway in development. */
+const INBOX = `${BASE}/mail`;
 
 test.describe('scheduled reports', () => {
   test.describe.configure({ timeout: 90_000 });

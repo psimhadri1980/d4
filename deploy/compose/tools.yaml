@@ -22,13 +22,17 @@ services:
       D4_TEST_REDIS_URL: redis://redis:6379
       D4_TEST_S3_ENDPOINT: http://s3:8333
 
-  # Browser tests against the running stack.
+  # Browser tests on the host network, through the gateway like a developer's browser.
   e2e:
     profiles: [tools]
     build: { context: ../.., dockerfile: apps/e2e/Containerfile }
     image: localhost/d4-e2e:local
-    depends_on:
-      web: { condition: service_healthy }
+    network_mode: host
+    environment:
+      E2E_BASE_URL: ${D4_PUBLIC_URL}
+      # Webhook receiver in the test process; the worker container reaches it on the host.
+      E2E_HOOK_PORT: 3199
+      E2E_HOOK_URL: http://host.containers.internal:3199/d4-hook
     volumes:
       - ../../apps/e2e/results:/repo/apps/e2e/results:z
     shm_size: 1gb

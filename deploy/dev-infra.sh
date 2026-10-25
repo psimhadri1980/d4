@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Development infrastructure on Podman: data stores, Keycloak, the S3 and SMTP mocks, optional
+# Development infrastructure on Podman: data stores, Keycloak, the gateway, the S3 and SMTP mocks, optional
 # observability, one-shot init jobs, tenants and other operator tasks.
 source "$(dirname "$0")/lib/common.sh"
 
@@ -64,7 +64,7 @@ doctor() {
   check "cgroup v2 cpu+memory delegated" "grep -qw memory /sys/fs/cgroup/user.slice/user-\$(id -u).slice/user@\$(id -u).service/cgroup.controllers" "enable systemd delegation"
   check "podman.socket active" "systemctl --user is-active podman.socket" "systemctl --user enable --now podman.socket"
   check "node 24 (local runs only)" "[[ \$(node -v) == v24.* ]]" "optional: install Node 24"
-  for p in 5173 3000 8080 5432 7687 6379 8333 8025 1025; do
+  for p in "$GATEWAY_PORT" 5432 7687 6379 8333 8025 1025; do
     local o; o=$(port_owner "$p"); [[ -z "$o" ]] || is_container_owner "$o" || { printf '  WARN  port %s used by %s\n' "$p" "$o"; }
   done
   [[ $ok == 1 ]]
@@ -74,10 +74,11 @@ case "${1:-}" in
   up)
     profile=(); svcs=("${INFRA_SERVICES[@]}")
     [[ "${2:-}" == --obs ]] && { profile=(--profile observability); svcs+=("${OBS_SERVICES[@]}"); }
+    o=$(port_owner "$GATEWAY_PORT"); [[ -z "$o" ]] || is_container_owner "$o" || die "Port $GATEWAY_PORT (the gateway) is used by '$o'. Stop it first."
     compose "${profile[@]}" up -d --build --wait "${svcs[@]}"
     compose run --rm --build db-migrate
     compose run --rm neo4j-schema
-    "$0" status ;;
+    "$SELF" status ;;
   down)   compose --profile observability --profile tools down --remove-orphans ;;
   reset)
     [[ "${2:-}" == --yes ]] || { read -r -p "Delete all D4 volumes (databases, objects)? [y/N] " a; [[ "$a" == [yY] ]] || exit 1; }

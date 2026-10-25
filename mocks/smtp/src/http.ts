@@ -114,7 +114,7 @@ const esc = (s: string) => s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt
 
 function html(res: ServerResponse, messages: StoredMessage[]) {
   const rows = messages
-    .map((m) => `<tr><td>${esc(m.created)}</td><td>${esc(m.mail.to.map((a) => a.Address).join(', '))}</td><td><a href="/api/v1/message/${m.id}/raw">${esc(m.mail.subject || '(no subject)')}</a></td><td>${m.mail.attachments.map((a) => `<a href="/api/v1/message/${m.id}/part/${a.PartID}">${esc(a.FileName)}</a>`).join(' ')}</td></tr>`)
+    .map((m) => `<tr><td>${esc(m.created)}</td><td>${esc(m.mail.to.map((a) => a.Address).join(', '))}</td><td><a href="api/v1/message/${m.id}/raw">${esc(m.mail.subject || '(no subject)')}</a></td><td>${m.mail.attachments.map((a) => `<a href="api/v1/message/${m.id}/part/${a.PartID}">${esc(a.FileName)}</a>`).join(' ')}</td></tr>`)
     .join('');
   const body = `<!doctype html><html><head><meta charset="utf-8"><title>D4 mock inbox</title><style>body{font:14px system-ui;margin:24px}td,th{padding:4px 12px;text-align:left;border-bottom:1px solid #ddd}</style></head><body><h1>D4 mock inbox</h1><p>${messages.length} message(s). Development only; nothing leaves this machine.</p><table><tr><th>Received</th><th>To</th><th>Subject</th><th>Attachments</th></tr>${rows}</table></body></html>`;
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(body);

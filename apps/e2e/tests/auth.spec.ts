@@ -17,7 +17,7 @@ test.describe('sign-in', () => {
 
     test('redirects to Keycloak and returns to the requested page', async ({ page }) => {
       await page.goto('/w/does-not-matter');
-      await expect(page).toHaveURL(/localhost:8080\/realms\/d4\//);
+      await expect(page).toHaveURL(/\/auth\/realms\/d4\//);
       await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
     });
 
@@ -42,9 +42,9 @@ test.describe('sign-in', () => {
       await page.getByRole('button', { name: 'Sign out' }).click();
       // Sign-out ends on the Keycloak login (logout → app → sign-in redirect); wait for the whole
       // chain before navigating, or the next goto races it and is aborted.
-      await expect(page).toHaveURL(/localhost:8080\/realms\/d4\/protocol\/openid-connect\/auth/);
+      await expect(page).toHaveURL(/\/auth\/realms\/d4\/protocol\/openid-connect\/auth/);
       await page.goto('/');
-      await expect(page).toHaveURL(/localhost:8080\/realms\/d4\//);
+      await expect(page).toHaveURL(/\/auth\/realms\/d4\//);
     });
   });
 });

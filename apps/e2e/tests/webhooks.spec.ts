@@ -6,9 +6,9 @@ import { expect, test } from '@playwright/test';
 import { openNav, RUN } from './helpers';
 
 /**
- * A receiver in the test process. In the Docker stack the worker reaches it at this container's
- * network address; with a local worker (`e2e-local`) the port is published and E2E_HOOK_URL says
- * where.
+ * A receiver in the test process. The e2e container runs on the host network, so the worker
+ * reaches it where E2E_HOOK_URL says (deploy/compose/tools.yaml); without it, at this machine's
+ * network address.
  */
 const received: { headers: IncomingHttpHeaders; body: string }[] = [];
 let server: Server;

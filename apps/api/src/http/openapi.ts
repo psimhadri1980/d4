@@ -633,8 +633,10 @@ export function buildOpenApiDocument(): OpenApiDocument {
       title: 'D4 API',
       version: '0.1.0',
       description:
-        'Commands and reads for the D4 design-to-delivery graph. Graph-shaped reads are also available via GraphQL at /graphql.',
+        'Commands and reads for the D4 design-to-delivery graph. Graph-shaped reads are also available via GraphQL at /api/graphql.',
     },
+    // Browsers and clients reach the API through the gateway, which strips this prefix.
+    servers: [{ url: '/api' }],
   });
 }
 

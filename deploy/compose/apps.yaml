@@ -16,7 +16,6 @@ services:
     build: { context: ../.., dockerfile: apps/api/Containerfile }
     image: localhost/d4-api:local
     volumes: ['../secrets:/run/d4-secrets:ro,z']
-    ports: ['127.0.0.1:3000:3000']
     <<: *app-env
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}

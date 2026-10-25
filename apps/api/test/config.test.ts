@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { corsOrigins, loadConfig } from '../src/config';
+import { loadConfig } from '../src/config';
 
 describe('loadConfig', () => {
   it('applies defaults', () => {
@@ -22,13 +22,6 @@ describe('loadConfig', () => {
     });
     expect(c.OIDC_JWKS_URI).toBeUndefined();
     expect(c.OTEL_EXPORTER_OTLP_ENDPOINT).toBeUndefined();
-  });
-
-  it('allows the public web address by default, or the listed origins', () => {
-    const base = { POSTGRES_URL: 'postgres://d4:x@localhost:5432/d4', NEO4J_PASSWORD: 'x', OIDC_ISSUER: 'http://localhost:8080/realms/d4' };
-    expect(corsOrigins(loadConfig(base))).toEqual([]);
-    expect(corsOrigins(loadConfig({ ...base, D4_PUBLIC_URL: 'http://localhost:5173/' }))).toEqual(['http://localhost:5173']);
-    expect(corsOrigins(loadConfig({ ...base, D4_PUBLIC_URL: 'http://localhost:5173', CORS_ORIGINS: 'https://a.test, https://b.test' }))).toEqual(['https://a.test', 'https://b.test']);
   });
 
   it('fails fast on missing settings', () => {

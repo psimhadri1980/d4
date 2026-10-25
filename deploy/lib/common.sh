@@ -3,6 +3,8 @@
 set -euo pipefail
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DEPLOY_DIR"
+# This script, callable after the cd above ($0 may be relative to the caller's directory).
+SELF="$DEPLOY_DIR/${0##*/}"
 
 # Podman by default; D4_CONTAINER_ENGINE=docker still works for the same compose files.
 ENGINE="${D4_CONTAINER_ENGINE:-podman}"
@@ -30,10 +32,10 @@ load_env
 # observability out of plain `up`.
 compose() {
   "$ENGINE" compose -p d4 -f compose/infra.yaml -f compose/observability.yaml -f compose/apps.yaml \
-    -f compose/web.yaml -f compose/tools.yaml "$@"
+    -f compose/web.yaml -f compose/gateway.yaml -f compose/tools.yaml "$@"
 }
 
-INFRA_SERVICES=(postgres neo4j redis s3 smtp keycloak)
+INFRA_SERVICES=(postgres neo4j redis s3 smtp keycloak gateway)
 OBS_SERVICES=(otel-collector tempo prometheus grafana)
 APP_SERVICES=(api worker renderer web)
 
@@ -42,7 +44,9 @@ die() { printf '%s\n' "$*" >&2; exit "${2:-1}"; }
 
 # Local Node (dev.sh, test.sh --local). pnpm runs at the version pinned in package.json.
 node_env() {
-  command -v node >/dev/null || die "Node.js >= 24 is required for $1 (see .node-version)"
+  local want; want=$(cut -d. -f1 ../.node-version)
+  [[ "$(node -v 2>/dev/null)" == "v$want."* ]] && command -v npx >/dev/null ||
+    die "Node.js $want with npx is required for $1 (see .node-version; found: $(node -v 2>/dev/null || echo none))"
   PNPM_VERSION=$(sed -nE 's/.*"packageManager": *"pnpm@([^"]+)".*/\1/p' ../package.json)
 }
 pn() { (cd .. && NPM_CONFIG_UPDATE_NOTIFIER=false npx -y "pnpm@$PNPM_VERSION" "$@"); }

@@ -28,8 +28,10 @@ services:
   grafana:
     profiles: [observability]
     image: docker.io/grafana/grafana:11.2.0
-    ports: ['127.0.0.1:3001:3000']
     environment:
+      # Behind the gateway at <D4_PUBLIC_URL>/grafana/.
+      GF_SERVER_ROOT_URL: ${D4_PUBLIC_URL}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run through deploy/dev-infra.sh}
       GF_AUTH_ANONYMOUS_ENABLED: 'true'
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer

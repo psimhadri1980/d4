@@ -3,8 +3,13 @@
   "info": {
     "title": "D4 API",
     "version": "0.1.0",
-    "description": "Commands and reads for the D4 design-to-delivery graph. Graph-shaped reads are also available via GraphQL at /graphql."
+    "description": "Commands and reads for the D4 design-to-delivery graph. Graph-shaped reads are also available via GraphQL at /api/graphql."
   },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
   "components": {
     "securitySchemes": {
       "bearer": {

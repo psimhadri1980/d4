@@ -9,9 +9,9 @@ usage: deploy/test.sh <suite> [--local] [args]
   unit [--filter pkg]   unit tests only (integration suites skip without their services)
   integration [--filter pkg]   all tests, with Postgres, Neo4j, Redis and S3
   web                   web unit tests, typecheck, lint and production build
-  e2e [--web-local] [playwright args]   browser tests against the running stack
-                        (--web-local: against `deploy/dev.sh web` on the host)
-  smoke                 API health, login and /v1/me
+  e2e [playwright args] browser tests through the gateway, whatever mix of container and
+                        local (deploy/dev.sh) apps is behind it
+  smoke                 gateway and API health, login and /v1/me through the gateway
   all                   static, integration, e2e: the pre-commit gate
 --local runs on host Node (Node 24); otherwise everything runs in the test image.
 U
@@ -44,18 +44,9 @@ run() {
 }
 
 e2e() {
-  if [[ "${args[0]:-}" == --web-local ]]; then
-    args=("${args[@]:1}")
-    o=$(port_owner 5173); [[ -n "$o" ]] && ! is_container_owner "$o" || die "Start deploy/dev.sh web first"
-    # On the host network the browser reaches the local web server and the published ports
-    # directly. With D4_API_URL (as given to dev.sh web) setup talks to that API too; the webhook
-    # receiver listens on :3199 so a local worker can reach it.
-    compose --profile tools run --rm --build --no-deps --network host -e E2E_NO_FORWARD=1 \
-      -e E2E_HOOK_PORT=3199 -e E2E_HOOK_URL=http://localhost:3199/d4-hook -e E2E_INBOX_URL=http://localhost:8025 \
-      -e E2E_API_URL="${D4_API_URL:-$D4_PUBLIC_API_URL}" e2e "${args[@]}"
-  else
-    compose --profile tools run --rm --build e2e "${args[@]}"
-  fi
+  # The gateway serves the app, the API and Keycloak whether they run in containers or on the host.
+  curl -fsS -o /dev/null "$D4_PUBLIC_URL/healthz" || die "No gateway at $D4_PUBLIC_URL: run deploy/dev-infra.sh up and deploy/dev-deploy.sh"
+  compose --profile tools run --rm --build --no-deps e2e "${args[@]}"
 }
 
 case "$suite" in
@@ -65,9 +56,10 @@ case "$suite" in
   web)         run 0 turbo run build test typecheck lint --filter @d4/web ;;
   e2e)         e2e ;;
   smoke)
+    curl -fsS "$D4_PUBLIC_URL/healthz" && echo
     curl -fsS "$D4_PUBLIC_API_URL/healthz" && echo
     curl -fsS "$D4_PUBLIC_API_URL/readyz" && echo
     curl -fsS -H "Authorization: Bearer $(./dev-infra.sh token)" "$D4_PUBLIC_API_URL/v1/me" && echo ;;
-  all)         "$0" static "$@" && "$0" integration "$@" && "$0" e2e --retries=0 ;;
+  all)         "$SELF" static "$@" && "$SELF" integration "$@" && "$SELF" e2e --retries=0 ;;
   *) usage ;;
 esac

@@ -11,7 +11,7 @@ const tablerIcons = join(dirname(createRequire(import.meta.url).resolve('@tabler
 function runtimeConfig(): Plugin {
   const env = (name: string) => {
     const v = process.env[name];
-    if (!v) throw new Error(`${name} is not set; start the dev server with deploy/dev.sh web-local`);
+    if (!v) throw new Error(`${name} is not set; start the dev server with deploy/dev.sh web`);
     return v;
   };
   return {
@@ -31,7 +31,8 @@ function runtimeConfig(): Plugin {
 export default defineConfig({
   plugins: [react(), runtimeConfig()],
   resolve: { alias: [{ find: /^@tabler\/icons-react$/, replacement: tablerIcons }] },
-  server: { port: 5173, strictPort: true },
+  // deploy/dev.sh web: behind the gateway, so the HMR socket goes to the gateway's port.
+  server: { port: 5174, strictPort: true, hmr: { clientPort: Number(process.env.GATEWAY_PORT) || undefined } },
   optimizeDeps: { include: ['@d4/core', '@d4/metamodel', '@d4/render', '@d4/ui-kit'] },
   build: {
     commonjsOptions: { include: [/packages\/(core|metamodel|render|ui-kit)\//, /node_modules/] },

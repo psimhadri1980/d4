@@ -1,0 +1,52 @@
+# Rendered at start by the nginx entrypoint; ${GATEWAY_*} and ${UPSTREAM_*} come from the environment.
+resolver ${GATEWAY_RESOLVER} valid=10s ipv6=off;
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+server {
+  listen 8080;
+  server_tokens off;
+  # The API accepts 20 MB model imports.
+  client_max_body_size 25m;
+
+  gzip on;
+  gzip_types application/json application/javascript text/css image/svg+xml text/plain;
+
+  add_header X-Request-Id $request_id always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy strict-origin-when-cross-origin always;
+  add_header X-Frame-Options DENY always;
+
+  proxy_http_version 1.1;
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Request-Id $request_id;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  # Includes the public port; no X-Forwarded-Port, which would be nginx's own (8080).
+  proxy_set_header X-Forwarded-Host $http_host;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection $connection_upgrade;
+
+  location = /healthz { access_log off; default_type text/plain; return 200 'ok'; }
+
+  # The API keeps its own routes (/v1/..., /graphql, /healthz): /api is stripped.
+  location /api/ {
+    set $u ${UPSTREAM_API};
+    rewrite ^/api/(.*)$ /$1 break;
+    proxy_pass http://$u;
+    proxy_read_timeout 120s;
+  }
+  # Keycloak serves under /auth itself (KC_HTTP_RELATIVE_PATH).
+  location /auth/ {
+    set $u ${UPSTREAM_KEYCLOAK};
+    proxy_pass http://$u;
+    proxy_buffer_size 16k;
+    proxy_buffers 8 16k;
+  }
+
+  include /etc/nginx/conf.d/*.locations;
+
+  location / {
+    set $u ${UPSTREAM_WEB};
+    proxy_pass http://$u;
+  }
+}

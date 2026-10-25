@@ -9,7 +9,7 @@ tenant="${1:?tenant}"; user="${2:?username}"; shift 2
 roles=("${@:-admin}")
 ENGINE="${D4_CONTAINER_ENGINE:-podman}"
 kc() { "$ENGINE" exec d4-keycloak-1 /opt/keycloak/bin/kcadm.sh "$@"; }
-kc config credentials --server http://localhost:8080 --realm master --user admin --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null
+kc config credentials --server http://localhost:8080/auth --realm master --user admin --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null
 
 # 1. Declare `tenant` in the user profile: only admins can see or change it (users cannot move
 #    themselves to another tenant), and Keycloak 25 drops undeclared attributes.
