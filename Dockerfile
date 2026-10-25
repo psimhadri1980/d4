@@ -1,5 +1,5 @@
 # Builds the whole TypeScript monorepo in a container, so no local Node install is required.
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 # git: the Git model-as-code connector clones repositories (worker, and the test suite).
 RUN apk add --no-cache git && corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
@@ -32,18 +32,40 @@ HEALTHCHECK --interval=10s --retries=6 CMD wget -qO- http://127.0.0.1:3002/healt
 CMD ["node", "dist/main.js"]
 
 # Renderer: PNG/PDF with headless Chromium. Playwright's image has the browser for
-# playwright-core 1.47.2; the app comes from the build stage (pure JS dependencies).
+# playwright-core 1.47.2 but an older Node, so Node 24 is copied in (both are glibc); the app
+# comes from the build stage (pure JS dependencies).
 FROM mcr.microsoft.com/playwright:v1.47.2-jammy AS renderer
+COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 ENV NODE_ENV=production
 COPY --from=build /repo /repo
 WORKDIR /repo/apps/renderer
 HEALTHCHECK --interval=10s --retries=6 CMD wget -qO- http://127.0.0.1:3003/healthz || exit 1
 CMD ["node", "dist/main.js"]
 
-# Static web app (built above) served by nginx.
+# Static web app (built above) served by nginx; /config.json is written from the environment
+# when the container starts, so one image serves any environment.
 FROM nginx:1.27-alpine AS web
 COPY deploy/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chmod=755 deploy/web/config.sh /docker-entrypoint.d/40-d4-config.sh
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
+
+# Development-only mocks (mocks/*): no runtime dependencies, so only their compiled files.
+FROM node:24-alpine AS mock-s3
+RUN mkdir /data && chown node:node /data
+WORKDIR /app
+COPY --from=build /repo/mocks/s3/dist ./dist
+USER node
+EXPOSE 8333
+HEALTHCHECK --interval=5s --retries=20 CMD wget -qO- http://127.0.0.1:8333/_health >/dev/null || exit 1
+CMD ["node", "dist/main.js"]
+
+FROM node:24-alpine AS mock-smtp
+WORKDIR /app
+COPY --from=build /repo/mocks/smtp/dist ./dist
+USER node
+EXPOSE 1025 8025
+HEALTHCHECK --interval=5s --retries=20 CMD wget -qO- http://127.0.0.1:8025/readyz >/dev/null || exit 1
+CMD ["node", "dist/main.js"]
 
 # Browser tests: Playwright's image (browsers included) plus socat for port forwarding.
 FROM mcr.microsoft.com/playwright:v1.47.2-jammy AS e2e

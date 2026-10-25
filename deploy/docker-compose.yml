@@ -1,34 +1,20 @@
 # Local D4 stack. Sized for an 8 GB machine (~3.3 GB caps for the core profile).
-#   core (default):  neo4j, postgres, redis, s3 (SeaweedFS), keycloak
-#                    + init jobs (db-migrate, neo4j-schema, s3-init) + api + web (:5173)
+#   core (default):  neo4j, postgres, redis, keycloak, s3 and smtp (in-repo mocks, mocks/*)
+#                    + init jobs (db-migrate, neo4j-schema) + api + worker + renderer + web (:5173)
 #   observability:   otel-collector, tempo, prometheus, grafana   (--profile observability)
-#   tools:           test runner                                  (--profile tools)
-# Use deploy/dev.sh rather than calling compose directly.
+#   tools:           test runner, browser tests                   (--profile tools)
+# Settings come from deploy/env/*.env: services read them with env_file, and compose fills
+# ${...} below from the --env-file arguments deploy/dev.sh passes. Use deploy/dev.sh rather
+# than calling compose directly.
 name: d4
 
-x-api-env: &api-env
-  API_PORT: 3000
-  POSTGRES_URL: postgres://d4:d4-local-dev@postgres:5432/d4
-  NEO4J_USER: neo4j
-  NEO4J_PASSWORD: d4-local-dev
-  # Tokens are issued for the browser-facing URL; keys are fetched over the compose network.
-  OIDC_ISSUER: http://localhost:8080/realms/d4
-  OIDC_JWKS_URI: http://keycloak:8080/realms/d4/protocol/openid-connect/certs
-  OIDC_AUDIENCE: d4-api
-  OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
-  # Background jobs: queue in Redis, artefacts (uploads, export files) in S3.
-  REDIS_URL: redis://redis:6379
-  S3_ENDPOINT: http://s3:8333
-  S3_ACCESS_KEY: d4
-  S3_SECRET_KEY: d4-local-dev
-  S3_BUCKET: d4-exports
-  # Report emails go to Mailpit locally (inbox at http://localhost:8025).
-  SMTP_URL: smtp://mailpit:1025
-  APP_URL: http://localhost:5173
-  # Tenant Neo4j passwords (`file:` secret refs), written by `dev.sh tenant-create`.
-  NEO4J_SECRETS_DIR: /run/d4-secrets
-  # Lets local webhooks point at http://… on this machine or the compose network. Never in production.
-  WEBHOOK_ALLOW_PRIVATE: 'true'
+# What the D4 services read (later files win; local.env is optional and git-ignored).
+x-app-env: &app-env
+  env_file:
+    - env/common.env
+    - env/container.env
+    - env/dev-secrets.env
+    - { path: env/local.env, required: false }
 
 services:
   # ── Data stores ───────────────────────────────────────────────────────
@@ -36,7 +22,7 @@ services:
     image: neo4j:5.26-community
     ports: ['7474:7474', '7687:7687']
     environment:
-      NEO4J_AUTH: neo4j/d4-local-dev
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?run through deploy/dev.sh}
       # APOC only: nothing uses Graph Data Science, and it costs several hundred MB of class metadata.
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_security_procedures_unrestricted: 'apoc.*'
@@ -60,7 +46,7 @@ services:
     mem_limit: 1400m
     cpus: 2.0
     healthcheck:
-      test: ['CMD-SHELL', 'cypher-shell -u neo4j -p d4-local-dev "RETURN 1" >/dev/null 2>&1']
+      test: ['CMD-SHELL', 'cypher-shell -u neo4j -p "$${NEO4J_AUTH#neo4j/}" "RETURN 1" >/dev/null 2>&1']
       interval: 10s
       timeout: 10s
       retries: 30
@@ -70,14 +56,14 @@ services:
     image: postgres:16-alpine
     ports: ['5432:5432']
     environment:
-      POSTGRES_USER: d4
-      POSTGRES_PASSWORD: d4-local-dev
-      POSTGRES_DB: d4
+      POSTGRES_USER: ${POSTGRES_USER:?run through deploy/dev.sh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run through deploy/dev.sh}
+      POSTGRES_DB: ${POSTGRES_DB:?run through deploy/dev.sh}
     volumes:
       - pg-data:/var/lib/postgresql/data
     mem_limit: 256m
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U d4 -d d4']
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       retries: 20
 
@@ -93,31 +79,26 @@ services:
       interval: 5s
       retries: 20
 
-  # S3-compatible object store (MinIO no longer publishes container images).
+  # S3 for local development: the file-backed mock in mocks/s3 (S3 REST and SigV4, buckets
+  # from S3_MOCK_BUCKETS created at start, so no bucket job is needed).
   s3:
-    image: chrislusf/seaweedfs:3.80
-    command: >
-      server -dir=/data -ip=s3 -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=128 -volume.max=20
-      -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    build: { context: .., dockerfile: Dockerfile, target: mock-s3 }
+    image: d4-mock-s3:local
     ports: ['8333:8333']
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?run through deploy/dev.sh}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?run through deploy/dev.sh}
+      S3_MOCK_BUCKETS: ${S3_MOCK_BUCKETS:-d4-exports}
     volumes:
-      - s3-data:/data
-      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
-    mem_limit: 256m
-    healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8333/healthz >/dev/null 2>&1']
-      interval: 5s
-      retries: 30
+      - s3-mock-data:/data
+    mem_limit: 128m
 
-  # Catches report emails locally; nothing leaves the machine. Inbox: http://localhost:8025
-  mailpit:
-    image: axllent/mailpit:v1.20.5
+  # Catches report emails locally (mocks/smtp); nothing leaves the machine. Inbox: http://localhost:8025
+  smtp:
+    build: { context: .., dockerfile: Dockerfile, target: mock-smtp }
+    image: d4-mock-smtp:local
     ports: ['8025:8025', '1025:1025']
     mem_limit: 64m
-    healthcheck:
-      test: ['CMD', '/mailpit', 'readyz']
-      interval: 10s
-      retries: 10
 
   # ── Identity ──────────────────────────────────────────────────────────
   keycloak:
@@ -126,12 +107,15 @@ services:
     ports: ['8080:8080']
     environment:
       KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: d4-local-dev
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?run through deploy/dev.sh}
       KC_HEALTH_ENABLED: 'true'
       # Fixed public issuer; containers may still call keycloak:8080 on the back channel.
-      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?run through deploy/dev.sh}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
       JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=60
+      # Placeholders in the realm file (read on first import only).
+      D4_PUBLIC_URL: ${D4_PUBLIC_URL:?run through deploy/dev.sh}
+      DEV_USER_PASSWORD: ${DEV_USER_PASSWORD:?run through deploy/dev.sh}
     volumes:
       - ./keycloak/d4-realm.json:/opt/keycloak/data/import/d4-realm.json:ro
     mem_limit: 768m
@@ -143,20 +127,6 @@ services:
       start_period: 30s
 
   # ── One-shot init jobs ───────────────────────────────────────────────
-  s3-init:
-    image: amazon/aws-cli:2.17.40
-    depends_on: { s3: { condition: service_healthy } }
-    environment:
-      AWS_ACCESS_KEY_ID: d4
-      AWS_SECRET_ACCESS_KEY: d4-local-dev
-      AWS_DEFAULT_REGION: us-east-1
-    entrypoint: >
-      sh -c 'for b in d4-exports d4-attachments d4-backups; do
-               aws --endpoint-url http://s3:8333 s3api head-bucket --bucket $$b 2>/dev/null ||
-               aws --endpoint-url http://s3:8333 s3 mb s3://$$b || exit 1;
-             done'
-    restart: 'no'
-
   # Applies control-plane migrations, then seeds the local tenant, metamodel and workspace.
   db-migrate:
     build: { context: .., dockerfile: Dockerfile, target: api }
@@ -164,7 +134,7 @@ services:
     volumes: ['./secrets:/run/d4-secrets:ro']
     depends_on:
       postgres: { condition: service_healthy }
-    environment: *api-env
+    <<: *app-env
     working_dir: /repo/packages/db
     command: ['node', 'dist/seed-local.js']
     restart: 'no'
@@ -175,7 +145,7 @@ services:
     depends_on:
       neo4j: { condition: service_healthy }
       db-migrate: { condition: service_completed_successfully }
-    environment: *api-env
+    <<: *app-env
     command: ['node', 'dist/scripts/apply-schema.js', 't_local']
     restart: 'no'
 
@@ -185,12 +155,14 @@ services:
     volumes: ['./secrets:/run/d4-secrets:ro']
     build: { context: .., dockerfile: Dockerfile, target: api }
     ports: ['3000:3000']
-    environment: *api-env
+    <<: *app-env
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
     depends_on:
       neo4j-schema: { condition: service_completed_successfully }
       keycloak: { condition: service_healthy }
       redis: { condition: service_healthy }
-      s3-init: { condition: service_completed_successfully }
+      s3: { condition: service_healthy }
     mem_limit: 384m
     cpus: 1.0
 
@@ -198,14 +170,14 @@ services:
     build: { context: .., dockerfile: Dockerfile, target: worker }
     image: d4-worker:local
     volumes: ['./secrets:/run/d4-secrets:ro']
+    <<: *app-env
     environment:
-      <<: *api-env
       WORKER_CONCURRENCY: 2
     depends_on:
-      mailpit: { condition: service_healthy }
+      smtp: { condition: service_healthy }
       neo4j-schema: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
-      s3-init: { condition: service_completed_successfully }
+      s3: { condition: service_healthy }
     mem_limit: 384m
     cpus: 1.0
     restart: unless-stopped
@@ -214,13 +186,12 @@ services:
     build: { context: .., dockerfile: Dockerfile, target: renderer }
     image: d4-renderer:local
     volumes: ['./secrets:/run/d4-secrets:ro']
-    environment:
-      <<: *api-env
+    <<: *app-env
     depends_on:
-      mailpit: { condition: service_healthy }
+      smtp: { condition: service_healthy }
       neo4j-schema: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
-      s3-init: { condition: service_completed_successfully }
+      s3: { condition: service_healthy }
     # Chromium: memory for one render at a time (RENDER_CONCURRENCY=1).
     mem_limit: 768m
     cpus: 1.0
@@ -231,6 +202,11 @@ services:
     build: { context: .., dockerfile: Dockerfile, target: web }
     image: d4-web:local
     ports: ['5173:80']
+    # Written to /config.json at start (deploy/web/config.sh): public values only.
+    environment:
+      D4_PUBLIC_API_URL: ${D4_PUBLIC_API_URL:?run through deploy/dev.sh}
+      OIDC_ISSUER: ${OIDC_ISSUER:?run through deploy/dev.sh}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?run through deploy/dev.sh}
     depends_on:
       api: { condition: service_healthy }
     mem_limit: 64m
@@ -270,7 +246,7 @@ services:
     image: grafana/grafana:11.2.0
     ports: ['3001:3000']
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: d4-local-dev
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run through deploy/dev.sh}
       GF_AUTH_ANONYMOUS_ENABLED: 'true'
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
     volumes:
@@ -293,10 +269,10 @@ services:
       s3: { condition: service_healthy }
     environment:
       # Integration tests create and drop their own throwaway databases on this server.
-      D4_TEST_POSTGRES_URL: postgres://d4:d4-local-dev@postgres:5432/postgres
+      D4_TEST_POSTGRES_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres
       # Graph tests use a throwaway workspace on the dev Neo4j and delete it afterwards.
       D4_TEST_NEO4J_URL: bolt://neo4j:7687
-      D4_TEST_NEO4J_PASSWORD: d4-local-dev
+      D4_TEST_NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       # Job tests use their own queue name prefix and bucket keys, and clean up.
       D4_TEST_REDIS_URL: redis://redis:6379
       D4_TEST_S3_ENDPOINT: http://s3:8333
@@ -317,5 +293,5 @@ volumes:
   neo4j-plugins:
   pg-data:
   redis-data:
-  s3-data:
+  s3-mock-data:
   tempo-data:

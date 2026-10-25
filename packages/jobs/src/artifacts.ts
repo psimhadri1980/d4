@@ -16,7 +16,7 @@ export interface S3Config {
   region?: string;
 }
 
-/** S3 (SeaweedFS locally): path-style addressing, one bucket for job artefacts. */
+/** S3 (the file-backed mock in mocks/s3 locally): path-style addressing, one bucket for job artefacts. */
 export class S3ArtifactStore implements ArtifactStore {
   private readonly s3: S3Client;
   private bucketChecked = false;
@@ -47,7 +47,7 @@ export class S3ArtifactStore implements ArtifactStore {
     await this.s3.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
   }
 
-  /** The bucket is created by deploy (s3-init); creating it here too keeps tests self-contained. */
+  /** Deployments create the bucket (locally the mock does, from S3_MOCK_BUCKETS); creating it here too keeps tests self-contained. */
   private async ensureBucket() {
     if (this.bucketChecked) return;
     try {

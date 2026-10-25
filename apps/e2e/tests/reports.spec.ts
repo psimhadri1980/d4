@@ -2,8 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { RUN } from './helpers';
 
-/** Mailpit (local mail catcher) as seen from the test container. */
-const MAILPIT = process.env.E2E_MAILPIT_URL ?? 'http://mailpit:8025';
+/** The local mail catcher's Mailpit-compatible API (mocks/smtp) as seen from the test container. */
+const INBOX = process.env.E2E_INBOX_URL ?? 'http://smtp:8025';
 
 test.describe('scheduled reports', () => {
   test.describe.configure({ timeout: 90_000 });
@@ -39,10 +39,10 @@ test.describe('scheduled reports', () => {
 
     // The run was emailed with the PDF attached.
     await expect(row).toContainText('Emailed to 1');
-    const search = await (await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:${inbox}`)}`)).json() as { messages: { ID: string; Subject: string }[] };
+    const search = await (await fetch(`${INBOX}/api/v1/search?query=${encodeURIComponent(`to:${inbox}`)}`)).json() as { messages: { ID: string; Subject: string }[] };
     expect(search.messages).toHaveLength(1);
     expect(search.messages[0]!.Subject).toContain(name);
-    const msg = await (await fetch(`${MAILPIT}/api/v1/message/${search.messages[0]!.ID}`)).json() as { Attachments: { FileName: string }[]; Text: string };
+    const msg = await (await fetch(`${INBOX}/api/v1/message/${search.messages[0]!.ID}`)).json() as { Attachments: { FileName: string }[]; Text: string };
     expect(msg.Attachments.map((a) => a.FileName)).toEqual(['roadmap-client-data-consolidation.pdf']);
     expect(msg.Text).toContain('/reports');
 

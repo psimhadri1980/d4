@@ -1,0 +1,16 @@
+{
+  "name": "@d4/mock-s3",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Development-only S3-compatible object store kept in files (replaces SeaweedFS and the aws-cli bucket job).",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-s3": "^3.654.0"
+  }
+}
