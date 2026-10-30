@@ -8,9 +8,9 @@ import { z } from '../http/schemas';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
 import { jobView } from './jobs.controller';
-import { ModelFactory } from './model.factory';
 import { resolveView } from './view';
 import { WorkspaceAccess } from './workspace-access.service';
+import { Workspace, type OpenWorkspace } from './workspace.decorator';
 
 const CreateBody = z.object({
   name: z.string().trim().min(1).max(120),
@@ -41,27 +41,23 @@ export class SchedulesController {
     @Inject(JobStore) private readonly jobStore: JobStore,
     @Inject(ScheduleStore) private readonly scheduleStore: ScheduleStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
-    @Inject(ModelFactory) private readonly models: ModelFactory,
     @Inject(Database) private readonly database: Database,
     @Inject(JobsInfra) private readonly infra: JobsInfra,
   ) {}
 
   @Get()
-  async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
+  async list(@CurrentPrincipal() p: Principal, @Workspace('read') { scope }: OpenWorkspace, @Query() query: unknown) {
     const everyone = parse(ListQuery, query).all === 'true' && p.roles.includes('admin');
-    const scope = await this.access.resolve(p, ws, 'read');
     const rows = await this.scheduleStore.list(scope.tenantId, scope.workspaceId, everyone ? {} : { createdBy: p.userId });
     return Promise.all(rows.map((r) => this.view(r)));
   }
 
   @Post()
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async create(@CurrentPrincipal() p: Principal, @Workspace('read') { scope, queries }: OpenWorkspace, @Body() body: unknown) {
     const b = parse(CreateBody, body);
-    const scope = await this.access.resolve(p, ws, 'read');
     const params = validateScheduleParams(b.kind, b.params);
     // Check what can be checked now, so a schedule does not fail on every run.
-    const { queries } = this.models.for(scope);
     if (b.kind === 'export' || params['target'] === 'graph') await resolveView(queries, scope.registry, scope.workspaceId, params);
     if (params['target'] === 'graph' && !(await queries.getElement(scope.workspaceId, String(params['root'])))) {
       throw new NotFoundException(`Element '${String(params['root'])}' not found`);

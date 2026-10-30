@@ -1,6 +1,7 @@
-import { Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { MetamodelStore, QUOTA_METRICS, RoleStore, ROLES, UsageStore, UserStore, WorkspaceStore } from '@d4/db';
 import type { Principal } from '../auth/identity';
+import { Roles } from '../auth/auth.guard';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { z } from '../http/schemas';
@@ -40,6 +41,7 @@ const ListQuery = z.object({ archived: z.enum(['true', 'false']).optional() });
  * on each sign-in check).
  */
 @Controller('v1')
+@Roles('admin')
 export class AdminController {
   constructor(
     @Inject(MetamodelStore) private readonly metamodelStore: MetamodelStore,
@@ -54,7 +56,6 @@ export class AdminController {
   /** Usage against the tenant's limits now, and daily readings for the last 30 days. */
   @Get('admin/usage')
   async usage(@CurrentPrincipal() p: Principal) {
-    this.admin(p);
     const db = this.database.db;
     const [usage, limits, history] = await Promise.all([
       currentUsage(db, this.graph.sessions(p.tenantId), p.tenantId),
@@ -66,7 +67,6 @@ export class AdminController {
 
   @Get('admin/workspaces')
   async workspaces(@CurrentPrincipal() p: Principal, @Query() query: unknown) {
-    this.admin(p);
     const archived = parse(ListQuery, query).archived === 'true';
     const store = this.workspaceStore;
     const rows = archived ? await store.listAll(p.tenantId) : await store.list(p.tenantId);
@@ -76,15 +76,13 @@ export class AdminController {
 
   /** Metamodels a new workspace can start from. */
   @Get('admin/metamodel-packs')
-  packs(@CurrentPrincipal() p: Principal) {
-    this.admin(p);
+  packs() {
     return describeMetamodelPacks();
   }
 
   @Post('admin/workspaces')
   @HttpCode(201)
   async create(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
-    this.admin(p);
     const b = parse(CreateWorkspace, body);
     const store = this.workspaceStore;
     if (await store.bySlug(p.tenantId, b.slug)) throw new ConflictException(`A workspace with slug '${b.slug}' already exists`);
@@ -114,7 +112,6 @@ export class AdminController {
 
   @Patch('admin/workspaces/:ws')
   async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
-    this.admin(p);
     const row = await this.workspaceStore.update(p.tenantId, ws, parse(UpdateWorkspace, body));
     if (!row) throw new NotFoundException(`Workspace '${ws}' not found`);
     return { id: row.id, slug: row.slug, name: row.name, description: row.description, archived: !!row.archivedAt };
@@ -135,7 +132,6 @@ export class AdminController {
 
   @Get('admin/users')
   async users(@CurrentPrincipal() p: Principal) {
-    this.admin(p);
     return (await this.userStore.list(p.tenantId)).map((u) => ({
       id: u.id,
       email: u.email,
@@ -148,7 +144,6 @@ export class AdminController {
   /** `ws` = a workspace id, or `tenant` for tenant-wide roles. */
   @Get('admin/members/:ws')
   async members(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
-    this.admin(p);
     const scope = await this.scope(p, ws);
     const users = new Map((await this.userStore.list(p.tenantId)).map((u) => [u.id, u]));
     return (await this.roleStore.bindings(p.tenantId, scope)).map((b) => ({
@@ -164,7 +159,6 @@ export class AdminController {
   @Post('admin/members/:ws')
   @HttpCode(204)
   async grant(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
-    this.admin(p);
     const scope = await this.scope(p, ws);
     const b = parse(Binding, body);
     if (b.principalType === 'user' && !(await this.userStore.get(p.tenantId, b.principalId))) {
@@ -176,7 +170,6 @@ export class AdminController {
   @Delete('admin/members/:ws')
   @HttpCode(204)
   async revoke(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
-    this.admin(p);
     const scope = await this.scope(p, ws);
     const b = parse(Binding, body);
     // Keep at least one way back in: an admin cannot remove their own tenant-wide admin binding.
@@ -184,10 +177,6 @@ export class AdminController {
       throw new ConflictException('You cannot remove your own tenant-wide admin role');
     }
     await this.roleStore.revoke(p.tenantId, { ...b, ...(scope && { workspaceId: scope }) });
-  }
-
-  private admin(p: Principal) {
-    if (!p.roles.includes('admin')) throw new ForbiddenException('Tenant administration needs the admin role');
   }
 
   private async scope(p: Principal, ws: string): Promise<string | null> {
@@ -198,7 +187,6 @@ export class AdminController {
   }
 
   private async setArchived(p: Principal, ws: string, archived: boolean) {
-    this.admin(p);
     // Restoring makes a workspace active again, so it counts against the limit.
     if (!archived) await assertWorkspaceQuota(this.database.db, p.tenantId);
     if (!(await this.workspaceStore.setArchived(p.tenantId, ws, archived))) throw new NotFoundException(`Workspace '${ws}' not found`);

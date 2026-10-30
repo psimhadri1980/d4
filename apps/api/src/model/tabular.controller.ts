@@ -7,6 +7,7 @@ import { parse } from '../http/errors';
 import { TabularAnalyzeBody, TabularImportBody, z } from '../http/schemas';
 import { ModelFactory } from './model.factory';
 import { WorkspaceAccess } from './workspace-access.service';
+import { Workspace, type OpenWorkspace } from './workspace.decorator';
 
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
 const PREVIEW_ROWS = 5;
@@ -28,9 +29,8 @@ export class TabularController {
 
   @Post('analyze')
   @HttpCode(200)
-  async analyze(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async analyze(@Workspace('read') { scope }: OpenWorkspace, @Body() body: unknown) {
     const { files } = parse(TabularAnalyzeBody, body);
-    const scope = await this.access.resolve(p, ws, 'read');
     const tables = await readTables(decodeUploads(files));
     return {
       tables: tables.map((t) => ({

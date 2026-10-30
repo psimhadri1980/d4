@@ -8,8 +8,8 @@ import { ExportQuery, TabularImportBody, z } from '../http/schemas';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
 import { resolveView } from './view';
-import { ModelFactory } from './model.factory';
 import { WorkspaceAccess } from './workspace-access.service';
+import { Workspace, type OpenWorkspace } from './workspace.decorator';
 
 interface Reply {
   header(name: string, value: string): unknown;
@@ -50,18 +50,16 @@ export class JobsController {
   constructor(
     @Inject(JobStore) private readonly jobStore: JobStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
-    @Inject(ModelFactory) private readonly models: ModelFactory,
     @Inject(Database) private readonly database: Database,
     @Inject(JobsInfra) private readonly infra: JobsInfra,
   ) {}
 
   @Post('export')
   @HttpCode(202)
-  async export(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async export(@CurrentPrincipal() p: Principal, @Workspace('read') { scope, queries }: OpenWorkspace, @Body() body: unknown) {
     const q = parse(ExportQuery, body ?? {});
-    const scope = await this.access.resolve(p, ws, 'read');
     // Check the scenario now, so a typo fails here rather than in the worker.
-    await resolveView(this.models.for(scope).queries, scope.registry, scope.workspaceId, q);
+    await resolveView(queries, scope.registry, scope.workspaceId, q);
     const queue = this.infra.queue;
     await assertJobQuota(this.database.db, scope.tenantId);
     const job = await this.jobStore.create(scope.tenantId, {
@@ -77,10 +75,8 @@ export class JobsController {
   /** A picture of a roadmap or a graph view: SVG, PNG or PDF (rendered with Chromium). */
   @Post('render')
   @HttpCode(202)
-  async render(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async render(@CurrentPrincipal() p: Principal, @Workspace('read') { scope, queries }: OpenWorkspace, @Body() body: unknown) {
     const params = parse(RenderParams, body);
-    const scope = await this.access.resolve(p, ws, 'read');
-    const { queries } = this.models.for(scope);
     if (params.target === 'graph') {
       await resolveView(queries, scope.registry, scope.workspaceId, params);
       if (!(await queries.getElement(scope.workspaceId, params.root))) throw new NotFoundException(`Element '${params.root}' not found`);
@@ -115,9 +111,8 @@ export class JobsController {
   }
 
   @Get()
-  async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
+  async list(@CurrentPrincipal() p: Principal, @Workspace('read') { scope }: OpenWorkspace, @Query() query: unknown) {
     const q = parse(ListQuery, query);
-    const scope = await this.access.resolve(p, ws, 'read');
     const everyone = q.all === 'true' && p.roles.includes('admin');
     const rows = await this.jobStore.list(scope.tenantId, scope.workspaceId, {
       ...(!everyone && { createdBy: p.userId }),

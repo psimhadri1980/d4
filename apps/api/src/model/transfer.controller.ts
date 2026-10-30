@@ -9,6 +9,7 @@ import { exportSnapshot, modelDocument, renderExport } from '@d4/jobs';
 import { ExportQuery, z } from '../http/schemas';
 import { ModelFactory } from './model.factory';
 import { WorkspaceAccess } from './workspace-access.service';
+import { Workspace, type OpenWorkspace } from './workspace.decorator';
 
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
 
@@ -57,14 +58,11 @@ export class TransferController {
    */
   @Get('export')
   async export(
-    @CurrentPrincipal() p: Principal,
-    @Param('ws') ws: string,
+    @Workspace('read') { scope, queries }: OpenWorkspace,
     @Query() query: unknown,
     @Res({ passthrough: true }) reply: Reply,
   ) {
     const q = parse(ExportQuery, query);
-    const scope = await this.access.resolve(p, ws, 'read');
-    const { queries } = this.models.for(scope);
     const snapshot = await exportSnapshot(queries, scope.registry, scope.workspaceId, q);
     const row = await this.workspaceStore.get(scope.tenantId, scope.workspaceId);
     const meta = { name: row?.name ?? scope.workspaceId, slug: row?.slug ?? 'model', description: row?.description ?? null };

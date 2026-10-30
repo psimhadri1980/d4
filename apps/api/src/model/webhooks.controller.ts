@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post } from '@nestjs/common';
 import { DOMAIN_EVENT_TYPES } from '@d4/core';
 import { WorkspaceStore, WebhookStore, type DeliveryRow, type WebhookRow } from '@d4/db';
 import { checkWebhookUrl, newWebhookSecret } from '@d4/jobs';
 import type { Principal } from '../auth/identity';
+import { Roles } from '../auth/auth.guard';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { APP_CONFIG, type AppConfig } from '../config';
 import { parse } from '../http/errors';
@@ -24,6 +25,7 @@ const UpdateWebhook = z.object({ ...fields, enabled: z.boolean() }).partial().st
  * shown when the webhook is created or its secret is rotated, and never again.
  */
 @Controller('v1/admin/webhooks')
+@Roles('admin')
 export class WebhooksController {
   constructor(
     @Inject(WebhookStore) private readonly webhookStore: WebhookStore,
@@ -33,20 +35,17 @@ export class WebhooksController {
 
   @Get()
   async list(@CurrentPrincipal() p: Principal) {
-    this.admin(p);
     return (await this.webhookStore.list(p.tenantId)).map(view);
   }
 
   @Get('event-types')
-  eventTypes(@CurrentPrincipal() p: Principal) {
-    this.admin(p);
+  eventTypes() {
     return DOMAIN_EVENT_TYPES;
   }
 
   @Post()
   @HttpCode(201)
   async create(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
-    this.admin(p);
     const b = parse(CreateWebhook, body);
     await this.checkUrl(b.url);
     const secret = newWebhookSecret();
@@ -63,13 +62,11 @@ export class WebhooksController {
 
   @Get(':id')
   async get(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
-    this.admin(p);
     return view(await this.find(p, id));
   }
 
   @Patch(':id')
   async update(@CurrentPrincipal() p: Principal, @Param('id') id: string, @Body() body: unknown) {
-    this.admin(p);
     const b = parse(UpdateWebhook, body);
     await this.find(p, id);
     if (b.url) await this.checkUrl(b.url);
@@ -85,14 +82,12 @@ export class WebhooksController {
   @Delete(':id')
   @HttpCode(204)
   async remove(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
-    this.admin(p);
     if (!(await this.webhookStore.remove(p.tenantId, id))) throw new NotFoundException(`Webhook '${id}' not found`);
   }
 
   /** Replaces the signing secret; receivers must switch to the new one. */
   @Post(':id/rotate-secret')
   async rotate(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
-    this.admin(p);
     await this.find(p, id);
     const secret = newWebhookSecret();
     const row = await this.webhookStore.update(p.tenantId, id, { secret });
@@ -103,7 +98,6 @@ export class WebhooksController {
   @Post(':id/ping')
   @HttpCode(202)
   async ping(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
-    this.admin(p);
     const w = await this.find(p, id);
     if (!w.enabled) throw new BadRequestException('The webhook is turned off; turn it on first');
     return deliveryView(await this.webhookStore.ping(w, p.userId));
@@ -111,7 +105,6 @@ export class WebhooksController {
 
   @Get(':id/deliveries')
   async deliveries(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
-    this.admin(p);
     await this.find(p, id);
     return (await this.webhookStore.deliveries(id)).map(deliveryView);
   }
@@ -119,15 +112,10 @@ export class WebhooksController {
   @Post(':id/deliveries/:delivery/redeliver')
   @HttpCode(202)
   async redeliver(@CurrentPrincipal() p: Principal, @Param('id') id: string, @Param('delivery') delivery: string) {
-    this.admin(p);
     await this.find(p, id);
     const row = await this.webhookStore.redeliver(id, delivery);
     if (!row) throw new NotFoundException(`Delivery '${delivery}' not found`);
     return deliveryView(row);
-  }
-
-  private admin(p: Principal) {
-    if (!p.roles.includes('admin')) throw new ForbiddenException('Webhooks need the admin role');
   }
 
   private async find(p: Principal, id: string): Promise<WebhookRow> {

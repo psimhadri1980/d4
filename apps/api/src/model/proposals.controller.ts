@@ -8,6 +8,7 @@ import { CreateProposalBody, EditProposalBody, ReviewBody, z } from '../http/sch
 import { Database } from '../infra/database.service';
 import { ModelFactory } from './model.factory';
 import { WorkspaceAccess, type Access, type WorkspaceScope } from './workspace-access.service';
+import { Workspace, type OpenWorkspace } from './workspace.decorator';
 
 // `status` may repeat (`?status=a&status=b`) or be comma-separated (`?status=a,b`, as the web client sends it).
 const ListQuery = z.object({
@@ -32,18 +33,16 @@ export class ProposalsController {
   ) {}
 
   @Get()
-  async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
+  async list(@Workspace('read') { scope }: OpenWorkspace, @Query() query: unknown) {
     const q = parse(ListQuery, query);
-    const scope = await this.access.resolve(p, ws, 'read');
     const statuses = q.status?.length ? q.status : undefined;
     return (await this.proposalStore.list(scope.tenantId, scope.workspaceId, statuses)).map(summary);
   }
 
   @Post()
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async create(@CurrentPrincipal() p: Principal, @Workspace('write') { scope }: OpenWorkspace, @Body() body: unknown) {
     const b = parse(CreateProposalBody, body);
-    const scope = await this.access.resolve(p, ws, 'write');
     const row = await this.proposalStore.create(scope.tenantId, { workspaceId: scope.workspaceId, title: b.title, description: b.description ?? null, operations: b.operations, createdBy: p.userId });
     return this.detail(scope, row);
   }

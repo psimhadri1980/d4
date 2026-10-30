@@ -1,14 +1,11 @@
-import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { diffModels, type ModelDiff } from '@d4/core';
 import type { GraphQueries } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
-import type { Principal } from '../auth/identity';
-import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { DiffQuery } from '../http/schemas';
-import { ModelFactory } from './model.factory';
 import { resolveView } from './view';
-import { WorkspaceAccess } from './workspace-access.service';
+import { Workspace, type OpenWorkspace } from './workspace.decorator';
 
 type DiffResult =ModelDiff & { names: Record<string, string> };
 
@@ -36,15 +33,9 @@ export async function diffFor(
 
 @Controller('v1/workspaces/:ws/diff')
 export class DiffController {
-  constructor(
-    @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
-    @Inject(ModelFactory) private readonly models: ModelFactory,
-  ) {}
-
   @Get()
-  async get(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
+  async get(@Workspace('read') { scope, queries }: OpenWorkspace, @Query() query: unknown) {
     const q = parse(DiffQuery, query);
-    const scope = await this.access.resolve(p, ws, 'read');
-    return diffFor(this.models.for(scope).queries, scope.registry, scope.workspaceId, q);
+    return diffFor(queries, scope.registry, scope.workspaceId, q);
   }
 }
