@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post } from '@nestjs/common';
 import { BackupStore, JobStore, WorkspaceStore, type BackupRow, type JobKind } from '@d4/db';
-import { assertJobQuota } from '@d4/jobs';
+import { assertJobQuota } from '@d4/infra';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';

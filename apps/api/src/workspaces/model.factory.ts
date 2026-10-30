@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { GraphQuotaGuard, modelHandles, type ModelHandles } from '@d4/jobs';
+import { modelHandles, type ModelHandles } from '@d4/jobs';
+import { GraphQuotaGuard } from '@d4/infra';
 import { Database } from '../infra/database.service';
 import { TenantGraphService } from '../infra/tenant-graph.service';
 import type { WorkspaceScope } from './workspace-access.service';

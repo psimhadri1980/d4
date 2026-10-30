@@ -21,7 +21,8 @@ packages/db           Postgres control plane: Drizzle schema, migrations, stores
 packages/graph        Neo4j adapter: ModelRepository and read queries (list/search, neighbourhood)
 packages/codecs       Model-as-code documents, CSV/Excel import, export formats (CSV, Excel, Mermaid, ArchiMate, Cypher)
 packages/render       SVG pictures: roadmap Gantt and graph neighbourhood (shared with the web chart)
-packages/jobs         Job queue, S3 artefacts, tenant graph routing and the work shared by api and worker
+packages/infra        Adapters: job queue, S3 artefacts, mailer, tenant graph routing and provisioning, usage and quotas
+packages/jobs         Job handlers shared by api, worker and renderer: exports, imports, renders, reports, backups, syncs, webhooks
 packages/runtime      Process plumbing for every service: JSON logs (pino), tracing, the queue service loop
 packages/cli          `d4` command line: validate, import, export, workspaces
 samples/              Example models, e.g. ubs-banking.yaml (illustrative)

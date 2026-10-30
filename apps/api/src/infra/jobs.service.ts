@@ -1,5 +1,5 @@
 import { Inject, Injectable, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
-import { JobQueue, RENDER_QUEUE, S3ArtifactStore } from '@d4/jobs';
+import { JobQueue, RENDER_QUEUE, S3ArtifactStore } from '@d4/infra';
 import { APP_CONFIG, type AppConfig } from '../config';
 
 /** The job queue (Redis) and artefact store (S3), when configured. */

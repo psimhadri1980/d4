@@ -7,7 +7,7 @@ import { parse } from '../http/errors';
 import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
-import { assertWorkspaceQuota, currentUsage, limitsFor } from '@d4/jobs';
+import { assertWorkspaceQuota, currentUsage, limitsFor } from '@d4/infra';
 import { describeMetamodelPacks, loadMetamodelPack, METAMODEL_PACKS, MetamodelRegistry } from '@d4/metamodel';
 import { TenantGraphService } from '../infra/tenant-graph.service';
 import { ValidBody } from '../http/zod.pipe';

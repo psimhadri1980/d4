@@ -2,7 +2,7 @@ import { DomainError, ModelService } from '@d4/core';
 import { EventStore, WorkspaceLock, type Db } from '@d4/db';
 import { GraphQueries, Neo4jModelRepository, type EventSink, type SessionProvider } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
-import type { GraphQuotaGuard } from './usage';
+import type { GraphQuotaGuard } from '@d4/infra';
 
 export interface ModelHandles {
   service: ModelService;

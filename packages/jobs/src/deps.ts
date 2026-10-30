@@ -1,8 +1,6 @@
 import { createDb } from '@d4/db';
-import { S3ArtifactStore } from './artifacts';
-import { SmtpMailer } from './mail';
+import { S3ArtifactStore, SmtpMailer, graphConfig, TenantGraphs, type GraphEnv } from '@d4/infra';
 import type { JobDeps } from './process';
-import { graphConfig, TenantGraphs, type GraphEnv } from './tenant-graphs';
 
 /** The settings a job-running service reads (see the @d4/config fragments). */
 export interface JobDepsEnv extends GraphEnv {

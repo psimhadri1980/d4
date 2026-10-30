@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@d4/config": "workspace:*",
+    "@d4/infra": "workspace:*",
     "@d4/jobs": "workspace:*",
     "@d4/runtime": "workspace:*",
     "zod": "^3.23.8"

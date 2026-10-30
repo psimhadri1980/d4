@@ -20,6 +20,7 @@
     "@d4/cypher": "workspace:*",
     "@d4/db": "workspace:*",
     "@d4/graph": "workspace:*",
+    "@d4/infra": "workspace:*",
     "@d4/jobs": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "@d4/runtime": "workspace:*",

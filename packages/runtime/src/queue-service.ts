@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { startJobWorker, type JobMessage } from '@d4/jobs';
+import { startJobWorker, type JobMessage } from '@d4/infra';
 import { errorMessage, type Logger } from './log';
 
 export interface QueueServiceOptions {

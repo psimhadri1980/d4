@@ -5,7 +5,8 @@ import { BackupStore, createDb, JobStore, LOCAL_TENANT, MetamodelStore, runMigra
 import type { SessionProvider } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { Client } from 'pg';
-import { MemoryArtifactStore, modelHandles, processJob, type JobDeps } from '../src';
+import { modelHandles, processJob, type JobDeps } from '../src';
+import { MemoryArtifactStore } from '@d4/infra';
 
 const PG = process.env.D4_TEST_POSTGRES_URL;
 const NEO = process.env.D4_TEST_NEO4J_URL;

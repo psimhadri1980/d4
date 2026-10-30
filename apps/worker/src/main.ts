@@ -1,7 +1,8 @@
 import { startTelemetry } from '@d4/runtime/telemetry';
 startTelemetry('d4-worker');
 
-import { GraphQuotaGuard, JobQueue, meterUsage, openJobDeps, pruneArtifacts, pruneBackups, processJob, RENDER_QUEUE, JOB_QUEUE, runDueConnectors, runDueSchedules, runWebhookPass, startScheduledBackups } from '@d4/jobs';
+import { openJobDeps, pruneArtifacts, pruneBackups, processJob, runDueConnectors, runDueSchedules, runWebhookPass, startScheduledBackups } from '@d4/jobs';
+import { GraphQuotaGuard, JobQueue, meterUsage, RENDER_QUEUE, JOB_QUEUE } from '@d4/infra';
 import { createLogger, runMain, startQueueService } from '@d4/runtime';
 import { loadConfig } from './config';
 

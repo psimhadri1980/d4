@@ -1,7 +1,8 @@
 import { startTelemetry } from '@d4/runtime/telemetry';
 startTelemetry('d4-renderer');
 
-import { openJobDeps, processJob, RENDER_QUEUE } from '@d4/jobs';
+import { openJobDeps, processJob } from '@d4/jobs';
+import { RENDER_QUEUE } from '@d4/infra';
 import { createLogger, runMain, startQueueService } from '@d4/runtime';
 import { Chromium } from './chromium';
 import { loadConfig } from './config';

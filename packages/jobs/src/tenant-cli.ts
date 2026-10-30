@@ -1,7 +1,6 @@
 import { loadConfig, neo4j, postgres } from '@d4/config';
+import { checkTenant, ManualInstanceDriver, provisionTenant, graphConfig } from '@d4/infra';
 import { createDb, TenantStore } from '@d4/db';
-import { checkTenant, ManualInstanceDriver, provisionTenant } from './provisioning';
-import { graphConfig } from './tenant-graphs';
 
 /**
  * Operator tool for tenants (run in the API image; `deploy/dev.sh tenant-*` wraps it).

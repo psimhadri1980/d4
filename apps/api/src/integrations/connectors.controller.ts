@@ -1,7 +1,8 @@
 import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post } from '@nestjs/common';
 import { CONNECTOR_KINDS, Mapping } from '@d4/connectors';
 import { ConnectorStore, JobStore, type ConnectorRow } from '@d4/db';
-import { assertJobQuota, Cadence, checkWebhookUrl, describeCadence, nextRun } from '@d4/jobs';
+import { Cadence, checkWebhookUrl, describeCadence, nextRun } from '@d4/jobs';
+import { assertJobQuota } from '@d4/infra';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { APP_CONFIG, type AppConfig } from '../config';
