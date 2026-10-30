@@ -11,9 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test",
-    "generate": "drizzle-kit generate",
-    "migrate": "node dist/migrate.js",
-    "seed:local": "node dist/seed-local.js"
+    "generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@d4/config": "workspace:*",

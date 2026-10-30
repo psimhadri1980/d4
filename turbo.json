@@ -4,7 +4,6 @@
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "typecheck": { "dependsOn": ["^build"] },
     "test": { "dependsOn": ["^build"], "passThroughEnv": ["D4_TEST_POSTGRES_URL", "D4_TEST_NEO4J_URL", "D4_TEST_NEO4J_PASSWORD", "D4_TEST_REDIS_URL", "D4_TEST_S3_ENDPOINT"] },
-    "lint": {},
-    "dev": { "cache": false, "persistent": true, "dependsOn": ["^build"] }
+    "lint": {}
   }
 }

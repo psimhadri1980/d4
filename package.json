@@ -5,7 +5,6 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
