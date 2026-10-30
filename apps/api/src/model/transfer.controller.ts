@@ -7,9 +7,9 @@ import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { exportSnapshot, modelDocument, renderExport } from '@d4/jobs';
 import { ExportQuery, z } from '../http/schemas';
-import { ModelFactory } from './model.factory';
-import { WorkspaceAccess } from './workspace-access.service';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { ModelFactory } from '../workspaces/model.factory';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
 

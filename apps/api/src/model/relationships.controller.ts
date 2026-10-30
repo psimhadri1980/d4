@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { parse } from '../http/errors';
 import { CreateRelationshipBody, DeleteQuery, UpdateBody } from '../http/schemas';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 @Controller('v1/workspaces/:ws/relationships')
 export class RelationshipsController {

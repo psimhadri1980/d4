@@ -6,9 +6,9 @@ import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { CreateProposalBody, EditProposalBody, ReviewBody, z } from '../http/schemas';
 import { Database } from '../infra/database.service';
-import { ModelFactory } from './model.factory';
-import { WorkspaceAccess, type Access, type WorkspaceScope } from './workspace-access.service';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { ModelFactory } from '../workspaces/model.factory';
+import { WorkspaceAccess, type Access, type WorkspaceScope } from '../workspaces/workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 // `status` may repeat (`?status=a&status=b`) or be comma-separated (`?status=a,b`, as the web client sends it).
 const ListQuery = z.object({

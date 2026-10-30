@@ -9,7 +9,7 @@ import {
   UpdateBody,
 } from '../http/schemas';
 import { resolveView } from './view';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 @Controller('v1/workspaces/:ws/elements')
 export class ElementsController {

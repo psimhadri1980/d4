@@ -8,9 +8,9 @@ import { z } from '../http/schemas';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
 import { jobView } from './jobs.controller';
-import { resolveView } from './view';
-import { WorkspaceAccess } from './workspace-access.service';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { resolveView } from '../model/view';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 const CreateBody = z.object({
   name: z.string().trim().min(1).max(120),

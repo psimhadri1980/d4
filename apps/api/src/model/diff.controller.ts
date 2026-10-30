@@ -5,7 +5,7 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { parse } from '../http/errors';
 import { DiffQuery } from '../http/schemas';
 import { resolveView } from './view';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 type DiffResult =ModelDiff & { names: Record<string, string> };
 

@@ -12,8 +12,8 @@ import { decisionsFor, matrixFor } from '../model/insights.controller';
 import { diffFor } from '../model/diff.controller';
 import { resolveView } from '../model/view';
 import { roadmapFor } from '../model/roadmap.controller';
-import { ModelFactory, type ModelHandles } from '../model/model.factory';
-import { WorkspaceAccess, type WorkspaceScope } from '../model/workspace-access.service';
+import { ModelFactory, type ModelHandles } from '../workspaces/model.factory';
+import { WorkspaceAccess, type WorkspaceScope } from '../workspaces/workspace-access.service';
 import { typeDefs } from './schema';
 
 interface Ctx {

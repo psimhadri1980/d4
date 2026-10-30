@@ -16,7 +16,7 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { parse } from '../http/errors';
 import { MatrixParams, ViewArgsSchema } from '../http/schemas';
 import { resolveView } from './view';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 type Queries = Pick<GraphQueries, 'getElement' | 'subgraphOf' | 'lifecycleCounts'>;
 interface ViewQ {

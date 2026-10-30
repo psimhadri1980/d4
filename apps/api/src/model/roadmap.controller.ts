@@ -3,7 +3,7 @@ import { roadmapFromGraph, type LaneKind, type RoadmapView } from '@d4/core';
 import type { GraphQueries } from '@d4/graph';
 import { parse } from '../http/errors';
 import { RoadmapQuery } from '../http/schemas';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 const today = () => new Date().toISOString().slice(0, 10);
 

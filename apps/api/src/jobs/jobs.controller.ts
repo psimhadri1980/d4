@@ -7,9 +7,9 @@ import { parse } from '../http/errors';
 import { ExportQuery, TabularImportBody, z } from '../http/schemas';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
-import { resolveView } from './view';
-import { WorkspaceAccess } from './workspace-access.service';
-import { Workspace, type OpenWorkspace } from './workspace.decorator';
+import { resolveView } from '../model/view';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 
 interface Reply {
   header(name: string, value: string): unknown;

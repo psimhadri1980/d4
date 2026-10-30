@@ -7,8 +7,8 @@ import { parse } from '../http/errors';
 import { z } from '../http/schemas';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
-import { jobView } from './jobs.controller';
-import { WorkspaceAccess } from './workspace-access.service';
+import { jobView } from '../jobs/jobs.controller';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
 
 /** Destructive operations must name the workspace they replace, so a wrong tab cannot do it. */
 const Confirm = z.object({ confirm: z.string() }).strict();

@@ -99,9 +99,9 @@ web ──► core, metamodel (bundled for the browser)
 | Catalog runner (owner-written) | `packages/graph/src/catalog-runner.ts` |
 | Postgres schema | `packages/db/src/schema.ts`; migrations in `packages/db/drizzle/` |
 | Control-plane stores | `packages/db/src/stores.ts`, `catalog.ts` |
-| API wiring | `apps/api/src/app.module.ts`, `app.setup.ts` (GraphQL plugin) |
+| API wiring | `apps/api/src/app.module.ts` imports one module per feature: `infra` (global: settings, pool, stores, graphs, queues), `auth`, `workspaces` (global: access, model handles), `model`, `catalog`, `jobs`, `integrations`, `admin`; `app.setup.ts` (GraphQL plugin) |
 | Auth | `apps/api/src/auth/identity.ts`, `auth.service.ts`, `auth.guard.ts` |
-| Workspace access | `apps/api/src/model/workspace-access.service.ts` |
+| Workspace access | `apps/api/src/workspaces/workspace-access.service.ts`; `@Workspace('read'\|'write'\|'review')` (`workspace.decorator.ts`) in handlers; `@Roles('admin')` (`auth/auth.guard.ts`) |
 | Error → HTTP mapping | `apps/api/src/http/errors.ts` |
 | Request schemas + OpenAPI | `apps/api/src/http/schemas.ts`, `openapi.ts` |
 | Catalog API | `apps/api/src/catalog/*` |
@@ -371,7 +371,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 1. Add the zod request schema in `apps/api/src/http/schemas.ts`. In the controller, parse with `parse(Schema, body)`.
 2. Inject dependencies with **explicit `@Inject(Token)`**; the dev runner emits no decorator metadata.
 3. Put access checks and logic in a service. Throw `DomainError` for domain failures and Nest `*Exception`s for HTTP ones; `toErrorResponse` maps both.
-4. Register the controller and providers in `app.module.ts`.
+4. Register the controller and providers in its feature module (`<feature>/<feature>.module.ts`); stores are injected by class (`infra/stores.ts`).
 5. Document the endpoint in `apps/api/src/http/openapi.ts`, then regenerate the SDK: `pnpm --filter @d4/api build && pnpm --filter @d4/sdk generate`. `apps/api/test/openapi.test.ts` fails when a served route is missing from the document or the SDK's copy is stale.
 6. Test it end to end with `apps/api/test/harness.ts` (`startHarness()`), which gives a fresh Postgres database, the real Neo4j and local-signed tokens.
 

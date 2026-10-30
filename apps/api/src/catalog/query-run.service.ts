@@ -7,7 +7,7 @@ import { DEFAULT_LIMITS, neo4jExplainer, runCatalogQuery, type QueryResultSet, t
 import type { Principal } from '../auth/identity';
 import { Database } from '../infra/database.service';
 import { TenantGraphService } from '../infra/tenant-graph.service';
-import { WorkspaceAccess } from '../model/workspace-access.service';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
 import { CatalogService, isAuthor, isSteward } from './catalog.service';
 import { PackInstaller } from './pack-installer.service';
 
