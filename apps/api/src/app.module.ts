@@ -14,6 +14,7 @@ import { ApiExceptionFilter } from './http/errors';
 import { OpenApiController } from './http/openapi';
 import { Database } from './infra/database.service';
 import { JobsInfra } from './infra/jobs.service';
+import { storeProviders } from './infra/stores';
 import { TenantGraphService } from './infra/tenant-graph.service';
 import { AdminController } from './model/admin.controller';
 import { WebhooksController } from './model/webhooks.controller';
@@ -59,6 +60,7 @@ import { WorkspacesController } from './model/workspaces.controller';
     { provide: APP_CONFIG, useFactory: () => loadConfig() },
     jwksProvider,
     Database,
+    ...storeProviders,
     TenantGraphService,
     JobsInfra,
     AuthService,

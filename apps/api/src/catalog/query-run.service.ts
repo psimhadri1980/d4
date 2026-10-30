@@ -34,6 +34,7 @@ const TIMEOUT_CODES = [
 @Injectable()
 export class QueryRunService {
   constructor(
+    @Inject(QueryCatalogStore) private readonly queryCatalogStore: QueryCatalogStore,
     @Inject(Database) private readonly database: Database,
     @Inject(TenantGraphService) private readonly graph: TenantGraphService,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
@@ -55,7 +56,7 @@ export class QueryRunService {
     if (!isAuthor(p) && !isSteward(p)) throw new ForbiddenException('Requires query-author or query-steward');
     const scope = await this.access.resolve(p, workspaceId, 'read');
     await this.catalog.entry(p, queryId);
-    const store = new QueryCatalogStore(this.database.db);
+    const store = this.queryCatalogStore;
     const open = await store.openVersion(queryId);
     if (!open) throw new NotFoundException('There is no draft or version in review to test');
     if (open.status === 'draft' && !isAuthor(p)) throw new ForbiddenException('Drafts can be tested by authors');
@@ -99,7 +100,7 @@ export class QueryRunService {
   ): Promise<RunResponse> {
     const scope = await this.access.resolve(p, workspaceId, 'read');
     await this.packs.ensureInstalled(p.tenantId);
-    const store = new QueryCatalogStore(this.database.db);
+    const store = this.queryCatalogStore;
     await this.catalog.entry(p, queryId);
 
     // Grant check (stewards may run anything published, e.g. to review usage).

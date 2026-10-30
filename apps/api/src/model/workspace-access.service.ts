@@ -3,7 +3,6 @@ import { MetamodelStore, RoleStore, WorkspaceStore } from '@d4/db';
 import type { CommandContext } from '@d4/core';
 import { MetamodelRegistry } from '@d4/metamodel';
 import { hasAnyRole, type Principal, type Role } from '../auth/identity';
-import { Database } from '../infra/database.service';
 
 export type Access = 'read' | 'write' | 'review';
 
@@ -28,17 +27,20 @@ export interface WorkspaceScope {
 export class WorkspaceAccess {
   private readonly registries = new Map<string, Promise<MetamodelRegistry>>();
 
-  constructor(@Inject(Database) private readonly database: Database) {}
+  constructor(
+    @Inject(MetamodelStore) private readonly metamodelStore: MetamodelStore,
+    @Inject(RoleStore) private readonly roleStore: RoleStore,
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
+  ) {}
 
   async resolve(principal: Principal, workspaceId: string, access: Access): Promise<WorkspaceScope> {
-    const db = this.database.db;
-    const ws = await new WorkspaceStore(db).get(principal.tenantId, workspaceId);
+    const ws = await this.workspaceStore.get(principal.tenantId, workspaceId);
     // Same response for "missing" and "other tenant's", so ids can't be probed.
     if (!ws || ws.archivedAt) throw new NotFoundException(`Workspace '${workspaceId}' not found`);
 
     let roles = principal.roles;
     if (!this.allows(roles, access)) {
-      const bound = await new RoleStore(db).effectiveRoles(principal.tenantId, principal.userId, ws.id);
+      const bound = await this.roleStore.effectiveRoles(principal.tenantId, principal.userId, ws.id);
       roles = [...new Set([...roles, ...bound])];
       if (!this.allows(roles, access)) {
         throw new ForbiddenException(`No ${access} access to workspace '${workspaceId}'`);
@@ -63,7 +65,7 @@ export class WorkspaceAccess {
     const key = `${tenantId}|${metamodelId}`;
     let r = this.registries.get(key);
     if (!r) {
-      r = new MetamodelStore(this.database.db)
+      r = this.metamodelStore
         .get(tenantId, metamodelId)
         .then((mm) => new MetamodelRegistry(mm));
       r.catch(() => this.registries.delete(key));

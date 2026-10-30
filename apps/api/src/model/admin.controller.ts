@@ -42,6 +42,11 @@ const ListQuery = z.object({ archived: z.enum(['true', 'false']).optional() });
 @Controller('v1')
 export class AdminController {
   constructor(
+    @Inject(MetamodelStore) private readonly metamodelStore: MetamodelStore,
+    @Inject(RoleStore) private readonly roleStore: RoleStore,
+    @Inject(UsageStore) private readonly usageStore: UsageStore,
+    @Inject(UserStore) private readonly userStore: UserStore,
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(Database) private readonly database: Database,
     @Inject(TenantGraphService) private readonly graph: TenantGraphService,
   ) {}
@@ -54,7 +59,7 @@ export class AdminController {
     const [usage, limits, history] = await Promise.all([
       currentUsage(db, this.graph.sessions(p.tenantId), p.tenantId),
       limitsFor(db, p.tenantId),
-      new UsageStore(db).history(p.tenantId, new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)),
+      this.usageStore.history(p.tenantId, new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)),
     ]);
     return { metrics: QUOTA_METRICS.map((m) => ({ metric: m, used: usage[m], limit: limits[m] })), history };
   }
@@ -63,9 +68,9 @@ export class AdminController {
   async workspaces(@CurrentPrincipal() p: Principal, @Query() query: unknown) {
     this.admin(p);
     const archived = parse(ListQuery, query).archived === 'true';
-    const store = new WorkspaceStore(this.database.db);
+    const store = this.workspaceStore;
     const rows = archived ? await store.listAll(p.tenantId) : await store.list(p.tenantId);
-    const labels = await new MetamodelStore(this.database.db).labels(p.tenantId);
+    const labels = await this.metamodelStore.labels(p.tenantId);
     return rows.map((w) => ({ id: w.id, slug: w.slug, name: w.name, description: w.description, archived: !!w.archivedAt, metamodel: labels.get(w.metamodelId) ?? null, createdAt: w.createdAt.toISOString() }));
   }
 
@@ -81,10 +86,10 @@ export class AdminController {
   async create(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
     this.admin(p);
     const b = parse(CreateWorkspace, body);
-    const store = new WorkspaceStore(this.database.db);
+    const store = this.workspaceStore;
     if (await store.bySlug(p.tenantId, b.slug)) throw new ConflictException(`A workspace with slug '${b.slug}' already exists`);
     await assertWorkspaceQuota(this.database.db, p.tenantId);
-    const metamodels = new MetamodelStore(this.database.db);
+    const metamodels = this.metamodelStore;
     let metamodelId: string | undefined;
     if (b.metamodel && b.metamodel !== 'd4-starter') {
       // A pack is registered for the tenant (once per version) and its labels and indexes are added
@@ -110,7 +115,7 @@ export class AdminController {
   @Patch('admin/workspaces/:ws')
   async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
     this.admin(p);
-    const row = await new WorkspaceStore(this.database.db).update(p.tenantId, ws, parse(UpdateWorkspace, body));
+    const row = await this.workspaceStore.update(p.tenantId, ws, parse(UpdateWorkspace, body));
     if (!row) throw new NotFoundException(`Workspace '${ws}' not found`);
     return { id: row.id, slug: row.slug, name: row.name, description: row.description, archived: !!row.archivedAt };
   }
@@ -131,7 +136,7 @@ export class AdminController {
   @Get('admin/users')
   async users(@CurrentPrincipal() p: Principal) {
     this.admin(p);
-    return (await new UserStore(this.database.db).list(p.tenantId)).map((u) => ({
+    return (await this.userStore.list(p.tenantId)).map((u) => ({
       id: u.id,
       email: u.email,
       displayName: u.displayName,
@@ -145,8 +150,8 @@ export class AdminController {
   async members(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
     this.admin(p);
     const scope = await this.scope(p, ws);
-    const users = new Map((await new UserStore(this.database.db).list(p.tenantId)).map((u) => [u.id, u]));
-    return (await new RoleStore(this.database.db).bindings(p.tenantId, scope)).map((b) => ({
+    const users = new Map((await this.userStore.list(p.tenantId)).map((u) => [u.id, u]));
+    return (await this.roleStore.bindings(p.tenantId, scope)).map((b) => ({
       principalType: b.principalType,
       principalId: b.principalId,
       label: b.principalType === 'user' ? (users.get(b.principalId)?.email ?? users.get(b.principalId)?.displayName ?? b.principalId) : b.principalId,
@@ -162,10 +167,10 @@ export class AdminController {
     this.admin(p);
     const scope = await this.scope(p, ws);
     const b = parse(Binding, body);
-    if (b.principalType === 'user' && !(await new UserStore(this.database.db).get(p.tenantId, b.principalId))) {
+    if (b.principalType === 'user' && !(await this.userStore.get(p.tenantId, b.principalId))) {
       throw new NotFoundException(`User '${b.principalId}' not found (users appear after their first sign-in)`);
     }
-    await new RoleStore(this.database.db).grant(p.tenantId, { ...b, ...(scope && { workspaceId: scope }) }, p.userId);
+    await this.roleStore.grant(p.tenantId, { ...b, ...(scope && { workspaceId: scope }) }, p.userId);
   }
 
   @Delete('admin/members/:ws')
@@ -178,7 +183,7 @@ export class AdminController {
     if (!scope && b.role === 'admin' && b.principalType === 'user' && b.principalId === p.userId) {
       throw new ConflictException('You cannot remove your own tenant-wide admin role');
     }
-    await new RoleStore(this.database.db).revoke(p.tenantId, { ...b, ...(scope && { workspaceId: scope }) });
+    await this.roleStore.revoke(p.tenantId, { ...b, ...(scope && { workspaceId: scope }) });
   }
 
   private admin(p: Principal) {
@@ -187,7 +192,7 @@ export class AdminController {
 
   private async scope(p: Principal, ws: string): Promise<string | null> {
     if (ws === 'tenant') return null;
-    const row = await new WorkspaceStore(this.database.db).get(p.tenantId, ws);
+    const row = await this.workspaceStore.get(p.tenantId, ws);
     if (!row) throw new NotFoundException(`Workspace '${ws}' not found`);
     return row.id;
   }
@@ -196,6 +201,6 @@ export class AdminController {
     this.admin(p);
     // Restoring makes a workspace active again, so it counts against the limit.
     if (!archived) await assertWorkspaceQuota(this.database.db, p.tenantId);
-    if (!(await new WorkspaceStore(this.database.db).setArchived(p.tenantId, ws, archived))) throw new NotFoundException(`Workspace '${ws}' not found`);
+    if (!(await this.workspaceStore.setArchived(p.tenantId, ws, archived))) throw new NotFoundException(`Workspace '${ws}' not found`);
   }
 }

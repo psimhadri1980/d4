@@ -12,7 +12,6 @@ import { decisionsFor, matrixFor } from '../model/insights.controller';
 import { diffFor } from '../model/diff.controller';
 import { resolveView } from '../model/view';
 import { roadmapFor } from '../model/roadmap.controller';
-import { Database } from '../infra/database.service';
 import { ModelFactory, type ModelHandles } from '../model/model.factory';
 import { WorkspaceAccess, type WorkspaceScope } from '../model/workspace-access.service';
 import { typeDefs } from './schema';
@@ -54,10 +53,10 @@ const JSONScalar = new GraphQLScalarType({
 @Injectable()
 export class GraphqlService {
   constructor(
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(ModelFactory) private readonly models: ModelFactory,
-    @Inject(Database) private readonly database: Database,
   ) {}
 
   options(): MercuriusOptions {
@@ -123,10 +122,10 @@ export class GraphqlService {
       Query: {
         me: (_: unknown, __: Args, ctx: Ctx) => ctx.principal(),
         workspaces: async (_: unknown, __: Args, ctx: Ctx) =>
-          new WorkspaceStore(this.database.db).list((await ctx.principal()).tenantId),
+          this.workspaceStore.list((await ctx.principal()).tenantId),
         workspace: async (_: unknown, args: { id: string }, ctx: Ctx) => {
           const s = await this.scope(ctx, args.id);
-          return new WorkspaceStore(this.database.db).get(s.tenantId, s.workspaceId);
+          return this.workspaceStore.get(s.tenantId, s.workspaceId);
         },
       },
 

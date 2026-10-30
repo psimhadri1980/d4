@@ -7,7 +7,6 @@ import { CurrentPrincipal } from '../auth/principal.decorator';
 import { APP_CONFIG, type AppConfig } from '../config';
 import { parse } from '../http/errors';
 import { z } from '../http/schemas';
-import { Database } from '../infra/database.service';
 
 const fields = {
   name: z.string().trim().min(1).max(120),
@@ -27,14 +26,15 @@ const UpdateWebhook = z.object({ ...fields, enabled: z.boolean() }).partial().st
 @Controller('v1/admin/webhooks')
 export class WebhooksController {
   constructor(
-    @Inject(Database) private readonly database: Database,
+    @Inject(WebhookStore) private readonly webhookStore: WebhookStore,
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   @Get()
   async list(@CurrentPrincipal() p: Principal) {
     this.admin(p);
-    return (await this.store().list(p.tenantId)).map(view);
+    return (await this.webhookStore.list(p.tenantId)).map(view);
   }
 
   @Get('event-types')
@@ -50,7 +50,7 @@ export class WebhooksController {
     const b = parse(CreateWebhook, body);
     await this.checkUrl(b.url);
     const secret = newWebhookSecret();
-    const row = await this.store().create(p.tenantId, {
+    const row = await this.webhookStore.create(p.tenantId, {
       name: b.name,
       url: b.url,
       secret,
@@ -74,7 +74,7 @@ export class WebhooksController {
     await this.find(p, id);
     if (b.url) await this.checkUrl(b.url);
     const { workspace, ...rest } = b;
-    const row = await this.store().update(p.tenantId, id, {
+    const row = await this.webhookStore.update(p.tenantId, id, {
       ...rest,
       ...(workspace !== undefined && { workspaceId: await this.workspace(p, workspace) }),
       ...(b.enabled === false && { disabledReason: null }),
@@ -86,7 +86,7 @@ export class WebhooksController {
   @HttpCode(204)
   async remove(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
     this.admin(p);
-    if (!(await this.store().remove(p.tenantId, id))) throw new NotFoundException(`Webhook '${id}' not found`);
+    if (!(await this.webhookStore.remove(p.tenantId, id))) throw new NotFoundException(`Webhook '${id}' not found`);
   }
 
   /** Replaces the signing secret; receivers must switch to the new one. */
@@ -95,7 +95,7 @@ export class WebhooksController {
     this.admin(p);
     await this.find(p, id);
     const secret = newWebhookSecret();
-    const row = await this.store().update(p.tenantId, id, { secret });
+    const row = await this.webhookStore.update(p.tenantId, id, { secret });
     return { ...view(row!), secret };
   }
 
@@ -106,14 +106,14 @@ export class WebhooksController {
     this.admin(p);
     const w = await this.find(p, id);
     if (!w.enabled) throw new BadRequestException('The webhook is turned off; turn it on first');
-    return deliveryView(await this.store().ping(w, p.userId));
+    return deliveryView(await this.webhookStore.ping(w, p.userId));
   }
 
   @Get(':id/deliveries')
   async deliveries(@CurrentPrincipal() p: Principal, @Param('id') id: string) {
     this.admin(p);
     await this.find(p, id);
-    return (await this.store().deliveries(id)).map(deliveryView);
+    return (await this.webhookStore.deliveries(id)).map(deliveryView);
   }
 
   @Post(':id/deliveries/:delivery/redeliver')
@@ -121,13 +121,9 @@ export class WebhooksController {
   async redeliver(@CurrentPrincipal() p: Principal, @Param('id') id: string, @Param('delivery') delivery: string) {
     this.admin(p);
     await this.find(p, id);
-    const row = await this.store().redeliver(id, delivery);
+    const row = await this.webhookStore.redeliver(id, delivery);
     if (!row) throw new NotFoundException(`Delivery '${delivery}' not found`);
     return deliveryView(row);
-  }
-
-  private store() {
-    return new WebhookStore(this.database.db);
   }
 
   private admin(p: Principal) {
@@ -135,7 +131,7 @@ export class WebhooksController {
   }
 
   private async find(p: Principal, id: string): Promise<WebhookRow> {
-    const row = await this.store().get(p.tenantId, id);
+    const row = await this.webhookStore.get(p.tenantId, id);
     if (!row) throw new NotFoundException(`Webhook '${id}' not found`);
     return row;
   }
@@ -147,7 +143,7 @@ export class WebhooksController {
 
   private async workspace(p: Principal, ws: string | null): Promise<string | null> {
     if (ws === null) return null;
-    const store = new WorkspaceStore(this.database.db);
+    const store = this.workspaceStore;
     const row = (await store.get(p.tenantId, ws)) ?? (await store.bySlug(p.tenantId, ws));
     if (!row) throw new NotFoundException(`Workspace '${ws}' not found`);
     return row.id;

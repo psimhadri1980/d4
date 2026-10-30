@@ -2,19 +2,18 @@ import { Controller, Get, Inject, Param } from '@nestjs/common';
 import { WorkspaceStore } from '@d4/db';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
-import { Database } from '../infra/database.service';
 import { WorkspaceAccess } from './workspace-access.service';
 
 @Controller('v1/workspaces')
 export class WorkspacesController {
   constructor(
-    @Inject(Database) private readonly database: Database,
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
   ) {}
 
   @Get()
   async list(@CurrentPrincipal() p: Principal) {
-    const rows = await new WorkspaceStore(this.database.db).list(p.tenantId);
+    const rows = await this.workspaceStore.list(p.tenantId);
     return rows.map(({ id, slug, name, description, metamodelId }) => ({
       id,
       slug,

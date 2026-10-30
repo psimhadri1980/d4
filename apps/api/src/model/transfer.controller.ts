@@ -7,7 +7,6 @@ import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { exportSnapshot, modelDocument, renderExport } from '@d4/jobs';
 import { ExportQuery, z } from '../http/schemas';
-import { Database } from '../infra/database.service';
 import { ModelFactory } from './model.factory';
 import { WorkspaceAccess } from './workspace-access.service';
 
@@ -22,9 +21,9 @@ interface Reply {
 @Controller('v1/workspaces/:ws')
 export class TransferController {
   constructor(
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(ModelFactory) private readonly models: ModelFactory,
-    @Inject(Database) private readonly database: Database,
   ) {}
 
   @Post('import')
@@ -67,7 +66,7 @@ export class TransferController {
     const scope = await this.access.resolve(p, ws, 'read');
     const { queries } = this.models.for(scope);
     const snapshot = await exportSnapshot(queries, scope.registry, scope.workspaceId, q);
-    const row = await new WorkspaceStore(this.database.db).get(scope.tenantId, scope.workspaceId);
+    const row = await this.workspaceStore.get(scope.tenantId, scope.workspaceId);
     const meta = { name: row?.name ?? scope.workspaceId, slug: row?.slug ?? 'model', description: row?.description ?? null };
     if (!q.format) return modelDocument(scope.registry, snapshot, meta);
 

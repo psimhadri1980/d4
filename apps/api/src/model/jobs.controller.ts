@@ -48,6 +48,7 @@ export function jobView(j: JobRow) {
 @Controller('v1/workspaces/:ws/jobs')
 export class JobsController {
   constructor(
+    @Inject(JobStore) private readonly jobStore: JobStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(ModelFactory) private readonly models: ModelFactory,
     @Inject(Database) private readonly database: Database,
@@ -63,7 +64,7 @@ export class JobsController {
     await resolveView(this.models.for(scope).queries, scope.registry, scope.workspaceId, q);
     const queue = this.infra.queue;
     await assertJobQuota(this.database.db, scope.tenantId);
-    const job = await new JobStore(this.database.db).create(scope.tenantId, {
+    const job = await this.jobStore.create(scope.tenantId, {
       workspaceId: scope.workspaceId,
       kind: 'export',
       params: { ...q, format: q.format ?? 'yaml' },
@@ -86,7 +87,7 @@ export class JobsController {
     }
     const queue = this.infra.renderQueue;
     await assertJobQuota(this.database.db, scope.tenantId);
-    const job = await new JobStore(this.database.db).create(scope.tenantId, { workspaceId: scope.workspaceId, kind: 'render', params, createdBy: p.userId });
+    const job = await this.jobStore.create(scope.tenantId, { workspaceId: scope.workspaceId, kind: 'render', params, createdBy: p.userId });
     await queue.enqueue({ tenantId: scope.tenantId, jobId: job.id });
     return jobView(job);
   }
@@ -99,7 +100,7 @@ export class JobsController {
     const scope = await this.access.resolve(p, ws, dryRun ? 'read' : 'write');
     const { queue, artifacts } = this.infra;
     await assertJobQuota(this.database.db, scope.tenantId);
-    const store = new JobStore(this.database.db);
+    const store = this.jobStore;
     const job = await store.create(scope.tenantId, {
       workspaceId: scope.workspaceId,
       kind: 'import-tabular',
@@ -118,7 +119,7 @@ export class JobsController {
     const q = parse(ListQuery, query);
     const scope = await this.access.resolve(p, ws, 'read');
     const everyone = q.all === 'true' && p.roles.includes('admin');
-    const rows = await new JobStore(this.database.db).list(scope.tenantId, scope.workspaceId, {
+    const rows = await this.jobStore.list(scope.tenantId, scope.workspaceId, {
       ...(!everyone && { createdBy: p.userId }),
       limit: q.limit ?? 50,
     });
@@ -145,7 +146,7 @@ export class JobsController {
 
   private async visible(p: Principal, ws: string, id: string): Promise<JobRow> {
     const scope = await this.access.resolve(p, ws, 'read');
-    const job = await new JobStore(this.database.db).get(scope.tenantId, id);
+    const job = await this.jobStore.get(scope.tenantId, id);
     if (!job || job.workspaceId !== scope.workspaceId) throw new NotFoundException(`Job '${id}' not found`);
     if (job.createdBy !== p.userId && !p.roles.includes('admin')) throw new ForbiddenException(`Job '${id}' belongs to another user`);
     return job;

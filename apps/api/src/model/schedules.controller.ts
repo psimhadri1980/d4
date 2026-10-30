@@ -38,6 +38,8 @@ const ListQuery = z.object({ all: z.enum(['true', 'false']).optional() });
 @Controller('v1/workspaces/:ws/schedules')
 export class SchedulesController {
   constructor(
+    @Inject(JobStore) private readonly jobStore: JobStore,
+    @Inject(ScheduleStore) private readonly scheduleStore: ScheduleStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(ModelFactory) private readonly models: ModelFactory,
     @Inject(Database) private readonly database: Database,
@@ -48,7 +50,7 @@ export class SchedulesController {
   async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
     const everyone = parse(ListQuery, query).all === 'true' && p.roles.includes('admin');
     const scope = await this.access.resolve(p, ws, 'read');
-    const rows = await new ScheduleStore(this.database.db).list(scope.tenantId, scope.workspaceId, everyone ? {} : { createdBy: p.userId });
+    const rows = await this.scheduleStore.list(scope.tenantId, scope.workspaceId, everyone ? {} : { createdBy: p.userId });
     return Promise.all(rows.map((r) => this.view(r)));
   }
 
@@ -64,7 +66,7 @@ export class SchedulesController {
     if (params['target'] === 'graph' && !(await queries.getElement(scope.workspaceId, String(params['root'])))) {
       throw new NotFoundException(`Element '${String(params['root'])}' not found`);
     }
-    const row = await new ScheduleStore(this.database.db).create(scope.tenantId, {
+    const row = await this.scheduleStore.create(scope.tenantId, {
       workspaceId: scope.workspaceId,
       name: b.name,
       kind: b.kind,
@@ -85,7 +87,7 @@ export class SchedulesController {
     const cadence = b.cadence ?? Cadence.parse(row.cadence);
     // A new cadence, or resuming, counts from now rather than running missed slots.
     const reschedule = !!b.cadence || (b.enabled === true && !row.enabled);
-    const updated = await new ScheduleStore(this.database.db).update(tenantId, id, {
+    const updated = await this.scheduleStore.update(tenantId, id, {
       ...b,
       ...(b.recipients && { recipients: [...new Set(b.recipients)] }),
       ...(reschedule && { nextRunAt: nextRun(cadence, new Date()) }),
@@ -99,7 +101,7 @@ export class SchedulesController {
   @HttpCode(204)
   async remove(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
     const { tenantId } = await this.own(p, ws, id);
-    await new ScheduleStore(this.database.db).remove(tenantId, id);
+    await this.scheduleStore.remove(tenantId, id);
   }
 
   /** Runs the report now, outside the cadence (the next scheduled run is unchanged). */
@@ -108,12 +110,12 @@ export class SchedulesController {
   async run(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
     const { row, tenantId } = await this.own(p, ws, id);
     const jobId = await startScheduledRun(this.database.db, { jobs: this.infra.queue, render: this.infra.renderQueue }, row, new Date());
-    return jobView((await new JobStore(this.database.db).get(tenantId, jobId))!);
+    return jobView((await this.jobStore.get(tenantId, jobId))!);
   }
 
   private async own(p: Principal, ws: string, id: string): Promise<{ row: ScheduleRow; tenantId: string }> {
     const scope = await this.access.resolve(p, ws, 'read');
-    const row = await new ScheduleStore(this.database.db).get(scope.tenantId, id);
+    const row = await this.scheduleStore.get(scope.tenantId, id);
     if (!row || row.workspaceId !== scope.workspaceId) throw new NotFoundException(`Schedule '${id}' not found`);
     if (row.createdBy !== p.userId && !p.roles.includes('admin')) throw new ForbiddenException(`Schedule '${id}' belongs to another user`);
     return { row, tenantId: scope.tenantId };
@@ -121,7 +123,7 @@ export class SchedulesController {
 
   private async view(r: ScheduleRow) {
     const cadence = Cadence.parse(r.cadence);
-    const last = r.lastJobId ? await new JobStore(this.database.db).get(r.tenantId, r.lastJobId) : undefined;
+    const last = r.lastJobId ? await this.jobStore.get(r.tenantId, r.lastJobId) : undefined;
     return {
       id: r.id,
       name: r.name,

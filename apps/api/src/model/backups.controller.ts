@@ -22,6 +22,9 @@ const Confirm = z.object({ confirm: z.string() }).strict();
 @Controller('v1/workspaces/:ws/backups')
 export class BackupsController {
   constructor(
+    @Inject(BackupStore) private readonly backupStore: BackupStore,
+    @Inject(JobStore) private readonly jobStore: JobStore,
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(Database) private readonly database: Database,
     @Inject(JobsInfra) private readonly infra: JobsInfra,
@@ -30,7 +33,7 @@ export class BackupsController {
   @Get()
   async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
     const scope = await this.scope(p, ws);
-    return (await new BackupStore(this.database.db).list(scope.tenantId, scope.workspaceId)).map(view);
+    return (await this.backupStore.list(scope.tenantId, scope.workspaceId)).map(view);
   }
 
   @Post()
@@ -56,7 +59,7 @@ export class BackupsController {
   @HttpCode(202)
   async restore(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Body() body: unknown) {
     const scope = await this.confirmed(p, ws, body);
-    if (!(await new BackupStore(this.database.db).get(scope.tenantId, scope.workspaceId, id))) throw new NotFoundException(`Backup '${id}' not found`);
+    if (!(await this.backupStore.get(scope.tenantId, scope.workspaceId, id))) throw new NotFoundException(`Backup '${id}' not found`);
     return this.start(p, ws, 'restore', { backupId: id });
   }
 
@@ -67,7 +70,7 @@ export class BackupsController {
 
   private async confirmed(p: Principal, ws: string, body: unknown) {
     const scope = await this.scope(p, ws);
-    const row = await new WorkspaceStore(this.database.db).get(scope.tenantId, scope.workspaceId);
+    const row = await this.workspaceStore.get(scope.tenantId, scope.workspaceId);
     if (parse(Confirm, body ?? {}).confirm !== row!.slug) throw new BadRequestException(`Type the workspace slug '${row!.slug}' to confirm`);
     return scope;
   }
@@ -75,7 +78,7 @@ export class BackupsController {
   private async start(p: Principal, ws: string, kind: JobKind, params: Record<string, unknown>) {
     const scope = await this.scope(p, ws);
     await assertJobQuota(this.database.db, scope.tenantId);
-    const job = await new JobStore(this.database.db).create(scope.tenantId, { workspaceId: scope.workspaceId, kind, params, createdBy: p.userId });
+    const job = await this.jobStore.create(scope.tenantId, { workspaceId: scope.workspaceId, kind, params, createdBy: p.userId });
     await this.infra.queue.enqueue({ tenantId: scope.tenantId, jobId: job.id });
     return jobView(job);
   }

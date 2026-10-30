@@ -44,6 +44,8 @@ const SyncBody = z.object({ dryRun: z.boolean().default(false) }).strict();
 @Controller('v1/workspaces/:ws/connectors')
 export class ConnectorsController {
   constructor(
+    @Inject(ConnectorStore) private readonly connectorStore: ConnectorStore,
+    @Inject(JobStore) private readonly jobStore: JobStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(Database) private readonly database: Database,
     @Inject(JobsInfra) private readonly infra: JobsInfra,
@@ -58,7 +60,7 @@ export class ConnectorsController {
   @Get()
   async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
     const scope = await this.scope(p, ws);
-    return (await this.store().list(scope.tenantId, scope.workspaceId)).map(view);
+    return (await this.connectorStore.list(scope.tenantId, scope.workspaceId)).map(view);
   }
 
   @Post()
@@ -69,8 +71,8 @@ export class ConnectorsController {
     const kind = CONNECTOR_KINDS[b.kind];
     if (!kind) throw new BadRequestException(`Unknown connector kind '${b.kind}'; known: ${Object.keys(CONNECTOR_KINDS).join(', ')}`);
     const config = await this.checkConfig(b.kind, b.config);
-    if (await this.store().byKey(scope.tenantId, scope.workspaceId, b.key)) throw new ConflictException(`A connector with key '${b.key}' already exists`);
-    const row = await this.store().create(scope.tenantId, {
+    if (await this.connectorStore.byKey(scope.tenantId, scope.workspaceId, b.key)) throw new ConflictException(`A connector with key '${b.key}' already exists`);
+    const row = await this.connectorStore.create(scope.tenantId, {
       workspaceId: scope.workspaceId,
       key: b.key,
       name: b.name,
@@ -105,7 +107,7 @@ export class ConnectorsController {
       ...(b.enabled !== undefined && { enabled: b.enabled }),
       ...(b.cadence !== undefined && { cadence: b.cadence, nextRunAt: b.cadence ? nextRun(b.cadence, new Date()) : null }),
     };
-    return view((await this.store().update(row.tenantId, id, changes))!);
+    return view((await this.connectorStore.update(row.tenantId, id, changes))!);
   }
 
   @Delete(':id')
@@ -113,7 +115,7 @@ export class ConnectorsController {
   async remove(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
     const row = await this.find(p, ws, id);
     // The elements it brought in stay; they keep their external keys.
-    await this.store().remove(row.tenantId, id);
+    await this.connectorStore.remove(row.tenantId, id);
   }
 
   /** Starts a sync (or a dry run that only reports what would change). */
@@ -123,20 +125,16 @@ export class ConnectorsController {
     const row = await this.find(p, ws, id);
     const { dryRun } = parse(SyncBody, body ?? {});
     await assertJobQuota(this.database.db, row.tenantId);
-    const job = await new JobStore(this.database.db).create(row.tenantId, { workspaceId: row.workspaceId, kind: 'sync', params: { connectorId: id, dryRun }, createdBy: p.userId });
+    const job = await this.jobStore.create(row.tenantId, { workspaceId: row.workspaceId, kind: 'sync', params: { connectorId: id, dryRun }, createdBy: p.userId });
     await this.infra.queue.enqueue({ tenantId: row.tenantId, jobId: job.id });
-    if (!dryRun) await this.store().recordRun(row.tenantId, id, job.id, new Date());
+    if (!dryRun) await this.connectorStore.recordRun(row.tenantId, id, job.id, new Date());
     return jobView(job);
   }
 
   @Get(':id/runs')
   async runs(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
     const row = await this.find(p, ws, id);
-    return (await new JobStore(this.database.db).syncRuns(row.tenantId, row.workspaceId, id)).map(jobView);
-  }
-
-  private store() {
-    return new ConnectorStore(this.database.db);
+    return (await this.jobStore.syncRuns(row.tenantId, row.workspaceId, id)).map(jobView);
   }
 
   private async scope(p: Principal, ws: string) {
@@ -146,7 +144,7 @@ export class ConnectorsController {
 
   private async find(p: Principal, ws: string, id: string): Promise<ConnectorRow> {
     const scope = await this.scope(p, ws);
-    const row = await this.store().get(scope.tenantId, scope.workspaceId, id);
+    const row = await this.connectorStore.get(scope.tenantId, scope.workspaceId, id);
     if (!row) throw new NotFoundException(`Connector '${id}' not found`);
     return row;
   }
