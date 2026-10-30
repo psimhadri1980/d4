@@ -1,75 +1,31 @@
-import { createServer } from 'node:http';
-import { createDb } from '@d4/db';
-import { processJob, RENDER_QUEUE, S3ArtifactStore, SmtpMailer, startJobWorker, graphConfig, TenantGraphs, type JobDeps } from '@d4/jobs';
+import { startTelemetry } from '@d4/runtime/telemetry';
+startTelemetry('d4-renderer');
+
+import { openJobDeps, processJob, RENDER_QUEUE } from '@d4/jobs';
+import { createLogger, runMain, startQueueService } from '@d4/runtime';
 import { Chromium } from './chromium';
 import { loadConfig } from './config';
+
+const log = createLogger('d4-renderer');
 
 /**
  * The renderer: takes render jobs from their own queue and turns roadmaps and graph views into
  * PNG and PDF with headless Chromium. Kept apart from the job worker so Chromium's memory and the
  * Playwright image only weigh on this service.
  */
-async function main() {
+runMain(log, async () => {
   const config = loadConfig();
-  const db = createDb(config.POSTGRES_URL, 4);
-  const graphs = new TenantGraphs(db.db, graphConfig(config));
-  const artifacts = new S3ArtifactStore({
-    endpoint: config.S3_ENDPOINT,
-    accessKey: config.S3_ACCESS_KEY,
-    secretKey: config.S3_SECRET_KEY,
-    bucket: config.S3_BUCKET,
-  });
   const browser = new Chromium(config.CHROMIUM_PATH);
-  const mailer = config.SMTP_URL ? new SmtpMailer(config.SMTP_URL, config.MAIL_FROM) : undefined;
-  const deps: JobDeps = { db: db.db, graphs, artifacts, rasterize: browser.rasterize, appUrl: config.D4_PUBLIC_URL, ...(mailer && { mailer }) };
+  const opened = openJobDeps(config, { rasterize: browser.rasterize });
 
-  const worker = startJobWorker(
-    config.REDIS_URL,
-    async (msg, attempt) => {
-      const started = Date.now();
-      try {
-        await processJob(msg, deps, attempt);
-        log('job done', { ...msg, ms: Date.now() - started });
-      } catch (e) {
-        log('job attempt failed', { ...msg, attempt: attempt.made + 1, of: attempt.max, error: e instanceof Error ? e.message : String(e) });
-        throw e;
-      }
-    },
-    { concurrency: config.RENDER_CONCURRENCY, queue: config.RENDER_QUEUE ?? RENDER_QUEUE },
-  );
-  worker.on('error', (e) => log('worker error', { error: e.message }));
-
-  let ready = false;
-  worker.on('ready', () => {
-    ready = true;
-    log('renderer ready', { queue: config.RENDER_QUEUE ?? RENDER_QUEUE, concurrency: config.RENDER_CONCURRENCY });
+  const service = startQueueService({
+    log,
+    redisUrl: config.REDIS_URL,
+    queue: config.RENDER_QUEUE ?? RENDER_QUEUE,
+    concurrency: config.RENDER_CONCURRENCY,
+    healthPort: config.RENDER_HEALTH_PORT,
+    handle: (msg, attempt) => processJob(msg, opened.deps, attempt),
   });
-  const health = createServer((req, res) => {
-    const ok = req.url === '/healthz' && ready && worker.isRunning();
-    res.writeHead(ok ? 200 : 503, { 'content-type': 'application/json' }).end(JSON.stringify({ status: ok ? 'ok' : 'starting' }));
-  }).listen(config.RENDER_HEALTH_PORT);
-
-  const shutdown = async (signal: string) => {
-    log('shutting down', { signal });
-    health.close();
-    // Lets running jobs finish; queued ones stay in Redis for the next worker.
-    await worker.close();
-    await browser.close();
-    mailer?.close();
-    await graphs.close();
-    artifacts.close();
-    await db.close();
-    process.exit(0);
-  };
-  process.on('SIGTERM', () => void shutdown('SIGTERM'));
-  process.on('SIGINT', () => void shutdown('SIGINT'));
-}
-
-function log(message: string, fields: Record<string, unknown>) {
-  process.stdout.write(`${JSON.stringify({ time: new Date().toISOString(), message, ...fields })}\n`);
-}
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+  service.onShutdown(() => browser.close());
+  service.onShutdown(() => opened.close());
 });

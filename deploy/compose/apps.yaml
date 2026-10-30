@@ -36,6 +36,7 @@ services:
     <<: *app-env
     environment:
       WORKER_CONCURRENCY: 2
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
     depends_on:
       <<: *after-init
       smtp: { condition: service_healthy }
@@ -52,6 +53,8 @@ services:
     image: localhost/d4-renderer:local
     volumes: ['../secrets:/run/d4-secrets:ro,z']
     <<: *app-env
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
     depends_on:
       <<: *after-init
       smtp: { condition: service_healthy }

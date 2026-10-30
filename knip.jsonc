@@ -12,6 +12,7 @@
     "apps/e2e": { "entry": ["tests/**/*.ts", "screenshots/**/*.shots.ts", "*.config.ts"] },
     "packages/db": { "entry": ["src/index.ts", "src/migrate.ts", "src/seed-local.ts", "src/set-quota.ts"] },
     "packages/jobs": { "entry": ["src/index.ts", "src/tenant-cli.ts"] },
+    "packages/runtime": { "entry": ["src/index.ts", "src/telemetry.ts"] },
     "packages/cli": { "entry": ["src/index.ts", "src/main.ts"] },
     // The README example is compiled by the typecheck so the docs stay correct.
     "packages/sdk": { "entry": ["src/index.ts", "test/readme-example.ts"] },

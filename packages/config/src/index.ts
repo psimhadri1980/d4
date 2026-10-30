@@ -61,7 +61,7 @@ export const mail = {
 };
 
 export const publicUrl = {
-  /** The browser-facing web address: links in emails, the allowed CORS origin. */
+  /** The browser-facing web address (the gateway): links in emails. */
   D4_PUBLIC_URL: z.string().url(),
 };
 

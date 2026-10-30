@@ -1,5 +1,5 @@
-import { startTelemetry } from './telemetry';
-startTelemetry();
+import { startTelemetry } from '@d4/runtime/telemetry';
+startTelemetry('d4-api');
 
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
