@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { GraphQLError, GraphQLScalarType, valueFromASTUntyped } from 'graphql';
 import mercurius, { type MercuriusOptions } from 'mercurius';
 import type { Element, Relationship } from '@d4/core';
@@ -39,6 +39,7 @@ interface ViewArgs {
   scenario?: string | null;
 }
 /** Validates GraphQL view arguments with the same rules as REST query strings. */
+const log = new Logger('GraphQL');
 const viewArgs = (a: ViewArgs) => parse(ViewArgsSchema, { asOf: a.asOf ?? undefined, scenario: a.scenario ?? undefined });
 type Direction = 'OUT' | 'IN' | 'BOTH';
 
@@ -80,7 +81,7 @@ export class GraphqlService {
           const original = err.originalError;
           if (!original || original instanceof mercurius.ErrorWithProps) return err;
           const { status, body } = toErrorResponse(original);
-          if (status >= 500) console.error(original);
+          if (status >= 500) log.error(original);
           return new GraphQLError(body.message, {
             nodes: err.nodes,
             source: err.source,

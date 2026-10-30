@@ -1,4 +1,4 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
 import { ZodError, type ZodType, type ZodTypeDef } from 'zod';
 import { CodecError } from '@d4/codecs';
 import { DomainError, type DomainErrorCode } from '@d4/core';
@@ -75,9 +75,11 @@ interface Reply {
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly log = new Logger('ApiExceptionFilter');
+
   catch(e: unknown, host: ArgumentsHost) {
     const { status, body } = toErrorResponse(e);
-    if (status >= 500) console.error(e);
+    if (status >= 500) this.log.error(e);
     void host.switchToHttp().getResponse<Reply>().status(status).send(body);
   }
 }

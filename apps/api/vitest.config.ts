@@ -5,5 +5,6 @@ import { defineConfig } from 'vitest/config';
 // Postgres and Neo4j while other suites run in parallel, so they get generous timeouts.
 export default defineConfig({
   plugins: [swc.vite()],
-  test: { testTimeout: 30_000, hookTimeout: 120_000 },
+  // Request logs only for problems; LOG_LEVEL=info shows every request.
+  test: { testTimeout: 30_000, hookTimeout: 120_000, env: { LOG_LEVEL: process.env.LOG_LEVEL ?? 'warn' } },
 });
