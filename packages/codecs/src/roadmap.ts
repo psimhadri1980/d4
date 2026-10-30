@@ -1,6 +1,9 @@
+/**
+ * Roadmap exports shared by the web app and server-side exports. Browser-safe: import it as
+ * `@d4/codecs/roadmap`, which leaves out the spreadsheet codecs.
+ */
 import type { RoadmapView } from '@d4/core';
-
-const esc = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+import { csvCell } from './csv';
 
 /** One row per item in schedule order, with planned and earliest dates, slack and conflicts. */
 export function roadmapToCsv(r: RoadmapView): string {
@@ -13,7 +16,7 @@ export function roadmapToCsv(r: RoadmapView): string {
       .join('; ');
   const header = ['id', 'name', 'kind', 'lane', 'status', 'plannedStart', 'plannedEnd', 'earliestStart', 'earliestEnd', 'durationDays', 'slackDays', 'critical', 'dependsOn', 'conflicts'];
   const rows = r.items.map((i) =>
-    [i.id, i.name, i.kind, i.lane ?? '', i.status ?? '', i.start ?? '', i.end ?? '', i.earliestStart, i.earliestEnd, String(i.durationDays), String(i.slackDays), String(i.critical), deps(i.id), conflicts(i.id)].map(esc).join(','),
+    [i.id, i.name, i.kind, i.lane ?? '', i.status ?? '', i.start ?? '', i.end ?? '', i.earliestStart, i.earliestEnd, String(i.durationDays), String(i.slackDays), String(i.critical), deps(i.id), conflicts(i.id)].map(csvCell).join(','),
   );
   return [header.join(','), ...rows].join('\n');
 }
@@ -38,13 +41,4 @@ export function roadmapToMermaid(r: RoadmapView, title = 'Roadmap'): string {
     }
   }
   return lines.join('\n');
-}
-
-export function download(filename: string, text: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

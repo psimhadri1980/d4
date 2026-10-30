@@ -1,5 +1,6 @@
 import type { Element, ModelSnapshot, Relationship } from '@d4/core';
 import type { MetamodelRegistry } from '@d4/metamodel';
+import { csvCell } from './csv';
 
 /**
  * Export formats over a model snapshot (or part of one): CSV, Mermaid, ArchiMate Open Exchange
@@ -25,7 +26,6 @@ const text = (v: unknown): string => (v === null || v === undefined ? '' : Array
 
 // ── CSV ────────────────────────────────────────────────────────────────────
 
-const csvCell = (s: string) => (/[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 const csv = (rows: string[][]) => rows.map((r) => r.map(csvCell).join(',')).join('\n') + '\n';
 
 const FIRST_ATTRS = ['name', 'lifecycle', 'description'];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildRoadmap, type RoadmapView } from '@d4/core';
 import { ganttGeometry } from '@d4/ui-kit';
-import { roadmapToCsv, roadmapToMermaid } from '../src/roadmap-export';
+import { roadmapToCsv, roadmapToMermaid } from '@d4/codecs/roadmap';
 
 const dependencies = [{ from: 'b', to: 'a', type: 'FINISH_START' as const, lagDays: 0 }];
 const base = buildRoadmap({

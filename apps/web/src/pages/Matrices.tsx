@@ -5,7 +5,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ViewBar, ViewNotice } from '../components/ViewBar';
-import { download } from '../roadmap-export';
+import { download } from '../download';
 import { useView, viewQuery } from '../view';
 
 const LABEL: Record<MatrixKind, string> = {

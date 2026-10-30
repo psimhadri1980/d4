@@ -5,6 +5,10 @@
   "description": "Model-as-code documents, tabular (CSV/Excel) imports and export formats.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./roadmap": { "types": "./dist/roadmap.d.ts", "default": "./dist/roadmap.js" }
+  },
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

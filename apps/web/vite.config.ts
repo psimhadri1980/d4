@@ -33,9 +33,9 @@ export default defineConfig({
   resolve: { alias: [{ find: /^@tabler\/icons-react$/, replacement: tablerIcons }] },
   // deploy/dev.sh web: behind the gateway, so the HMR socket goes to the gateway's port.
   server: { port: 5174, strictPort: true, hmr: { clientPort: Number(process.env.GATEWAY_PORT) || undefined } },
-  optimizeDeps: { include: ['@d4/core', '@d4/metamodel', '@d4/render', '@d4/ui-kit'] },
+  optimizeDeps: { include: ['@d4/codecs/roadmap', '@d4/core', '@d4/metamodel', '@d4/render', '@d4/ui-kit'] },
   build: {
-    commonjsOptions: { include: [/packages\/(core|metamodel|render|ui-kit)\//, /node_modules/] },
+    commonjsOptions: { include: [/packages\/(codecs|core|metamodel|render|ui-kit)\//, /node_modules/] },
     sourcemap: true,
   },
   test: { environment: 'jsdom' },
