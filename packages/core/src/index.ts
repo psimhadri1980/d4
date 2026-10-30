@@ -5,7 +5,6 @@ export * from './ids';
 export * from './import';
 export * from './lifecycle';
 export * from './matrices';
-export * from './memory-repository';
 export * from './model-service';
 export * from './planning';
 export * from './ports';

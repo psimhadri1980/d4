@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseModelDocument, toImportInput } from '@d4/codecs';
-import { InMemoryModelRepository, planImport, roadmapFromGraph, type Element, type ModelSnapshot, type PlanningGraph } from '@d4/core';
+import { InMemoryModelRepository } from '@d4/core/testing';
+import { planImport, roadmapFromGraph, type Element, type ModelSnapshot, type PlanningGraph } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { graphSvg, NODE_SPACING, PAPER, pageHtml, radialLayout, roadmapSvg } from '../src';
 

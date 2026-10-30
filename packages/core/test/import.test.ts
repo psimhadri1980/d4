@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
+import { InMemoryModelRepository } from '../src/testing';
 import {
-  InMemoryModelRepository,
   planImport,
   type CommandContext,
   type ImportInput,
