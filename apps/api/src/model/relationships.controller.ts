@@ -1,15 +1,14 @@
-import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
-import { parse } from '../http/errors';
-import { CreateRelationshipBody, DeleteQuery, UpdateBody } from '../http/schemas';
+import { Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { CreateRelationshipBody, DeleteQuery, UpdateBody } from './model.schemas';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { z } from '../http/zod';
+import { ValidBody, ValidQuery } from '../http/zod.pipe';
 
 @Controller('v1/workspaces/:ws/relationships')
 export class RelationshipsController {
-  constructor() {}
 
   @Post()
-  async create(@Workspace('write') { service, scope }: OpenWorkspace, @Body() body: unknown) {
-    const input = parse(CreateRelationshipBody, body);
+  async create(@Workspace('write') { service, scope }: OpenWorkspace, @ValidBody(CreateRelationshipBody) input: z.output<typeof CreateRelationshipBody>) {
     return service.createRelationship(scope.ctx, input);
   }
 
@@ -25,9 +24,8 @@ export class RelationshipsController {
   async update(
     @Workspace('write') { service, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Body() body: unknown,
+    @ValidBody(UpdateBody) input: z.output<typeof UpdateBody>,
   ) {
-    const input = parse(UpdateBody, body);
     return service.updateRelationship(scope.ctx, { id, ...input });
   }
 
@@ -36,9 +34,8 @@ export class RelationshipsController {
   async remove(
     @Workspace('write') { service, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Query() query: unknown,
+    @ValidQuery(DeleteQuery) { expectedVersion }: z.output<typeof DeleteQuery>,
   ) {
-    const { expectedVersion } = parse(DeleteQuery, query);
     await service.deleteRelationship(scope.ctx, { id, expectedVersion });
   }
 

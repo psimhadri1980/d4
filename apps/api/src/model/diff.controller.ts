@@ -1,11 +1,12 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { diffModels, type ModelDiff } from '@d4/core';
 import type { GraphQueries } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
-import { parse } from '../http/errors';
-import { DiffQuery } from '../http/schemas';
+import { DiffQuery } from './model.schemas';
 import { resolveView } from './view';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { z } from '../http/zod';
+import { ValidQuery } from '../http/zod.pipe';
 
 type DiffResult =ModelDiff & { names: Record<string, string> };
 
@@ -34,8 +35,7 @@ export async function diffFor(
 @Controller('v1/workspaces/:ws/diff')
 export class DiffController {
   @Get()
-  async get(@Workspace('read') { scope, queries }: OpenWorkspace, @Query() query: unknown) {
-    const q = parse(DiffQuery, query);
+  async get(@Workspace('read') { scope, queries }: OpenWorkspace, @ValidQuery(DiffQuery) q: z.output<typeof DiffQuery>) {
     return diffFor(queries, scope.registry, scope.workspaceId, q);
   }
 }

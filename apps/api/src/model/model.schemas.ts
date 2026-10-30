@@ -1,10 +1,6 @@
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import { z } from 'zod';
+import { z } from '../http/zod';
 import { EXPORT_FORMATS } from '@d4/codecs';
 import { LANE_KINDS, MATRIX_KINDS } from '@d4/core';
-
-// Adds `.openapi()` to zod schemas; must run before any schema below is defined.
-extendZodWithOpenApi(z);
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ example: '2026-10-17' });
 const Attrs = z
@@ -306,19 +302,6 @@ export const DecisionSchema = z
   })
   .openapi('Decision');
 
-export const ErrorSchema = z
-  .object({
-    error: z.string().openapi({
-      example: 'RULE_VIOLATION',
-      description: 'BAD_REQUEST | VALIDATION | NOT_FOUND | VERSION_CONFLICT | INVALID_TRANSITION | RULE_VIOLATION',
-    }),
-    message: z.string(),
-    issues: z.array(z.string()).optional(),
-    ruleId: z.string().optional(),
-  })
-  .openapi('Error');
-
-export { z };
 
 // ── Change proposals ────────────────────────────────────────────────────
 

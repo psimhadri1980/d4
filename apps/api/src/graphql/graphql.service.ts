@@ -7,7 +7,7 @@ import type { AttributeDef, MetamodelRegistry } from '@d4/metamodel';
 import { AuthService } from '../auth/auth.service';
 import type { Principal } from '../auth/identity';
 import { parse, toErrorResponse } from '../http/errors';
-import { DiffQuery, MatrixParams, RoadmapQuery, ViewArgsSchema } from '../http/schemas';
+import { DiffQuery, MatrixParams, RoadmapQuery, ViewArgsSchema } from '../model/model.schemas';
 import { decisionsFor, matrixFor } from '../model/insights.controller';
 import { diffFor } from '../model/diff.controller';
 import { resolveView } from '../model/view';

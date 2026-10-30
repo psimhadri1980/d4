@@ -6,11 +6,12 @@ import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { APP_CONFIG, type AppConfig } from '../config';
 import { parse } from '../http/errors';
-import { z } from '../http/schemas';
+import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
 import { jobView } from '../jobs/jobs.controller';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
+import { ValidBody } from '../http/zod.pipe';
 
 const fields = {
   name: z.string().trim().min(1).max(120),
@@ -65,9 +66,8 @@ export class ConnectorsController {
 
   @Post()
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async create(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @ValidBody(CreateConnector) b: z.output<typeof CreateConnector>) {
     const scope = await this.scope(p, ws);
-    const b = parse(CreateConnector, body);
     const kind = CONNECTOR_KINDS[b.kind];
     if (!kind) throw new BadRequestException(`Unknown connector kind '${b.kind}'; known: ${Object.keys(CONNECTOR_KINDS).join(', ')}`);
     const config = await this.checkConfig(b.kind, b.config);
@@ -95,9 +95,8 @@ export class ConnectorsController {
   }
 
   @Patch(':id')
-  async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Body() body: unknown) {
+  async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @ValidBody(UpdateConnector) b: z.output<typeof UpdateConnector>) {
     const row = await this.find(p, ws, id);
-    const b = parse(UpdateConnector, body);
     const changes = {
       ...(b.name !== undefined && { name: b.name }),
       ...(b.config !== undefined && { config: await this.checkConfig(row.kind, b.config) }),

@@ -2,9 +2,10 @@ import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Patch, Post, Pu
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { z } from '../http/schemas';
+import { z } from '../http/zod';
 import { CatalogService } from './catalog.service';
 import { QueryRunService } from './query-run.service';
+import { ValidBody } from '../http/zod.pipe';
 
 const SearchQuery = z.object({ q: z.string().optional(), tag: z.string().optional() });
 const CreateBody = z
@@ -84,8 +85,7 @@ export class CatalogController {
 
   @Post(':id/review')
   @HttpCode(200)
-  review(@CurrentPrincipal() p: Principal, @Param('id') id: string, @Body() body: unknown) {
-    const { decision, note } = parse(ReviewBody, body);
+  review(@CurrentPrincipal() p: Principal, @Param('id') id: string, @ValidBody(ReviewBody) { decision, note }: z.output<typeof ReviewBody>) {
     return this.catalog.review(p, id, decision, note);
   }
 

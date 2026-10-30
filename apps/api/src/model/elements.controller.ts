@@ -1,23 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
-import { parse } from '../http/errors';
-import {
-  ConnectionsQuery,
-  CreateElementBody,
-  DeleteQuery,
-  ListElementsQuery,
-  NeighbourhoodQuery,
-  UpdateBody,
-} from '../http/schemas';
+import { Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { ConnectionsQuery, CreateElementBody, DeleteQuery, ListElementsQuery, NeighbourhoodQuery, UpdateBody } from './model.schemas';
 import { resolveView } from './view';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { z } from '../http/zod';
+import { ValidBody, ValidQuery } from '../http/zod.pipe';
 
 @Controller('v1/workspaces/:ws/elements')
 export class ElementsController {
-  constructor() {}
 
   @Get()
-  async list(@Workspace('read') { queries, scope }: OpenWorkspace, @Query() query: unknown) {
-    const q = parse(ListElementsQuery, query);
+  async list(@Workspace('read') { queries, scope }: OpenWorkspace, @ValidQuery(ListElementsQuery) q: z.output<typeof ListElementsQuery>) {
     const view = await resolveView(queries, scope.registry, scope.workspaceId, q);
     return queries.listElements(
       scope.workspaceId,
@@ -28,8 +20,7 @@ export class ElementsController {
   }
 
   @Post()
-  async create(@Workspace('write') { service, scope }: OpenWorkspace, @Body() body: unknown) {
-    const input = parse(CreateElementBody, body);
+  async create(@Workspace('write') { service, scope }: OpenWorkspace, @ValidBody(CreateElementBody) input: z.output<typeof CreateElementBody>) {
     return service.createElement(scope.ctx, input);
   }
 
@@ -45,9 +36,8 @@ export class ElementsController {
   async update(
     @Workspace('write') { service, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Body() body: unknown,
+    @ValidBody(UpdateBody) input: z.output<typeof UpdateBody>,
   ) {
-    const input = parse(UpdateBody, body);
     return service.updateElement(scope.ctx, { id, ...input });
   }
 
@@ -57,9 +47,8 @@ export class ElementsController {
   async remove(
     @Workspace('write') { service, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Query() query: unknown,
+    @ValidQuery(DeleteQuery) { expectedVersion }: z.output<typeof DeleteQuery>,
   ) {
-    const { expectedVersion } = parse(DeleteQuery, query);
     await service.deleteElement(scope.ctx, { id, expectedVersion });
   }
 
@@ -67,9 +56,8 @@ export class ElementsController {
   async connections(
     @Workspace('read') { queries, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Query() query: unknown,
+    @ValidQuery(ConnectionsQuery) q: z.output<typeof ConnectionsQuery>,
   ) {
-    const q = parse(ConnectionsQuery, query);
     const view = await resolveView(queries, scope.registry, scope.workspaceId, q);
     return queries.connections(scope.workspaceId, id, { direction: q.direction, types: q.type }, view);
   }
@@ -78,9 +66,8 @@ export class ElementsController {
   async neighbourhood(
     @Workspace('read') { queries, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Query() query: unknown,
+    @ValidQuery(NeighbourhoodQuery) q: z.output<typeof NeighbourhoodQuery>,
   ) {
-    const q = parse(NeighbourhoodQuery, query);
     const sub = await queries.neighbourhood(scope.workspaceId, id, {
       depth: q.depth,
       types: q.type,

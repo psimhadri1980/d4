@@ -1,14 +1,16 @@
-import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post } from '@nestjs/common';
 import { stageProposal, type ModelReader, type ProposalOperation, type StagedProposal } from '@d4/core';
 import { PROPOSAL_STATUSES, ProposalStore, withLockedProposal, type ProposalRow } from '@d4/db';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { CreateProposalBody, EditProposalBody, ReviewBody, z } from '../http/schemas';
+import { CreateProposalBody, EditProposalBody, ReviewBody } from './model.schemas';
+import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { ModelFactory } from '../workspaces/model.factory';
 import { WorkspaceAccess, type Access, type WorkspaceScope } from '../workspaces/workspace-access.service';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { ValidBody, ValidQuery } from '../http/zod.pipe';
 
 // `status` may repeat (`?status=a&status=b`) or be comma-separated (`?status=a,b`, as the web client sends it).
 const ListQuery = z.object({
@@ -33,16 +35,14 @@ export class ProposalsController {
   ) {}
 
   @Get()
-  async list(@Workspace('read') { scope }: OpenWorkspace, @Query() query: unknown) {
-    const q = parse(ListQuery, query);
+  async list(@Workspace('read') { scope }: OpenWorkspace, @ValidQuery(ListQuery) q: z.output<typeof ListQuery>) {
     const statuses = q.status?.length ? q.status : undefined;
     return (await this.proposalStore.list(scope.tenantId, scope.workspaceId, statuses)).map(summary);
   }
 
   @Post()
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Workspace('write') { scope }: OpenWorkspace, @Body() body: unknown) {
-    const b = parse(CreateProposalBody, body);
+  async create(@CurrentPrincipal() p: Principal, @Workspace('write') { scope }: OpenWorkspace, @ValidBody(CreateProposalBody) b: z.output<typeof CreateProposalBody>) {
     const row = await this.proposalStore.create(scope.tenantId, { workspaceId: scope.workspaceId, title: b.title, description: b.description ?? null, operations: b.operations, createdBy: p.userId });
     return this.detail(scope, row);
   }
@@ -55,8 +55,7 @@ export class ProposalsController {
   }
 
   @Patch(':id')
-  async edit(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Body() body: unknown) {
-    const b = parse(EditProposalBody, body);
+  async edit(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @ValidBody(EditProposalBody) b: z.output<typeof EditProposalBody>) {
     const { scope, row } = await this.find(p, ws, id, 'write');
     this.author(p, row);
     const updated = await this.proposalStore.editDraft(scope.tenantId, id, b);

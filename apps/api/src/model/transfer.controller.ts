@@ -6,10 +6,12 @@ import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { exportSnapshot, modelDocument, renderExport } from '@d4/jobs';
-import { ExportQuery, z } from '../http/schemas';
+import { ExportQuery } from './model.schemas';
+import { z } from '../http/zod';
 import { ModelFactory } from '../workspaces/model.factory';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { ValidQuery } from '../http/zod.pipe';
 
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
 
@@ -59,10 +61,9 @@ export class TransferController {
   @Get('export')
   async export(
     @Workspace('read') { scope, queries }: OpenWorkspace,
-    @Query() query: unknown,
+    @ValidQuery(ExportQuery) q: z.output<typeof ExportQuery>,
     @Res({ passthrough: true }) reply: Reply,
   ) {
-    const q = parse(ExportQuery, query);
     const snapshot = await exportSnapshot(queries, scope.registry, scope.workspaceId, q);
     const row = await this.workspaceStore.get(scope.tenantId, scope.workspaceId);
     const meta = { name: row?.name ?? scope.workspaceId, slug: row?.slug ?? 'model', description: row?.description ?? null };

@@ -103,7 +103,7 @@ web ──► core, metamodel (bundled for the browser)
 | Auth | `apps/api/src/auth/identity.ts`, `auth.service.ts`, `auth.guard.ts` |
 | Workspace access | `apps/api/src/workspaces/workspace-access.service.ts`; `@Workspace('read'\|'write'\|'review')` (`workspace.decorator.ts`) in handlers; `@Roles('admin')` (`auth/auth.guard.ts`) |
 | Error → HTTP mapping | `apps/api/src/http/errors.ts` |
-| Request schemas + OpenAPI | `apps/api/src/http/schemas.ts`, `openapi.ts` |
+| Request schemas + OpenAPI | `apps/api/src/model/model.schemas.ts`, `http/zod.ts` (z, ErrorSchema), `http/zod.pipe.ts` (`@ValidBody`, `@ValidQuery`); paths per feature in `<feature>/<feature>.openapi.ts`, assembled by `http/openapi.ts` |
 | Catalog API | `apps/api/src/catalog/*` |
 | Web routes | `apps/web/src/App.tsx` |
 | Web API client | `apps/web/src/api.ts` |
@@ -368,11 +368,11 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 
 ### Add a REST endpoint
 
-1. Add the zod request schema in `apps/api/src/http/schemas.ts`. In the controller, parse with `parse(Schema, body)`.
+1. Add the zod request schema in the feature's schemas (model: `apps/api/src/model/model.schemas.ts`; import `z` from `http/zod.ts`). In the handler, take it parsed: `@ValidBody(Schema) input: z.output<typeof Schema>` or `@ValidQuery(...)`, and the workspace with `@Workspace('read'|'write'|'review')`.
 2. Inject dependencies with **explicit `@Inject(Token)`**; the dev runner emits no decorator metadata.
 3. Put access checks and logic in a service. Throw `DomainError` for domain failures and Nest `*Exception`s for HTTP ones; `toErrorResponse` maps both.
 4. Register the controller and providers in its feature module (`<feature>/<feature>.module.ts`); stores are injected by class (`infra/stores.ts`).
-5. Document the endpoint in `apps/api/src/http/openapi.ts`, then regenerate the SDK: `pnpm --filter @d4/api build && pnpm --filter @d4/sdk generate`. `apps/api/test/openapi.test.ts` fails when a served route is missing from the document or the SDK's copy is stale.
+5. Document the endpoint in the feature's `<feature>.openapi.ts` (helpers in `http/api-doc.ts`), then regenerate the SDK: `pnpm --filter @d4/api build && pnpm --filter @d4/sdk generate`. `apps/api/test/openapi.test.ts` fails when a served route is missing from the document or the SDK's copy is stale.
 6. Test it end to end with `apps/api/test/harness.ts` (`startHarness()`), which gives a fresh Postgres database, the real Neo4j and local-signed tokens.
 
 ### Add a Postgres table or column

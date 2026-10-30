@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import {
   buildMatrix,
   DECISION_RELATIONSHIPS,
@@ -14,9 +14,11 @@ import {
 import type { GraphQueries } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { parse } from '../http/errors';
-import { MatrixParams, ViewArgsSchema } from '../http/schemas';
+import { MatrixParams, ViewArgsSchema } from './model.schemas';
 import { resolveView } from './view';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { z } from '../http/zod';
+import { ValidQuery } from '../http/zod.pipe';
 
 type Queries = Pick<GraphQueries, 'getElement' | 'subgraphOf' | 'lifecycleCounts'>;
 interface ViewQ {
@@ -41,16 +43,14 @@ export async function decisionsFor(queries: Queries, registry: MetamodelRegistry
 export class InsightsController {
   /** Matrices: crud, capability-application, data-store-roles, lifecycle. */
   @Get('matrix/:kind')
-  async matrix(@Workspace('read') { scope, queries }: OpenWorkspace, @Param('kind') kind: string, @Query() query: unknown) {
+  async matrix(@Workspace('read') { scope, queries }: OpenWorkspace, @Param('kind') kind: string, @ValidQuery(ViewArgsSchema) q: z.output<typeof ViewArgsSchema>) {
     const { kind: k } = parse(MatrixParams, { kind });
-    const q = parse(ViewArgsSchema, query);
     return matrixFor(queries, scope.registry, scope.workspaceId, k, q);
   }
 
   /** The decision log (ADRs), newest first. */
   @Get('decisions')
-  async decisions(@Workspace('read') { scope, queries }: OpenWorkspace, @Query() query: unknown) {
-    const q = parse(ViewArgsSchema, query);
+  async decisions(@Workspace('read') { scope, queries }: OpenWorkspace, @ValidQuery(ViewArgsSchema) q: z.output<typeof ViewArgsSchema>) {
     return decisionsFor(queries, scope.registry, scope.workspaceId, q);
   }
 }

@@ -4,12 +4,13 @@ import type { Principal } from '../auth/identity';
 import { Roles } from '../auth/auth.guard';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { z } from '../http/schemas';
+import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { assertWorkspaceQuota, currentUsage, limitsFor } from '@d4/jobs';
 import { describeMetamodelPacks, loadMetamodelPack, METAMODEL_PACKS, MetamodelRegistry } from '@d4/metamodel';
 import { TenantGraphService } from '../infra/tenant-graph.service';
+import { ValidBody } from '../http/zod.pipe';
 
 const slug = z
   .string()
@@ -82,8 +83,7 @@ export class AdminController {
 
   @Post('admin/workspaces')
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
-    const b = parse(CreateWorkspace, body);
+  async create(@CurrentPrincipal() p: Principal, @ValidBody(CreateWorkspace) b: z.output<typeof CreateWorkspace>) {
     const store = this.workspaceStore;
     if (await store.bySlug(p.tenantId, b.slug)) throw new ConflictException(`A workspace with slug '${b.slug}' already exists`);
     await assertWorkspaceQuota(this.database.db, p.tenantId);
@@ -158,9 +158,8 @@ export class AdminController {
 
   @Post('admin/members/:ws')
   @HttpCode(204)
-  async grant(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async grant(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @ValidBody(Binding) b: z.output<typeof Binding>) {
     const scope = await this.scope(p, ws);
-    const b = parse(Binding, body);
     if (b.principalType === 'user' && !(await this.userStore.get(p.tenantId, b.principalId))) {
       throw new NotFoundException(`User '${b.principalId}' not found (users appear after their first sign-in)`);
     }
@@ -169,9 +168,8 @@ export class AdminController {
 
   @Delete('admin/members/:ws')
   @HttpCode(204)
-  async revoke(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
+  async revoke(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @ValidBody(Binding) b: z.output<typeof Binding>) {
     const scope = await this.scope(p, ws);
-    const b = parse(Binding, body);
     // Keep at least one way back in: an admin cannot remove their own tenant-wide admin binding.
     if (!scope && b.role === 'admin' && b.principalType === 'user' && b.principalId === p.userId) {
       throw new ConflictException('You cannot remove your own tenant-wide admin role');

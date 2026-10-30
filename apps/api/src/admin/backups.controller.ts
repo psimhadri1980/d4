@@ -4,7 +4,7 @@ import { assertJobQuota } from '@d4/jobs';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { z } from '../http/schemas';
+import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
 import { jobView } from '../jobs/jobs.controller';

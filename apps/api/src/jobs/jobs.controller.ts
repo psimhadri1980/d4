@@ -4,12 +4,14 @@ import { assertJobQuota, inputKey, RenderParams, type TabularJobInput } from '@d
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { ExportQuery, TabularImportBody, z } from '../http/schemas';
+import { ExportQuery, TabularImportBody } from '../model/model.schemas';
+import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
 import { resolveView } from '../model/view';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { ValidBody, ValidQuery } from '../http/zod.pipe';
 
 interface Reply {
   header(name: string, value: string): unknown;
@@ -75,8 +77,7 @@ export class JobsController {
   /** A picture of a roadmap or a graph view: SVG, PNG or PDF (rendered with Chromium). */
   @Post('render')
   @HttpCode(202)
-  async render(@CurrentPrincipal() p: Principal, @Workspace('read') { scope, queries }: OpenWorkspace, @Body() body: unknown) {
-    const params = parse(RenderParams, body);
+  async render(@CurrentPrincipal() p: Principal, @Workspace('read') { scope, queries }: OpenWorkspace, @ValidBody(RenderParams) params: z.output<typeof RenderParams>) {
     if (params.target === 'graph') {
       await resolveView(queries, scope.registry, scope.workspaceId, params);
       if (!(await queries.getElement(scope.workspaceId, params.root))) throw new NotFoundException(`Element '${params.root}' not found`);
@@ -90,9 +91,8 @@ export class JobsController {
 
   @Post('import-tabular')
   @HttpCode(202)
-  async importTabular(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown, @Body() body: unknown) {
+  async importTabular(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown, @ValidBody(TabularImportBody) { files, mappings }: z.output<typeof TabularImportBody>) {
     const dryRun = parse(ImportQuery, query).dryRun === 'true';
-    const { files, mappings } = parse(TabularImportBody, body);
     const scope = await this.access.resolve(p, ws, dryRun ? 'read' : 'write');
     const { queue, artifacts } = this.infra;
     await assertJobQuota(this.database.db, scope.tenantId);
@@ -111,8 +111,7 @@ export class JobsController {
   }
 
   @Get()
-  async list(@CurrentPrincipal() p: Principal, @Workspace('read') { scope }: OpenWorkspace, @Query() query: unknown) {
-    const q = parse(ListQuery, query);
+  async list(@CurrentPrincipal() p: Principal, @Workspace('read') { scope }: OpenWorkspace, @ValidQuery(ListQuery) q: z.output<typeof ListQuery>) {
     const everyone = q.all === 'true' && p.roles.includes('admin');
     const rows = await this.jobStore.list(scope.tenantId, scope.workspaceId, {
       ...(!everyone && { createdBy: p.userId }),

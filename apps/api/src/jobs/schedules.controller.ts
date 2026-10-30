@@ -1,16 +1,17 @@
-import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { JobStore, ScheduleStore, type ScheduleRow } from '@d4/db';
 import { Cadence, describeCadence, nextRun, startScheduledRun, validateScheduleParams } from '@d4/jobs';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { z } from '../http/schemas';
+import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { JobsInfra } from '../infra/jobs.service';
 import { jobView } from './jobs.controller';
 import { resolveView } from '../model/view';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { ValidBody } from '../http/zod.pipe';
 
 const CreateBody = z.object({
   name: z.string().trim().min(1).max(120),
@@ -54,8 +55,7 @@ export class SchedulesController {
 
   @Post()
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Workspace('read') { scope, queries }: OpenWorkspace, @Body() body: unknown) {
-    const b = parse(CreateBody, body);
+  async create(@CurrentPrincipal() p: Principal, @Workspace('read') { scope, queries }: OpenWorkspace, @ValidBody(CreateBody) b: z.output<typeof CreateBody>) {
     const params = validateScheduleParams(b.kind, b.params);
     // Check what can be checked now, so a schedule does not fail on every run.
     if (b.kind === 'export' || params['target'] === 'graph') await resolveView(queries, scope.registry, scope.workspaceId, params);
@@ -77,8 +77,7 @@ export class SchedulesController {
   }
 
   @Patch(':id')
-  async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Body() body: unknown) {
-    const b = parse(UpdateBody, body);
+  async update(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @ValidBody(UpdateBody) b: z.output<typeof UpdateBody>) {
     const { row, tenantId } = await this.own(p, ws, id);
     const cadence = b.cadence ?? Cadence.parse(row.cadence);
     // A new cadence, or resuming, counts from now rather than running missed slots.

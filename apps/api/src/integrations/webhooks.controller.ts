@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post } from '@nestjs/common';
 import { DOMAIN_EVENT_TYPES } from '@d4/core';
 import { WorkspaceStore, WebhookStore, type DeliveryRow, type WebhookRow } from '@d4/db';
 import { checkWebhookUrl, newWebhookSecret } from '@d4/jobs';
@@ -6,8 +6,8 @@ import type { Principal } from '../auth/identity';
 import { Roles } from '../auth/auth.guard';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { APP_CONFIG, type AppConfig } from '../config';
-import { parse } from '../http/errors';
-import { z } from '../http/schemas';
+import { z } from '../http/zod';
+import { ValidBody } from '../http/zod.pipe';
 
 const fields = {
   name: z.string().trim().min(1).max(120),
@@ -45,8 +45,7 @@ export class WebhooksController {
 
   @Post()
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Body() body: unknown) {
-    const b = parse(CreateWebhook, body);
+  async create(@CurrentPrincipal() p: Principal, @ValidBody(CreateWebhook) b: z.output<typeof CreateWebhook>) {
     await this.checkUrl(b.url);
     const secret = newWebhookSecret();
     const row = await this.webhookStore.create(p.tenantId, {
@@ -66,8 +65,7 @@ export class WebhooksController {
   }
 
   @Patch(':id')
-  async update(@CurrentPrincipal() p: Principal, @Param('id') id: string, @Body() body: unknown) {
-    const b = parse(UpdateWebhook, body);
+  async update(@CurrentPrincipal() p: Principal, @Param('id') id: string, @ValidBody(UpdateWebhook) b: z.output<typeof UpdateWebhook>) {
     await this.find(p, id);
     if (b.url) await this.checkUrl(b.url);
     const { workspace, ...rest } = b;
