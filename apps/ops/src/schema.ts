@@ -1,15 +1,15 @@
-/**
- * Applies Neo4j constraints and indexes for the starter metamodel to one tenant database.
- * Usage: node dist/scripts/apply-schema.js [tenantId]   (defaults to the local dev tenant `t_local`)
- */
 import neo4j from 'neo4j-driver';
 import { applySchema, awaitSchemaOnline, relationshipIdIndexName } from '@d4/cypher';
 import { createDb, MetamodelStore, TenantStore } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { loadConfig, neo4j as neo4jEnv, postgres } from '@d4/config';
 
-async function main() {
-  const tenantId = process.argv[2] ?? 't_local';
+/**
+ * `d4-ops schema [tenant]`: Neo4j constraints and indexes for the starter metamodel (and every
+ * metamodel a workspace uses) on one tenant database; defaults to the local dev tenant `t_local`.
+ */
+export async function schema(args: string[]) {
+  const tenantId = args[0] ?? 't_local';
   const config = loadConfig({ ...postgres, ...neo4jEnv });
   const handle = createDb(config.POSTGRES_URL, 1);
   try {
@@ -36,8 +36,3 @@ async function main() {
     await handle.close();
   }
 }
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});

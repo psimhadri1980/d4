@@ -3,7 +3,7 @@ import { checkTenant, ManualInstanceDriver, provisionTenant, graphConfig } from 
 import { createDb, TenantStore } from '@d4/db';
 
 /**
- * Operator tool for tenants (run in the API image; `deploy/dev.sh tenant-*` wraps it).
+ * `d4-ops tenant …` (`deploy/dev-infra.sh tenant` wraps it):
  *
  *   create <tenant> --name "Acme" --bolt bolt://host:7687 --secret file:neo4j-t_acme [--slug acme]
  *   list | check <tenant> | suspend <tenant> | resume <tenant> | delete <tenant>
@@ -11,8 +11,8 @@ import { createDb, TenantStore } from '@d4/db';
  * Environment: POSTGRES_URL (or its parts), NEO4J_USER, NEO4J_PASSWORD, and optionally
  * NEO4J_HOSTS and NEO4J_SECRETS_DIR (see TenantGraphs).
  */
-const USAGE = `usage: tenant-cli create <tenant> --name <name> --bolt <uri> --secret <ref> [--slug <slug>] [--version <neo4j>]
-       tenant-cli list | check <tenant> | suspend <tenant> | resume <tenant> | delete <tenant>`;
+const USAGE = `usage: d4-ops tenant create <tenant> --name <name> --bolt <uri> --secret <ref> [--slug <slug>] [--version <neo4j>]
+       d4-ops tenant list | check <tenant> | suspend <tenant> | resume <tenant> | delete <tenant>`;
 
 function flags(args: string[]): Record<string, string> {
   const out: Record<string, string> = {};
@@ -24,8 +24,8 @@ function flags(args: string[]): Record<string, string> {
   return out;
 }
 
-async function main() {
-  const [command, tenantId, ...rest] = process.argv.slice(2);
+export async function tenant(args: string[]) {
+  const [command, tenantId, ...rest] = args;
   if (!command) throw new Error(USAGE);
   const config = loadConfig({ ...postgres, ...neo4j });
   const graph = graphConfig(config);
@@ -74,11 +74,4 @@ async function main() {
   } finally {
     await handle.close();
   }
-}
-
-if (require.main === module) {
-  main().catch((e) => {
-    console.error(e instanceof Error ? e.message : e);
-    process.exitCode = 1;
-  });
 }

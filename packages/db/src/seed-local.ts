@@ -1,7 +1,5 @@
-import { loadConfig, postgres } from '@d4/config';
 import { loadStarterMetamodel } from '@d4/metamodel';
-import { createDb, type Db } from './client';
-import { runMigrations } from './migrate';
+import type { Db } from './client';
 import { tenantDbInstances, tenants } from './schema';
 import { MetamodelStore, WorkspaceStore } from './stores';
 
@@ -49,16 +47,4 @@ export async function seedLocal(db: Db): Promise<{ workspaceId: string; metamode
     });
     return { workspaceId: ws.id, metamodelId };
   });
-}
-
-if (require.main === module) {
-  const handle = createDb(loadConfig(postgres).POSTGRES_URL, 1);
-  runMigrations(handle.db)
-    .then(() => seedLocal(handle.db))
-    .then((r) => console.log(`Migrated and seeded tenant '${LOCAL_TENANT}':`, r))
-    .catch((e) => {
-      console.error(e);
-      process.exitCode = 1;
-    })
-    .finally(() => handle.close());
 }

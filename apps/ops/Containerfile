@@ -1,0 +1,21 @@
+# Operator commands (d4-ops): migrations, seed, Neo4j schema, tenants, quotas. Runs the init jobs
+# and `deploy/dev-infra.sh tenant|quota`. Build context: the repository root.
+ARG NODE_IMAGE=docker.io/library/node:24-alpine
+
+FROM ${NODE_IMAGE} AS build
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+WORKDIR /repo
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
+COPY . .
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/ops...' \
+ && pnpm --filter '@d4/ops...' run build
+RUN pnpm --filter @d4/ops deploy --prod /app
+
+FROM ${NODE_IMAGE}
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build --chown=node:node /app .
+USER node
+ENTRYPOINT ["node", "--enable-source-maps", "dist/main.js"]

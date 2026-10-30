@@ -139,6 +139,27 @@ importers:
         specifier: ^2.5.0
         version: 2.9.1
 
+  apps/ops:
+    dependencies:
+      '@d4/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@d4/cypher':
+        specifier: workspace:*
+        version: link:../../packages/cypher
+      '@d4/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@d4/infra':
+        specifier: workspace:*
+        version: link:../../packages/infra
+      '@d4/metamodel':
+        specifier: workspace:*
+        version: link:../../packages/metamodel
+      neo4j-driver:
+        specifier: ^5.24.0
+        version: 5.28.3
+
   apps/renderer:
     dependencies:
       '@d4/config':
@@ -339,9 +360,6 @@ importers:
 
   packages/db:
     dependencies:
-      '@d4/config':
-        specifier: workspace:*
-        version: link:../config
       '@d4/core':
         specifier: workspace:*
         version: link:../core
@@ -426,9 +444,6 @@ importers:
       '@d4/codecs':
         specifier: workspace:*
         version: link:../codecs
-      '@d4/config':
-        specifier: workspace:*
-        version: link:../config
       '@d4/connectors':
         specifier: workspace:*
         version: link:../connectors

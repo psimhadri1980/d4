@@ -134,25 +134,25 @@ services:
       retries: 30
       start_period: 30s
 
-  # ── One-shot init jobs (API image) ───────────────────────────────────
+  # ── One-shot init jobs (ops image: d4-ops) ───────────────────────────
   # Applies control-plane migrations, then seeds the local tenant, metamodel and workspace.
   db-migrate:
-    build: { context: ../.., dockerfile: apps/api/Containerfile }
-    image: localhost/d4-api:local
+    build: { context: ../.., dockerfile: apps/ops/Containerfile }
+    image: localhost/d4-ops:local
     volumes: ['../secrets:/run/d4-secrets:ro,z']
     depends_on:
       postgres: { condition: service_healthy }
     <<: *app-env
-    command: ['node', 'node_modules/@d4/db/dist/seed-local.js']
+    command: ['seed']
     restart: 'no'
 
   neo4j-schema:
-    image: localhost/d4-api:local
+    image: localhost/d4-ops:local
     depends_on:
       neo4j: { condition: service_healthy }
       db-migrate: { condition: service_completed_successfully }
     <<: *app-env
-    command: ['node', 'dist/scripts/apply-schema.js', 't_local']
+    command: ['schema', 't_local']
     restart: 'no'
 
 volumes:

@@ -1,0 +1,20 @@
+{
+  "name": "@d4/ops",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Operator commands (d4-ops): migrations and the local seed, Neo4j schema, tenants, quotas. Runs the init jobs.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@d4/config": "workspace:*",
+    "@d4/cypher": "workspace:*",
+    "@d4/db": "workspace:*",
+    "@d4/infra": "workspace:*",
+    "@d4/metamodel": "workspace:*",
+    "neo4j-driver": "^5.24.0"
+  }
+}

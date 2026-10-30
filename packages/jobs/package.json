@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@d4/codecs": "workspace:*",
-    "@d4/config": "workspace:*",
     "@d4/connectors": "workspace:*",
     "@d4/core": "workspace:*",
     "@d4/cypher": "workspace:*",

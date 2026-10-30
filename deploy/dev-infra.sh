@@ -19,16 +19,16 @@ U
   exit 2
 }
 
-# The operator's tenant tool: in the API image with the secrets mounted, or on local Node from
-# the working tree with D4_TENANT_CLI=local (no image rebuild while developing it).
-tenant_cli() {
-  if [[ "${D4_TENANT_CLI:-}" == local ]]; then
-    node_env tenant
-    pn turbo run build --filter '...@d4/jobs' >/dev/null
+# d4-ops (apps/ops): in its image with the secrets mounted, or on local Node from the working
+# tree with D4_OPS=local (no image rebuild while developing it).
+ops() {
+  if [[ "${D4_OPS:-}" == local ]]; then
+    node_env ops
+    pn turbo run build --filter '@d4/ops...' >/dev/null
     load_env host
-    (cd .. && NEO4J_HOSTS="$(cd deploy && neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/deploy/secrets" node packages/jobs/dist/tenant-cli.js "$@")
+    (cd .. && NEO4J_HOSTS="$(cd deploy && neo4j_hosts localhost)" NEO4J_SECRETS_DIR="$PWD/deploy/secrets" node apps/ops/dist/main.js "$@")
   else
-    compose run --rm --no-deps db-migrate node node_modules/@d4/jobs/dist/tenant-cli.js "$@"
+    compose run --rm --no-deps db-migrate "$@"
   fi
 }
 
@@ -51,7 +51,7 @@ tenant_create() {
       --memory 900m --cpus 1 docker.io/library/neo4j:5.26-community >/dev/null
     say "Started $c on 127.0.0.1:$port"
   fi
-  tenant_cli create "$id" --name "$name" --bolt "bolt://$c:7687" --secret "file:neo4j-$id"
+  ops tenant create "$id" --name "$name" --bolt "bolt://$c:7687" --secret "file:neo4j-$id"
   say "Restart local api/worker processes (deploy/dev.sh) so they learn the new host port."
 }
 
@@ -92,13 +92,13 @@ case "${1:-}" in
       create) tenant_create "${@:3}" ;;
       remove)
         [[ -n "${3:-}" ]] || die 'usage: dev-infra.sh tenant remove t_<id>' 2
-        tenant_cli delete "$3"
+        ops tenant delete "$3"
         "$ENGINE" rm -f "d4-neo4j-$3" >/dev/null 2>&1 && say "Stopped d4-neo4j-$3 (volume d4-neo4j-$3-data kept)." || true ;;
       user) D4_CONTAINER_ENGINE="$ENGINE" ./keycloak/tenant-user.sh "${@:3}" ;;
-      list|check|suspend|resume|delete) tenant_cli "${@:2}" ;;
+      list|check|suspend|resume|delete) ops tenant "${@:2}" ;;
       *) usage ;;
     esac ;;
-  quota) compose run --rm --no-deps db-migrate node node_modules/@d4/db/dist/set-quota.js "${@:2}" ;;
+  quota) ops quota "${@:2}" ;;
   token)
     curl -fsS -d client_id="$OIDC_CLIENT_ID" -d grant_type=password -d username="${2:-dev-admin}" \
       -d password="$DEV_USER_PASSWORD" "$OIDC_ISSUER/protocol/openid-connect/token" \

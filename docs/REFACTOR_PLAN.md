@@ -1,6 +1,6 @@
 # D4 refactor plan: production readiness
 
-**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
+**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
 
 Scope, as requested:
 1. Prune the code base: remove duplication, use well-defined patterns, delete dead code.
@@ -581,3 +581,7 @@ Deviations from the P2 design: no turbo prune (a filtered `pnpm install` plus `p
 **After P3 (gateway):** one browser-facing port (5173, the gateway); the API, Keycloak and the mail inbox are no longer published. `test.sh all` passes: static clean, 351 tests, 72 browser tests through the gateway. The browser suite passes again with the API (plus a worker and renderer on the local queues) running on the host behind the gateway, the path `dev.sh api` uses; this machine has Node 22, so that run used the API image on the host network rather than `tsx watch`, and `dev.sh web` (Vite behind the gateway) is not yet exercised.
 
 Deviations from the P3 design: `/config.json` stays in the web image (served through the gateway) instead of moving to the gateway; no CSP yet (the other security headers are set), since a strict `script-src 'self'` needs checking against Keycloak's pages and the Vite dev server; no TLS server block yet (P7 with deployment); `dev.sh status` is replaced by `dev.sh restore`.
+
+**After P4 (backend pruning):** one commit per item (11, 10, 9, 2, 6, 5, 4, 7, 8, 3 in two parts); `test.sh all` passed before each code commit (static clean, 351 tests, 72 browser tests); the generated OpenAPI document is unchanged. New packages `@d4/runtime` and `@d4/infra`, new app `apps/ops` (image 229 MB).
+
+Deviations from the P4 design: `@Workspace(access)` covers routes whose access is fixed; handlers whose access depends on the request (dry runs) and helpers that also check ownership still call `WorkspaceAccess.resolve`. Controllers' small inline schemas (admin, webhooks, connectors, schedules, backups, catalog) stay in their controllers; only the model's shared schemas moved to `model/model.schemas.ts`. Access is now checked before the query string is validated (a request that is both forbidden and malformed gets 403, not 400).

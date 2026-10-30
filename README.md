@@ -14,6 +14,8 @@ apps/worker           Background job worker: exports and spreadsheet imports fro
 apps/renderer         Renders roadmaps and graphs to PNG/PDF with headless Chromium (render queue)
 apps/web              React app: explorer, queries, roadmap, compare, matrices, decisions, import, jobs
 apps/e2e              Playwright browser tests against the running stack
+apps/ops              d4-ops: migrations and seed, Neo4j schema, tenants, quotas (runs the init jobs)
+apps/gateway          nginx: the one browser-facing origin (web /, API /api, Keycloak /auth)
 packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
 packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
@@ -53,7 +55,7 @@ deploy/dev-infra.sh status | logs <svc> | down | reset   # reset also deletes al
 | s3 (mocks/s3, file-backed) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
 | keycloak 25 | OIDC realm `d4`, roles, dev users (at `/auth`) | 768 MB |
 | gateway (nginx) | The one browser-facing origin, http://localhost:5173: web `/`, API `/api`, Keycloak `/auth`, inbox `/mail/` | 64 MB |
-| db-migrate, neo4j-schema, s3-init | One-shot jobs: Postgres migrations + local seed, Neo4j schema, S3 buckets | — |
+| db-migrate, neo4j-schema | One-shot jobs (ops image): Postgres migrations + local seed, Neo4j schema | — |
 | api | D4 API at http://localhost:5173/api | 384 MB |
 | web | D4 Explorer on http://localhost:5173 (nginx, static build) | 64 MB |
 | otel-collector, tempo, prometheus, grafana (`/grafana/`) | Observability profile (optional) | ~1 GB |

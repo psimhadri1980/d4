@@ -5,7 +5,10 @@
   "description": "Postgres control plane: Drizzle schema, migrations and stores.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "drizzle"],
+  "files": [
+    "dist",
+    "drizzle"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -14,7 +17,6 @@
     "generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@d4/config": "workspace:*",
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "drizzle-orm": "^0.33.0",
