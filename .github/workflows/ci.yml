@@ -13,6 +13,11 @@ jobs:
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U d4" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 20
       neo4j:
         image: neo4j:5.26-community
         env: { NEO4J_AUTH: neo4j/d4-local-dev }
@@ -25,6 +30,9 @@ jobs:
       D4_TEST_POSTGRES_URL: postgres://d4:d4-local-dev@localhost:5432/postgres
       D4_TEST_NEO4J_URL: bolt://localhost:7687
       D4_TEST_NEO4J_PASSWORD: d4-local-dev
+      # Background jobs: the queue and the repository's own S3 mock (started below).
+      D4_TEST_REDIS_URL: redis://localhost:6379
+      D4_TEST_S3_ENDPOINT: http://localhost:8333
       # Pull requests check only the packages they change and their dependents (turbo --affected
       # compares with the base branch); pushes to main check everything. The turbo cache is kept
       # between runs, keyed by the test settings above, so unchanged packages replay.
@@ -41,6 +49,12 @@ jobs:
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
+      - name: S3 mock
+        run: |
+          pnpm turbo run build --filter @d4/mock-s3
+          mkdir -p /tmp/s3
+          S3_ACCESS_KEY=d4 S3_SECRET_KEY=d4-local-dev S3_MOCK_DATA_DIR=/tmp/s3 node mocks/s3/dist/main.js &
+          for i in $(seq 30); do curl -fs http://localhost:8333/_health && break; sleep 1; done
       - run: pnpm turbo run build typecheck lint test $CHECK
       # Unused files, exports and dependencies need the whole repository.
       - run: pnpm knip
