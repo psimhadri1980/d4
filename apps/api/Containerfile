@@ -1,6 +1,6 @@
 # API (NestJS). Build context: the repository root. Only the workspaces the API needs are
 # installed and built, then `pnpm deploy` copies the API with its production dependencies.
-ARG NODE_IMAGE=docker.io/library/node:24-alpine
+ARG NODE_IMAGE=docker.io/library/node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
 
 # Only this app's workspaces: files outside them (another app, docs) leave the layers below cached.
 FROM ${NODE_IMAGE} AS prune

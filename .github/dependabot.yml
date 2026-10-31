@@ -1,0 +1,35 @@
+# Weekly update pull requests. CI (affected-only checks plus the browser suite) gates each one.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ['*'] }
+
+  # The pnpm workspace (root lockfile). Minor and patch updates come grouped; majors one by one.
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # Base images, pinned by digest in each Containerfile (tag kept for reading).
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/worker
+      - /apps/renderer
+      - /apps/ops
+      - /apps/web
+      - /apps/gateway
+      - /apps/e2e
+      - /deploy/web-modules
+      - /deploy/test
+      - /mocks/s3
+      - /mocks/smtp
+    schedule: { interval: weekly }
+    groups:
+      base-images: { patterns: ['*'] }

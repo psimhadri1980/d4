@@ -1,7 +1,11 @@
 name: ci
+# A change to documentation only (docs, the user manual, Markdown) runs nothing.
 on:
-  push: { branches: [main] }
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', 'user-manual/**', '**/*.md']
   pull_request:
+    paths-ignore: ['docs/**', 'user-manual/**', '**/*.md']
 
 jobs:
   build-test:
@@ -91,6 +95,29 @@ jobs:
         run: deploy/dev-deploy.sh
       - name: Browser tests
         run: deploy/test.sh e2e --retries=1
+      # Supply chain: an SBOM and a vulnerability report for each image this commit built.
+      # Report only for now (no baseline yet); findings go to the job summary.
+      - uses: aquasecurity/setup-trivy@v0.2.2
+        if: success() || failure()
+        with: { version: v0.57.1 }
+      - name: Image scan and SBOM
+        if: success() || failure()
+        run: |
+          mkdir -p sbom
+          echo '## Image vulnerabilities (HIGH, CRITICAL)' >> "$GITHUB_STEP_SUMMARY"
+          for img in $(podman images --format '{{.Repository}}' | grep '^localhost/d4-' | sort -u); do
+            name=${img#localhost/}
+            podman save -o "/tmp/$name.tar" "$img:local"
+            trivy image --quiet --input "/tmp/$name.tar" --format cyclonedx --output "sbom/$name.cdx.json"
+            { echo "### $name"; echo '```'; trivy image --quiet --input "/tmp/$name.tar" --severity HIGH,CRITICAL --format table 2>&1 | tail -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            rm -f "/tmp/$name.tar"
+          done
+      - uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: sbom
+          path: sbom
+          retention-days: 30
       - name: Service logs
         if: failure()
         run: cd deploy && podman compose -p d4 -f compose/infra.yaml -f compose/apps.yaml -f compose/web.yaml -f compose/gateway.yaml logs --no-color --tail=200

@@ -24,6 +24,16 @@ All are under `/w/<workspace-id>/`:
 | `roadmap` | Roadmap (scope, lanes, zoom in the URL) |
 | `proposals?show=open\|review\|closed\|all` | Proposals |
 | `import`, `jobs`, `reports` | Data and reporting |
-| `connectors`, `backups`, `admin/workspaces`, `admin/people`, `admin/webhooks`, `admin/usage` | Admin |
+| `connectors`, `backups`, `admin/workspaces`, `admin/people`, `admin/webhooks`, `admin/modules`, `admin/usage` | Admin |
 
 Older `/catalog`, `/studio` and `/stewardship` links still work and open the matching query tab.
+
+## Local installation addresses
+
+A local installation answers on two addresses. Sign in separately on each:
+
+| Address | Serves |
+|---|---|
+| `http://localhost:5173` | The installed D4, or the parts a developer is running from source |
+| `http://d4.localhost:5173` | Always the installed D4 |
+

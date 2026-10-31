@@ -57,7 +57,8 @@ deploy/dev-infra.sh status | logs <svc> | down | reset   # reset also deletes al
 | gateway (nginx) | The browser-facing port: http://localhost:5173 (containers or local `dev.sh` apps) and http://d4.localhost:5173 (containers only), each with web `/`, API `/api`, Keycloak `/auth`, inbox `/mail/` | 64 MB |
 | db-migrate, neo4j-schema | One-shot jobs (ops image): Postgres migrations + local seed, Neo4j schema | — |
 | api | D4 API at http://localhost:5173/api | 384 MB |
-| web | D4 Explorer on http://localhost:5173 (nginx, static build) | 64 MB |
+| web | The D4 shell on http://localhost:5173 (nginx, static build): sign-in, layout, menu, module loader | 64 MB |
+| web-modules | The six web modules (explore, queries, plan, data, reporting, admin) under `/mfe/<name>/`; uploaded releases are served from S3 under `/mfe/_r/` | 64 MB |
 | otel-collector, tempo, prometheus, grafana (`/grafana/`) | Observability profile (optional) | ~1 GB |
 
 ## Web app
