@@ -11,5 +11,5 @@
     "declaration": false,
     "declarationMap": false
   },
-  "include": ["src", "test", "vite.config.ts", "shared.ts"]
+  "include": ["src", "test", "vite.config.ts"]
 }

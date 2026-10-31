@@ -76,6 +76,28 @@ export interface LifecycleModule {
   unmount: Lifecycle | Lifecycle[];
 }
 
+const isLifecycle = (v: unknown) => typeof v === 'function' || (Array.isArray(v) && v.length > 0 && v.every((f) => typeof f === 'function'));
+
+/**
+ * What is wrong with a module's exports, if anything: the contract a module must meet to load.
+ * The shell checks every module it imports; each module's tests check their own exports.
+ */
+export function lifecycleProblems(mod: unknown, name: string): string[] {
+  const m = (mod ?? {}) as Partial<LifecycleModule>;
+  const out: string[] = [];
+  if (m.manifest?.contract !== LIFECYCLE_CONTRACT) out.push(`uses contract ${String(m.manifest?.contract)}; this app understands ${LIFECYCLE_CONTRACT}`);
+  else if (m.manifest.id !== name) out.push(`calls itself '${m.manifest.id}'`);
+  for (const k of ['bootstrap', 'mount', 'unmount'] as const) if (!isLifecycle(m[k])) out.push(`does not export ${k} as a function or a list of functions`);
+  const nav = m.manifest?.nav;
+  if (m.manifest && (!nav || typeof nav.group !== 'string' || typeof nav.order !== 'number' || !Array.isArray(nav.items))) out.push('has no menu (nav.group, nav.order, nav.items)');
+  for (const item of nav?.items ?? []) {
+    if (![item.id, item.label, item.icon, item.to].every((v) => typeof v === 'string' && v)) out.push(`menu item '${item.id}' lacks id, label, icon or to`);
+    // Paths are relative to the workspace and must stay within the module's own `<name>/…`.
+    for (const to of [item.to, ...(item.sub ?? []).map((s) => s.to)]) if (!(to === name || to?.startsWith(`${name}/`))) out.push(`menu path '${to}' is outside ${name}/`);
+  }
+  return out;
+}
+
 const sheets = new Map<string, Promise<void>>();
 
 /** Adds a module's stylesheet to the page once; resolves when it has loaded. */

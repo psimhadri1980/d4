@@ -1,5 +1,5 @@
 import { addErrorHandler, getAppStatus, navigateToUrl, registerApplication, start, unregisterApplication } from 'single-spa';
-import { config, d4, accessToken, LIFECYCLE_CONTRACT, type LifecycleModule, type ModuleManifest, type Platform } from '@d4/web-platform';
+import { config, d4, accessToken, lifecycleProblems, type LifecycleModule, type ModuleManifest, type Platform } from '@d4/web-platform';
 import type { QueryClient } from '@tanstack/react-query';
 
 /**
@@ -86,8 +86,8 @@ async function load(platform: Platform, m: Listed): Promise<void> {
   const url = entryFor(name, `${m.entry}?v=${encodeURIComponent(m.version)}`);
   try {
     const mod = await withTimeout(import(/* @vite-ignore */ url) as Promise<LifecycleModule>, `Module '${name}'`);
-    if (mod.manifest?.contract !== LIFECYCLE_CONTRACT) throw new Error(`uses contract ${String(mod.manifest?.contract)}; this app understands ${LIFECYCLE_CONTRACT}`);
-    if (mod.manifest.id !== name) throw new Error(`calls itself '${mod.manifest.id}'`);
+    const problems = lifecycleProblems(mod, name);
+    if (problems.length) throw new Error(problems.join('; '));
     if (registered.get(name) !== release(m)) return; // superseded while loading
     const prefix = new RegExp(`^/w/[^/]+/${name}(/|$)`);
     registerApplication({ name, app: mod, activeWhen: (l) => prefix.test(l.pathname), customProps: { platform, domElementGetter: () => slotFor(name) } });

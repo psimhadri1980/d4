@@ -10,6 +10,8 @@
     "packages/runtime": { "entry": ["src/index.ts", "src/telemetry.ts"] },
     // The browser build's entry (the `browser` export condition).
     "packages/metamodel": { "entry": ["src/index.ts", "src/browser.ts"] },
+    // Build configs import the shared-package list (`@d4/web-platform/shared`).
+    "packages/web-platform": { "entry": ["src/index.ts", "src/shared.ts"] },
     "packages/cli": { "entry": ["src/index.ts", "src/main.ts"] },
     // The README example is compiled by the typecheck so the docs stay correct.
     "packages/sdk": { "entry": ["src/index.ts", "test/readme-example.ts"] },

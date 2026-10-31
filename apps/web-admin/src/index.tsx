@@ -3,14 +3,13 @@ import ReactDOMClient from 'react-dom/client';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import singleSpaReact from 'single-spa-react';
 import { lazyPage, LIFECYCLE_CONTRACT, loadStylesheet, ModuleRoot, type LifecycleProps, type ModuleManifest } from '@d4/web-platform';
-// Spike: the module's pages stay in apps/web; P6 moves them here.
-import '../../web/src/modules/admin/admin.css';
+import './admin.css';
 
-const AdminWorkspacesPage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminWorkspacesPage');
-const AdminPeoplePage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminPeoplePage');
-const AdminWebhooksPage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminWebhooksPage');
-const AdminModulesPage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminModulesPage');
-const AdminUsagePage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminUsagePage');
+const AdminWorkspacesPage = lazyPage(() => import('./Admin'), 'AdminWorkspacesPage');
+const AdminPeoplePage = lazyPage(() => import('./Admin'), 'AdminPeoplePage');
+const AdminWebhooksPage = lazyPage(() => import('./Admin'), 'AdminWebhooksPage');
+const AdminModulesPage = lazyPage(() => import('./Admin'), 'AdminModulesPage');
+const AdminUsagePage = lazyPage(() => import('./Admin'), 'AdminUsagePage');
 
 /** Tenant administration as a lifecycle module: workspaces, people and roles, webhooks, usage. */
 export const manifest: ModuleManifest = {

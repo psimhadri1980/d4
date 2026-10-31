@@ -41,6 +41,10 @@
       "types": "./dist/index.d.ts",
       "browser": "./dist/index.mjs",
       "default": "./dist/index.js"
+    },
+    "./shared": {
+      "types": "./dist/shared.d.ts",
+      "default": "./dist/shared.js"
     }
   }
 }

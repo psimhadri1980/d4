@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
-import { COMMONJS, SHARED } from './shared';
+import { COMMONJS, SHARED } from '@d4/web-platform/shared';
 
 // The icon package's entry also re-exports thousands of lazy `import()`s, which the dev server
 // turns into one chunk each. Its plain icon index has the same named exports without them.
@@ -32,7 +32,7 @@ const require = createRequire(import.meta.url);
 const SHARED_ID = 'd4-shared:';
 
 /**
- * Builds every shared package (shared.ts) as an entry and writes the page's import map, so
+ * Builds every shared package (`@d4/web-platform/shared`) as an entry and writes the page's import map, so
  * lifecycle modules import the shell's copies (P6 spike). Production builds only.
  */
 function sharedImportMap(): Plugin {

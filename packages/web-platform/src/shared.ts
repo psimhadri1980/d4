@@ -1,5 +1,6 @@
 /**
- * Packages the shell shares with lifecycle modules (P6 spike). The shell builds each as an entry
+ * Packages the shell shares with lifecycle modules, as data for build configs
+ * (`@d4/web-platform/shared`; not part of the browser bundle). The shell builds each as an entry
  * of its own and lists it in the page's import map; modules leave them external, so a bare
  * `import 'react'` in a module gets the shell's copy.
  */
