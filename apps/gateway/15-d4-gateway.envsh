@@ -6,7 +6,7 @@
 export GATEWAY_RESOLVER="${GATEWAY_RESOLVER:-$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf)}"
 # nginx's resolver asks DNS only, so names from /etc/hosts (host.containers.internal, which
 # deploy/dev.sh uses for apps on the host) become their address here.
-for v in UPSTREAM_API UPSTREAM_KEYCLOAK UPSTREAM_WEB UPSTREAM_MAIL UPSTREAM_GRAFANA; do
+for v in UPSTREAM_API UPSTREAM_KEYCLOAK UPSTREAM_WEB UPSTREAM_WEB_ADMIN UPSTREAM_MAIL UPSTREAM_GRAFANA; do
   eval "u=\${$v:-}"
   ip=$(awk -v h="${u%%:*}" '$1 !~ /^#/ { for (i = 2; i <= NF; i++) if ($i == h) { print $1; exit } }' /etc/hosts)
   [ -n "$ip" ] && export "$v=$ip:${u##*:}"

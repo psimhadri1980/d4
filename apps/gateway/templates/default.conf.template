@@ -43,6 +43,12 @@ server {
     proxy_buffers 8 16k;
   }
 
+  # Web module remotes (P6 spike). Entries and manifests must not be cached; chunks are hashed.
+  location /mfe/admin/ {
+    set $u ${UPSTREAM_WEB_ADMIN};
+    proxy_pass http://$u;
+  }
+
   include /etc/nginx/conf.d/*.locations;
 
   location / {

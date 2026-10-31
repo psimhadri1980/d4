@@ -7,6 +7,8 @@ export interface RuntimeConfig {
   apiUrl: string;
   oidcAuthority: string;
   oidcClientId: string;
+  /** Module Federation remotes to load at start-up (P6 spike); absent = none. */
+  remotes?: { name: string; entry: string }[];
 }
 
 export const config = {} as RuntimeConfig;

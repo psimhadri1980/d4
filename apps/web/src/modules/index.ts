@@ -6,9 +6,10 @@ import { queriesModule } from './queries/module';
 import { planModule } from './plan/module';
 import { dataModule } from './data/module';
 import { reportingModule } from './reporting/module';
-import { adminModule } from './admin/module';
+import { remoteModules } from '../remotes';
 
-const ALL: D4Module[] = [exploreModule, queriesModule, planModule, dataModule, reportingModule, adminModule];
+// P6 spike: admin comes from its remote (apps/web-admin) when /config.json lists it.
+const ALL: D4Module[] = [exploreModule, queriesModule, planModule, dataModule, reportingModule, ...remoteModules];
 
 /** The modules the shell mounts; one built for another contract version is left out with an error. */
 export const MODULES = ALL.filter((m) => {

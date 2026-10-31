@@ -1,0 +1,25 @@
+{
+  "name": "@d4/web-admin",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The admin web module as a Module Federation remote (P6 spike): exposes ./module.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@d4/ui-kit": "workspace:*",
+    "@d4/web-platform": "workspace:*",
+    "@tabler/icons-react": "3.19.0",
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "1.23.5",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.6"
+  }
+}

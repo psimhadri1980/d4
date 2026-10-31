@@ -37,7 +37,7 @@ compose() {
 
 INFRA_SERVICES=(postgres neo4j redis s3 smtp keycloak gateway)
 OBS_SERVICES=(otel-collector tempo prometheus grafana)
-APP_SERVICES=(api worker renderer web)
+APP_SERVICES=(api worker renderer web web-admin)
 
 say() { printf '\033[1m%s\033[0m\n' "$*" >&2; }
 die() { printf '%s\n' "$*" >&2; exit "${2:-1}"; }
