@@ -147,3 +147,19 @@ Hardened afterwards:
 Still open: the shell itself as a release, retiring the module image (admin and hello still also
 ship in it), integrity hashes on load (browsers cannot check them for `import()`; immutable
 same-origin paths plus the policy stand in), and uploads larger than the gateway's 25 MB limit.
+
+## All six modules as lifecycle apps (D73)
+
+Reporting, queries, data, plan and explore follow admin out of the shell, one commit each, into
+`apps/web-<name>`; the shell (`apps/web`) keeps sign-in, the layout, the menu, search and the
+module loader, and no screens. The static `D4Module` contract is gone.
+
+- **Paths:** a manifest may own several top-level segments (`paths`, default its id), so pages keep
+  their URLs (`/w/:ws/reports`, `/w/:ws/jobs`, …); explore also owns the workspace home
+  (`home: true`). A deep link waits while modules load, then goes to its owner.
+- **Menu:** icons are named in the manifest and mapped by the shell; visibility is `requires` (a
+  role in `Access`).
+- **Build:** each module is a Vite library build with its own tests (a contract test, plus the
+  catalog and roadmap tests that moved with queries and plan). The module image builds every
+  `@d4/web-*` app; the seed registers all six; releases 1.0.0 of all six are active locally.
+- **Verified:** `test.sh all` passes (static, 43 integration tasks including API 70, browser 72) with all six served from their releases. The first run found three gaps, fixed: module pages now get the model view (`ModuleRoot` provides it), lay out as children of `.content` (`display: contents` wrappers), and the collapsed sidebar releases focus after navigating.
