@@ -40,7 +40,7 @@
   "devDependencies": {
     "@d4/sdk": "workspace:*",
     "@nestjs/testing": "^10.4.1",
-    "@swc/core": "^1.7.23",
+    "@swc/core": "^1.16.20",
     "@types/pg": "catalog:",
     "pg": "catalog:",
     "tsx": "catalog:",
