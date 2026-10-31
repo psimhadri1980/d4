@@ -97,9 +97,9 @@ jobs:
         run: deploy/test.sh e2e --retries=1
       # Supply chain: an SBOM and a vulnerability report for each image this commit built.
       # Report only for now (no baseline yet); findings go to the job summary.
-      - uses: aquasecurity/setup-trivy@v0.2.2
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         if: success() || failure()
-        with: { version: v0.57.1 }
+        with: { version: v0.76.1 }
       - name: Image scan and SBOM
         if: success() || failure()
         run: |
