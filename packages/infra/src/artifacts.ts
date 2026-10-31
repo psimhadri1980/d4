@@ -1,4 +1,4 @@
-import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 /** Where job inputs (uploads) and outputs (export files) are kept. */
 export interface ArtifactStore {
@@ -30,10 +30,10 @@ export class S3ArtifactStore implements ArtifactStore {
     });
   }
 
-  async put(key: string, body: Uint8Array | string, contentType: string): Promise<number> {
+  async put(key: string, body: Uint8Array | string, contentType: string, cacheControl?: string): Promise<number> {
     await this.ensureBucket();
     const bytes = typeof body === 'string' ? new TextEncoder().encode(body) : body;
-    await this.s3.send(new PutObjectCommand({ Bucket: this.config.bucket, Key: key, Body: bytes, ContentType: contentType }));
+    await this.s3.send(new PutObjectCommand({ Bucket: this.config.bucket, Key: key, Body: bytes, ContentType: contentType, CacheControl: cacheControl }));
     return bytes.byteLength;
   }
 
@@ -41,6 +41,14 @@ export class S3ArtifactStore implements ArtifactStore {
     const res = await this.s3.send(new GetObjectCommand({ Bucket: this.config.bucket, Key: key }));
     if (!res.Body) throw new Error(`artefact ${key} has no body`);
     return res.Body.transformToByteArray();
+  }
+
+  async exists(key: string): Promise<boolean> {
+    await this.ensureBucket();
+    return this.s3.send(new HeadObjectCommand({ Bucket: this.config.bucket, Key: key })).then(
+      () => true,
+      (e: { name?: string }) => (e.name === 'NotFound' || e.name === 'NoSuchKey' ? false : Promise.reject(e)),
+    );
   }
 
   async delete(key: string): Promise<void> {

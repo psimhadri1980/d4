@@ -46,6 +46,8 @@ export const s3 = {
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),
   S3_BUCKET: z.string().default('d4-exports'),
+  /** Web module releases (D70); the gateway serves it under /mfe/_r/. */
+  S3_WEB_MODULES_BUCKET: z.string().default('d4-web-modules'),
 };
 
 export const queues = {

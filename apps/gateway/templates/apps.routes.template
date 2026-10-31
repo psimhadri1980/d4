@@ -16,7 +16,20 @@ location /auth/ {
   proxy_buffers 8 16k;
 }
 
-# Lifecycle web modules (P6 spike), one static server for now.
+# Uploaded web module releases (D70): read-only from the bucket, versioned and immutable.
+location /mfe/_r/ {
+  limit_except GET { deny all; }
+  set $u $up_s3;
+  # The version is in the path; the trailing ? drops any query (the shell's ?v=), which S3 would treat as a sub-resource.
+  rewrite ^/mfe/_r/(.*)$ /${GATEWAY_MFE_BUCKET}/$1? break;
+  proxy_set_header Authorization "";
+  proxy_set_header Cookie "";
+  proxy_hide_header x-amz-request-id;
+  proxy_hide_header x-amz-id-2;
+  proxy_pass http://$u;
+}
+
+# Web modules built into the module image (seeded admin and hello).
 location /mfe/ {
   set $u $up_web_admin;
   proxy_pass http://$u;

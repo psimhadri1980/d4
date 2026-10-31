@@ -33,6 +33,7 @@ server {
   set $up_web_admin ${UPSTREAM_WEB_ADMIN};
   set $up_mail ${UPSTREAM_MAIL};
   set $up_grafana ${UPSTREAM_GRAFANA};
+  set $up_s3 ${UPSTREAM_S3};
 
   include /etc/nginx/conf.d/apps.routes;
 }
@@ -69,6 +70,7 @@ server {
   set $up_web_admin ${UPSTREAM_PODMAN_WEB_ADMIN};
   set $up_mail ${UPSTREAM_PODMAN_MAIL};
   set $up_grafana ${UPSTREAM_PODMAN_GRAFANA};
+  set $up_s3 ${UPSTREAM_PODMAN_S3};
 
   include /etc/nginx/conf.d/apps.routes;
 }

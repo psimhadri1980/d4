@@ -13,6 +13,7 @@ const ApiEnv = {
   S3_ACCESS_KEY: optional(s3.S3_ACCESS_KEY),
   S3_SECRET_KEY: optional(s3.S3_SECRET_KEY),
   S3_BUCKET: s3.S3_BUCKET,
+  S3_WEB_MODULES_BUCKET: s3.S3_WEB_MODULES_BUCKET,
   ...queues,
   ...webhooks,
 };

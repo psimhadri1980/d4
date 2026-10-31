@@ -101,3 +101,36 @@ object, a router per module), not in tooling.
   the other four modules.
 - Moving the admin pages into `apps/web-admin`; `lint` for `apps/web-admin` and `apps/web-hello`.
 - Several modules active at once (single-spa supports it; D4 shows one page at a time).
+
+## Module releases from a bucket (D70, spike)
+
+Question: can web modules ship as uploads to a store, served by the gateway, instead of images?
+
+- **Store:** S3 bucket `d4-web-modules` (`S3_WEB_MODULES_BUCKET`). The mock has public-read buckets
+  (`S3_MOCK_PUBLIC_BUCKETS`) for unsigned GET/HEAD, as a bucket policy would in S3.
+- **Control plane:** `POST /v1/admin/web-modules/{name}/releases` (admin) takes a manifest (name,
+  semver, contract, entry, framework, SHA-256 per file) and the files (base64). It checks name,
+  contract, file list, hashes, paths, types and a 5 MB limit, refuses an existing version (409),
+  and writes `<tenant>/<name>/<version>/…` with `immutable` caching, the manifest last. It does not
+  activate: `PUT /v1/admin/web-modules/{name}` with the returned entry does, per tenant; a rollback
+  is the same PUT with an older version. Releases are per tenant, so an admin can only register code
+  their own tenant uploaded (`/mfe/_r/<tenant>/<name>/`).
+- **Serving:** the gateway's `/mfe/_r/` reads the bucket, GET only, without auth headers or cookies,
+  query dropped (the version is in the path). `/mfe/<name>/` still serves the module image.
+- **Publishing:** `deploy/mfe-publish.sh <name> <dist> <version> [--activate]`.
+
+| Check | Result |
+|---|---|
+| Publish and activate admin 0.2.0 | under 1 s (an image rebuild and restart before) |
+| Served file | 200, `text/javascript`, `public, max-age=31536000, immutable`; PUT through the gateway 403 |
+| Admin page from the release | entry, stylesheet and lazy chunk all from `/mfe/_r/t_local/admin/0.2.0/` |
+| Hot swap to 0.3.0 on an open page | 4 s, no reload, same screen |
+| Rollback to 0.2.0 | 258 ms to activate; the open page followed within the 30 s poll |
+| Tests | API: registry suite 4/4 (release checks, 409, 403, other tenant's path); S3 mock 12/12; browser admin and navigation specs 11/11 on d4.localhost |
+
+Found: the shell's `?v=` query made S3 treat the request as signed; the gateway now drops it.
+
+Not covered: shared-version ranges in the manifest checked against the shell's import map,
+integrity hashes on load and a CSP, cleanup of unused versions, the shell itself as a release,
+an OpenAPI entry for the upload (the SDK does not have it yet), and uploads larger than the
+gateway's 25 MB body limit.

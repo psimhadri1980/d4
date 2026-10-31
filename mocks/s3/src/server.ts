@@ -14,6 +14,8 @@ import { el, elements, text, xmlDocument } from './xml';
 interface S3ServerOptions {
   store: FileStore;
   credentials: Credentials;
+  /** Buckets anyone may read objects from without signing (a public-read bucket policy in S3). */
+  publicReadBuckets?: readonly string[];
   /** Largest single PUT or part; S3's own limit is 5 GiB. */
   maxObjectBytes?: number;
   log?: (message: string, fields: Record<string, unknown>) => void;
@@ -57,8 +59,11 @@ export function createS3Server(options: S3ServerOptions): Server {
     } catch {
       throw new S3Error('InvalidURI', 400, "Couldn't parse the specified URI.");
     }
-    const payload = verifyRequest(req, url, options.credentials);
     const slash = path.indexOf('/', 1);
+    const anonymousRead =
+      (req.method === 'GET' || req.method === 'HEAD') && slash > 0 && !req.headers.authorization && !url.search &&
+      (options.publicReadBuckets ?? []).includes(path.slice(1, slash));
+    const payload: Payload = anonymousRead ? { kind: 'unsigned' } : verifyRequest(req, url, options.credentials);
     const ctx: Ctx = {
       req,
       res,

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { NEO, PG, startHarness, type Harness } from './harness';
+import { createHash } from 'node:crypto';
+import { NEO, PG, S3, startHarness, type Harness } from './harness';
 
 describe.skipIf(!PG || !NEO)('Web module registry API', () => {
   let h: Harness;
@@ -51,5 +52,31 @@ describe.skipIf(!PG || !NEO)('Web module registry API', () => {
     ])
       expect((await h.call('PUT', '/v1/admin/web-modules/plan', admin, body)).status).toBe(400);
     expect((await h.call('PUT', '/v1/admin/web-modules/Bad_Name', admin, release)).status).toBe(400);
+  });
+
+  describe.skipIf(!S3)('releases', () => {
+    const sha = (s: string) => createHash('sha256').update(s).digest('hex');
+    const js = 'export const manifest = {};';
+    const css = '.x{}';
+    const version = `1.0.${Date.now()}`;
+    const release = (v = version, body = js) => ({
+      manifest: { name: 'reports', version: v, contract: 2, entry: 'reports.js', framework: 'vanilla', files: { 'reports.js': sha(body), 'reports.css': sha(css) } },
+      files: { 'reports.js': Buffer.from(js).toString('base64'), 'reports.css': Buffer.from(css).toString('base64') },
+    });
+
+    it('stores a release once, checks its files, and registers it for this tenant only', async () => {
+      expect((await h.call('POST', '/v1/admin/web-modules/reports/releases', viewer, release())).status).toBe(403);
+      expect((await h.call('POST', '/v1/admin/web-modules/reports/releases', admin, release(version, 'tampered'))).status).toBe(400);
+
+      const up = await h.call('POST', '/v1/admin/web-modules/reports/releases', admin, release());
+      expect(up.status).toBe(201);
+      expect(up.body).toEqual({ entry: `/mfe/_r/t_local/reports/${version}/reports.js`, version, contract: 2, framework: 'vanilla' });
+      expect((await h.call('POST', '/v1/admin/web-modules/reports/releases', admin, release())).status).toBe(409);
+
+      const put = await h.call('PUT', '/v1/admin/web-modules/reports', admin, { title: 'Reports', ...up.body });
+      expect(put.status).toBe(200);
+      const foreign = { title: 'Reports', ...up.body, entry: `/mfe/_r/t_other/reports/${version}/reports.js` };
+      expect((await h.call('PUT', '/v1/admin/web-modules/reports', admin, foreign)).status).toBe(400);
+    });
   });
 });

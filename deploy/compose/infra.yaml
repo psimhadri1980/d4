@@ -88,6 +88,7 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?run through deploy/dev-infra.sh}
       S3_SECRET_KEY: ${S3_SECRET_KEY:?run through deploy/dev-infra.sh}
       S3_MOCK_BUCKETS: ${S3_MOCK_BUCKETS:-d4-exports}
+      S3_MOCK_PUBLIC_BUCKETS: ${S3_MOCK_PUBLIC_BUCKETS:-}
     volumes:
       - s3-mock-data:/data
     mem_limit: 128m

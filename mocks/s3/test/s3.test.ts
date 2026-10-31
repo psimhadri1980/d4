@@ -37,7 +37,7 @@ const client = (secretKey = credentials.secretKey) =>
   new S3Client({ endpoint, region: 'us-east-1', forcePathStyle: true, credentials: { accessKeyId: credentials.accessKey, secretAccessKey: secretKey } });
 
 async function start() {
-  server = createS3Server({ store: await FileStore.open(dir), credentials });
+  server = createS3Server({ store: await FileStore.open(dir), credentials, publicReadBuckets: ['pub'] });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   endpoint = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   s3 = client();
@@ -154,6 +154,17 @@ describe('mock S3 with the AWS SDK', () => {
     await expect(wrong.send(new ListBucketsCommand({}))).rejects.toMatchObject({ name: 'SignatureDoesNotMatch' });
     wrong.destroy();
     await expect(s3.send(new DeleteBucketCommand({ Bucket: 'bk1' }))).rejects.toMatchObject({ name: 'BucketNotEmpty' });
+  });
+
+  it('serves public-read buckets to unsigned GET and HEAD only', async () => {
+    await s3.send(new CreateBucketCommand({ Bucket: 'pub' }));
+    await s3.send(new PutObjectCommand({ Bucket: 'pub', Key: 'a/b.js', Body: 'x', ContentType: 'text/javascript', CacheControl: 'max-age=1' }));
+    const got = await fetch(`${endpoint}/pub/a/b.js`);
+    expect([got.status, await got.text(), got.headers.get('content-type'), got.headers.get('cache-control')]).toEqual([200, 'x', 'text/javascript', 'max-age=1']);
+    expect((await fetch(`${endpoint}/pub/a/b.js`, { method: 'HEAD' })).status).toBe(200);
+    expect((await fetch(`${endpoint}/pub/a/b.js`, { method: 'PUT', body: 'y' })).status).toBe(403);
+    expect((await fetch(`${endpoint}/pub?list-type=2`)).status).toBe(403);
+    expect((await fetch(`${endpoint}/bk1/durable`)).status).toBe(403);
   });
 
   it('keeps everything across a restart', async () => {

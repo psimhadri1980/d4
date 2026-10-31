@@ -13,6 +13,7 @@ import { APP_CONFIG, loadConfig } from '../src/config';
 
 export const PG = process.env.D4_TEST_POSTGRES_URL;
 export const NEO = process.env.D4_TEST_NEO4J_URL;
+export const S3 = process.env.D4_TEST_S3_ENDPOINT;
 const NEO_PASSWORD = process.env.D4_TEST_NEO4J_PASSWORD ?? 'd4-local-dev';
 const ISSUER = 'http://issuer.test/realms/d4';
 
@@ -68,7 +69,12 @@ export async function startHarness(): Promise<Harness> {
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(APP_CONFIG)
-    .useValue(loadConfig({ D4_ENV: 'dev', POSTGRES_URL: url.toString(), NEO4J_PASSWORD: NEO_PASSWORD, NEO4J_URI: NEO, OIDC_ISSUER: ISSUER }))
+    .useValue(
+      loadConfig({
+        D4_ENV: 'dev', POSTGRES_URL: url.toString(), NEO4J_PASSWORD: NEO_PASSWORD, NEO4J_URI: NEO, OIDC_ISSUER: ISSUER,
+        ...(S3 && { S3_ENDPOINT: S3, S3_ACCESS_KEY: 'd4', S3_SECRET_KEY: 'd4-local-dev', S3_WEB_MODULES_BUCKET: 'd4-test-web-modules' }),
+      }),
+    )
     .overrideProvider(JWKS)
     .useValue(createLocalJWKSet({ keys: [jwk] }))
     .compile();

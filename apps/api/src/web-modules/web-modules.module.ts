@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
+import { WebModuleReleases } from './releases';
 import { AdminWebModulesController, WebModulesController } from './web-modules.controller';
 
 /** The web module registry (D64): what the shell loads at run time. */
-@Module({ controllers: [WebModulesController, AdminWebModulesController] })
+@Module({ controllers: [WebModulesController, AdminWebModulesController], providers: [WebModuleReleases] })
 export class WebModulesModule {}
