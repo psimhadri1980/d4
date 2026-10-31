@@ -1,0 +1,31 @@
+{
+  "name": "@d4/web-data",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The data web module (spreadsheet import, connectors and backups): a lifecycle module the shell loads at run time.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@d4/metamodel": "workspace:*",
+    "@d4/ui-kit": "workspace:*",
+    "@d4/web-platform": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router-dom": "catalog:",
+    "single-spa-react": "6.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "catalog:",
+    "vite": "^5.4.6"
+  }
+}

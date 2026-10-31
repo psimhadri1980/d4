@@ -3,10 +3,9 @@ import { MODULE_CONTRACT, type D4Module } from '@d4/web-platform';
 // the order the screens' styles had in the old single stylesheet.
 import { exploreModule } from './explore/module';
 import { planModule } from './plan/module';
-import { dataModule } from './data/module';
 
-// Admin, reporting and queries are lifecycle modules (apps/web-*), loaded through the module registry (../lifecycle.ts).
-const ALL: D4Module[] = [exploreModule, planModule, dataModule];
+// Admin, reporting, queries and data are lifecycle modules (apps/web-*), loaded through the module registry (../lifecycle.ts).
+const ALL: D4Module[] = [exploreModule, planModule];
 
 /** The modules the shell mounts; one built for another contract version is left out with an error. */
 export const MODULES = ALL.filter((m) => {
