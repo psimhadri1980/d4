@@ -134,7 +134,7 @@ Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/comm
 | `deploy/test.sh static` | Typecheck, lint and `knip` (unused files, exports, dependencies). |
 | `deploy/test.sh unit` / `integration [--filter pkg]` | Unit tests only, or all tests with Postgres, Neo4j, Redis and S3 (two suites at a time, 1.5 GB cap). |
 | `deploy/test.sh e2e [playwright args]` | Playwright suite through the gateway (container on the host network), e.g. `--grep catalog --retries=0`; it tests whatever mix of container and `dev.sh` apps is behind the gateway. |
-| `deploy/test.sh web` / `smoke` / `all` | Web checks and build / gateway and API health + login + `/api/v1/me` / static, integration and browser tests (the pre-commit gate). Add `--local` to run on host Node. |
+| `deploy/test.sh web` / `smoke` / `all` | Web checks and build / gateway and API health + login + `/api/v1/me` / static, integration and browser tests (full run; not required before each commit). Add `--local` to run on host Node. |
 | `deploy/dev.sh sample` / `cli <args>` | Import `samples/ubs-banking.yaml` (idempotent) / run the `d4` CLI in a container; paths are relative to the repo root. |
 
 **Bringing the stack up on a busy machine:** `dev-infra.sh up` first, then `dev-deploy.sh backend`, then `dev-deploy.sh web`, so image builds and JVM start-ups do not overlap. Neo4j, Keycloak, the API and the test container have CPU caps (2, 1.5, 1, 2).
@@ -431,7 +431,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 | API end to end | `apps/api/test/*.e2e.test.ts`, `e2e.test.ts` | about 45 | real Nest app with harness |
 | Browser | `apps/e2e/tests` | 40 | live stack via `deploy/test.sh e2e` |
 
-- **Order:** run `deploy/test.sh integration` before `deploy/test.sh e2e`, and both before committing. Type check and lint also run in CI (`.github/workflows/ci.yml`), which starts Postgres and Neo4j services. Browser tests are not in CI yet.
+- **Order:** before committing, build and redeploy only the touched apps, then run `deploy/test.sh integration --filter <pkg>` for the touched packages before the browser specs that cover the change (`deploy/test.sh e2e <spec>`). A full `test.sh all` is optional (for example before merging a branch). Type check and lint also run in CI (`.github/workflows/ci.yml`), which starts Postgres and Neo4j services. Browser tests are not in CI yet.
 - **Timeouts:** integration suites use generous timeouts (`vitest.config.ts` in `graph` and `api`), because they share Neo4j and run alongside other suites.
 - **Not yet covered:** the catalog runner has no dedicated tests. It's exercised through the API and browser suites (runs, test runs, node, relationship and path conversion), but not for timeouts or the row cap directly.
 

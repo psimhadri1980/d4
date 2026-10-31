@@ -12,7 +12,7 @@ usage: deploy/test.sh <suite> [--local] [args]
   e2e [playwright args] browser tests through the gateway, whatever mix of container and
                         local (deploy/dev.sh) apps is behind it
   smoke                 gateway and API health, login and /v1/me through the gateway
-  all                   static, integration, e2e: the pre-commit gate
+  all                   static, integration, e2e: the full run
 --local runs on host Node (Node 24); otherwise everything runs in the test image.
 U
   exit 2

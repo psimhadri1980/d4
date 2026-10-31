@@ -31,7 +31,7 @@ P0 ─► P1 ─┬─► P2 ─► P3 ─────────┐
           └─► P5 (parallel) ────┘
 ```
 
-Every phase leaves `test.sh all` green and is committed as several small commits (one logical change each, per CLAUDE.md). P5 is worth doing even if P6 is postponed.
+Every phase ends with `test.sh all` green (per commit, only the touched modules are built, deployed and tested) and is committed as several small commits (one logical change each, per CLAUDE.md). P5 is worth doing even if P6 is postponed.
 
 ---
 
