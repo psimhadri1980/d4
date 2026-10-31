@@ -45,10 +45,17 @@ die() { printf '%s\n' "$*" >&2; exit "${2:-1}"; }
 # Local Node (dev.sh, test.sh --local). pnpm runs at the version pinned in package.json.
 node_env() {
   local want; want=$(cut -d. -f1 ../.node-version)
+  # Scripts run without the interactive shell's setup: pick the pinned Node from nvm when present.
+  if [[ "$(node -v 2>/dev/null)" != "v$want."* && -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${NVM_DIR:-$HOME/.nvm}/nvm.sh" --no-use && nvm use --silent "$want" >/dev/null 2>&1 || true
+  fi
   [[ "$(node -v 2>/dev/null)" == "v$want."* ]] && command -v npx >/dev/null ||
     die "Node.js $want with npx is required for $1 (see .node-version; found: $(node -v 2>/dev/null || echo none))"
   PNPM_VERSION=$(sed -nE 's/.*"packageManager": *"pnpm@([^"]+)".*/\1/p' ../package.json)
 }
+# True when the pinned Node is usable here (test.sh then defaults to it).
+have_local_node() { (node_env check) >/dev/null 2>&1; }
 pn() { (cd .. && NPM_CONFIG_UPDATE_NOTIFIER=false npx -y "pnpm@$PNPM_VERSION" "$@"); }
 ensure_deps() { [[ -d ../node_modules ]] || pn install --frozen-lockfile; }
 

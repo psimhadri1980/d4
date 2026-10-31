@@ -36,6 +36,9 @@ case "${1:-}" in
   *)
     mapfile -t s < <(services "$@")
     [[ "$(compose ps --format '{{.Service}}' 2>/dev/null)" == *postgres* ]] || ./dev-infra.sh up
-    compose up -d --build --wait "${s[@]}"
+    # Builds only the named apps and restarts only them: dependencies (init jobs, mocks) are left
+    # as they are. After a migration or seed change, run dev-infra.sh migrate (or up).
+    compose build "${s[@]}"
+    compose up -d --no-deps --wait "${s[@]}"
     compose ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}' ;;
 esac

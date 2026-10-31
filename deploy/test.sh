@@ -14,16 +14,22 @@ usage: deploy/test.sh <suite> [--local] [args]
                         --podman D4_PODMAN_URL, the containers only
   smoke                 gateway and API health, login and /v1/me through the gateway
   all                   static, integration, e2e: the full run
---local runs on host Node (Node 24); otherwise everything runs in the test image.
+unit, integration, static and web run on host Node 24 when it is installed (--local requires it),
+otherwise in the test image (--container forces that); all always runs in containers.
 U
   exit 2
 }
 
 suite="${1:-}"; shift || true
-local_node=0; podman_host=0; args=()
+# unit, integration, static and web run on local Node when the pinned version is available
+# (seconds, no image build); --container forces the test image. `all` always uses containers.
+local_node=auto; podman_host=0; args=()
 for a in "$@"; do
-  case "$a" in --local) local_node=1 ;; --podman) podman_host=1 ;; *) args+=("$a") ;; esac
+  case "$a" in --local) local_node=1 ;; --container) local_node=0 ;; --podman) podman_host=1 ;; *) args+=("$a") ;; esac
 done
+if [[ $local_node == auto ]]; then
+  [[ "$suite" != all ]] && have_local_node && local_node=1 || local_node=0
+fi
 filter() { [[ "${args[0]:-}" == --filter ]] && echo "--filter ${args[1]}"; }
 
 # Runs a pnpm command on host Node or in the test container (with or without services).
@@ -64,6 +70,6 @@ case "$suite" in
     curl -fsS "$D4_PUBLIC_API_URL/healthz" && echo
     curl -fsS "$D4_PUBLIC_API_URL/readyz" && echo
     curl -fsS -H "Authorization: Bearer $(./dev-infra.sh token)" "$D4_PUBLIC_API_URL/v1/me" && echo ;;
-  all)         "$SELF" static "$@" && "$SELF" integration "$@" && "$SELF" e2e --retries=0 ;;
+  all)         "$SELF" static --container "$@" && "$SELF" integration --container "$@" && "$SELF" e2e --retries=0 ;;
   *) usage ;;
 esac

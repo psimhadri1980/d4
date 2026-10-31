@@ -130,8 +130,8 @@ Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/comm
 | `deploy/dev-infra.sh tenant user t_acme acme-admin [role …]` | Local Keycloak user for a tenant (password `DEV_USER_PASSWORD`, default role admin); the first run switches the `tenant` claim to an admin-only user attribute. |
 | `deploy/dev-infra.sh quota <tenant> [metric=value …]` | Operator: show or change a tenant's limits. |
 | `deploy/dev-infra.sh token [user]` / `doctor` | An access token (default `dev-admin`) / environment checks. |
-| `deploy/dev-deploy.sh [api\|worker\|renderer\|web\|gateway\|backend\|all]` | Build and (re)start app containers, all by default; starts the infrastructure first if needed. `build` and `stop` take the same names; `status` lists images. Set `D4_OTEL_ENDPOINT=http://otel-collector:4318` to trace the API. |
-| `deploy/test.sh static` | Typecheck, lint and `knip` (unused files, exports, dependencies). |
+| `deploy/dev-deploy.sh [api\|worker\|renderer\|web\|gateway\|backend\|all]` | Build and (re)start app containers, all by default; starts the infrastructure first if needed. Builds and restarts only the named apps (`--no-deps`): init jobs and mocks are left alone, so after a migration or seed change run `dev-infra.sh migrate`. Image builds reuse turbo's cache (a build-cache mount), so only changed packages rebuild. `build` and `stop` take the same names; `status` lists images. Set `D4_OTEL_ENDPOINT=http://otel-collector:4318` to trace the API. |
+| `deploy/test.sh static` | Typecheck, lint and `knip` (unused files, exports, dependencies). `static`, `unit`, `integration` and `web` run on host Node 24 when it is installed (picked from nvm if needed; seconds, no image build); `--container` forces the test image, and `all` always uses containers. |
 | `deploy/test.sh unit` / `integration [--filter pkg]` | Unit tests only, or all tests with Postgres, Neo4j, Redis and S3 (two suites at a time, 1.5 GB cap). |
 | `deploy/test.sh e2e [playwright args]` | Playwright suite through the gateway (container on the host network), e.g. `--grep catalog --retries=0`; it tests whatever mix of container and `dev.sh` apps is behind the gateway. |
 | `deploy/test.sh web` / `smoke` / `all` | Web checks and build / gateway and API health + login + `/api/v1/me` / static, integration and browser tests (full run; not required before each commit). Add `--local` to run on host Node. |
@@ -461,6 +461,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 
 | Symptom | Cause | Fix in place |
 |---|---|---|
+| Every image build spends ~50 s before the first step, even when nothing changed | The compose provider (`docker-compose` plugin) reads `.dockerignore`, not `.containerignore`, so it uploaded the whole tree with `node_modules` (~900 MB) | `.dockerignore` is a symlink to `.containerignore`; edit `.containerignore` only |
 | Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`packages/web-platform/src/auth.tsx`) |
 | Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in compose; start in stages (see §3) |
 | Explorer tests opened "Client Master contract v2" | Fresh full-text index scored the longer name higher | Exact name matches rank first; tests pick by exact name |

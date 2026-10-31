@@ -9,8 +9,9 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    --mount=type=cache,id=turbo,target=/repo/.turbo/cache \
     pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/ops...' \
- && pnpm --filter '@d4/ops...' run build
+ && pnpm exec turbo run build --filter '@d4/ops...'
 RUN pnpm --filter @d4/ops deploy --prod /app
 
 FROM ${NODE_IMAGE}
