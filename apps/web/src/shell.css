@@ -104,6 +104,12 @@
   flex: 1;
   min-height: 0;
 }
+/* The module slot and each module's root are layout-transparent: a module's page lays out as a
+   child of .content, as built-in pages did (e.g. `height: 100%` panels). */
+#d4-module-slot,
+.module-root {
+  display: contents;
+}
 
 /* Left navigation: icon rail (56px) or labelled sidebar (236px). */
 .sidebar {
