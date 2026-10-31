@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { moduleStates, modulesVersion, registryState, subscribeModules } from '../lifecycle';
+import { moduleFor, modulesVersion, pendingModules, registryState, subscribeModules } from '../lifecycle';
 
 /**
  * A path under the workspace that no built-in module claims: a lifecycle module's (rendered by
@@ -8,11 +8,13 @@ import { moduleStates, modulesVersion, registryState, subscribeModules } from '.
  */
 export function ModuleOutlet() {
   useSyncExternalStore(subscribeModules, modulesVersion);
-  const name = useParams()['*']?.split('/')[0] ?? '';
-  const state = moduleStates().get(name);
+  const segment = useParams()['*']?.split('/')[0] ?? '';
+  const state = moduleFor(segment);
   const registry = registryState();
-  if (!state && !registry.ready) return <p className="muted" role="status">Loading…</p>;
-  if (!state && !registry.failed) return <Navigate to="/" replace />;
+  const pending = pendingModules();
+  // A deep link may belong to a module whose manifest (and so its paths) has not arrived yet.
+  if (!state && (!registry.ready || pending.loading)) return <p className="muted" role="status">Loading…</p>;
+  if (!state && !registry.failed && !pending.failed) return <Navigate to="/" replace />;
   if (state?.status === 'loading') return <p className="muted" role="status">Loading…</p>;
   if (!state || state.status === 'failed')
     return (

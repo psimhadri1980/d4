@@ -1,11 +1,11 @@
 import { addErrorHandler, getAppStatus, navigateToUrl, registerApplication, start, unregisterApplication } from 'single-spa';
-import { config, d4, accessToken, lifecycleProblems, type LifecycleModule, type ModuleManifest, type Platform } from '@d4/web-platform';
+import { config, d4, accessToken, lifecycleProblems, ownedPaths, type LifecycleModule, type ModuleManifest, type Platform } from '@d4/web-platform';
 import type { QueryClient } from '@tanstack/react-query';
 
 /**
  * Lifecycle modules (D64): ES modules listed in the tenant's module registry (/v1/web-modules) that
  * the shell imports after it has rendered and registers with single-spa. Each owns
- * `/w/:ws/<name>/…` and renders into the page slot; the menu is built from its manifest. The shell
+ * `/w/:ws/<path>/…` for its manifest's paths (default its name) and renders into the page slot; the menu is built from its manifest. The shell
  * never waits for one, and follows registry changes while it runs (hot loading).
  */
 type ModuleState = { status: 'loading' } | { status: 'ready'; manifest: ModuleManifest } | { status: 'failed'; error: string };
@@ -21,6 +21,20 @@ const set = (name: string, s: ModuleState) => {
 };
 
 export const moduleStates = (): ReadonlyMap<string, ModuleState> => states;
+
+/**
+ * The module that owns a path segment under the workspace: a loaded one whose manifest lists it,
+ * else one of that name (still loading or failed, its paths not known yet).
+ */
+export function moduleFor(segment: string): ModuleState | undefined {
+  for (const s of states.values()) if (s.status === 'ready' && ownedPaths(s.manifest).includes(segment)) return s;
+  return states.get(segment);
+}
+/** Whether any module is still loading, or failed: either may own a path nothing else claims. */
+export const pendingModules = () => ({
+  loading: [...states.values()].some((s) => s.status === 'loading'),
+  failed: [...states.values()].some((s) => s.status === 'failed'),
+});
 export const subscribeModules = (l: () => void) => (listeners.add(l), () => void listeners.delete(l));
 export const modulesVersion = () => version;
 
@@ -89,7 +103,7 @@ async function load(platform: Platform, m: Listed): Promise<void> {
     const problems = lifecycleProblems(mod, name, __D4_SHARED__);
     if (problems.length) throw new Error(problems.join('; '));
     if (registered.get(name) !== release(m)) return; // superseded while loading
-    const prefix = new RegExp(`^/w/[^/]+/${name}(/|$)`);
+    const prefix = new RegExp(`^/w/[^/]+/(${ownedPaths(mod.manifest).join('|')})(/|$)`);
     registerApplication({ name, app: mod, activeWhen: (l) => prefix.test(l.pathname), customProps: { platform, domElementGetter: () => slotFor(name) } });
     set(name, { status: 'ready', manifest: mod.manifest });
   } catch (e) {

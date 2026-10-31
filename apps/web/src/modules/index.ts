@@ -5,10 +5,9 @@ import { exploreModule } from './explore/module';
 import { queriesModule } from './queries/module';
 import { planModule } from './plan/module';
 import { dataModule } from './data/module';
-import { reportingModule } from './reporting/module';
 
-// P6 spike: admin is a lifecycle module (apps/web-admin) loaded through /config.json (../lifecycle.ts).
-const ALL: D4Module[] = [exploreModule, queriesModule, planModule, dataModule, reportingModule];
+// Admin and reporting are lifecycle modules (apps/web-*), loaded through the module registry (../lifecycle.ts).
+const ALL: D4Module[] = [exploreModule, queriesModule, planModule, dataModule];
 
 /** The modules the shell mounts; one built for another contract version is left out with an error. */
 export const MODULES = ALL.filter((m) => {

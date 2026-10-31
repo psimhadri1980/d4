@@ -58,11 +58,13 @@ export interface ManifestItem {
 
 /**
  * What a lifecycle module tells the shell before it is mounted. The module owns every path under
- * `/w/:ws/<id>`; the shell builds the menu from `nav`.
+ * `/w/:ws/<p>` for each of its `paths` (default: its id); the shell builds the menu from `nav`.
  */
 export interface ModuleManifest {
   id: string;
   contract: typeof LIFECYCLE_CONTRACT;
+  /** Top-level segments under the workspace the module owns, e.g. `['reports', 'jobs']`; default `[id]`. */
+  paths?: string[];
   /** Major versions of the shared packages the module was built against (`sharedMajors`); the shell refuses a mismatch. */
   shared?: Record<string, string>;
   nav: { group: string; order: number; items: ManifestItem[] };
@@ -77,6 +79,9 @@ export interface LifecycleModule {
   mount: Lifecycle | Lifecycle[];
   unmount: Lifecycle | Lifecycle[];
 }
+
+/** The top-level segments under the workspace a module owns. */
+export const ownedPaths = (manifest: Pick<ModuleManifest, 'id' | 'paths'>) => manifest.paths ?? [manifest.id];
 
 const isLifecycle = (v: unknown) => typeof v === 'function' || (Array.isArray(v) && v.length > 0 && v.every((f) => typeof f === 'function'));
 
@@ -94,12 +99,15 @@ export function lifecycleProblems(mod: unknown, name: string, provided?: Record<
   for (const [pkg, major] of Object.entries(m.manifest?.shared ?? {})) {
     if (provided && provided[pkg] !== major) out.push(`was built against ${pkg} ${major}; this app shares ${provided[pkg] ?? 'none'}`);
   }
+  const paths = ownedPaths(m.manifest ?? { id: name });
+  if (!paths.length || !paths.every((p) => /^[a-z][a-z0-9-]*$/.test(p))) out.push('has paths that are not lowercase path segments');
   const nav = m.manifest?.nav;
   if (m.manifest && (!nav || typeof nav.group !== 'string' || typeof nav.order !== 'number' || !Array.isArray(nav.items))) out.push('has no menu (nav.group, nav.order, nav.items)');
   for (const item of nav?.items ?? []) {
     if (![item.id, item.label, item.icon, item.to].every((v) => typeof v === 'string' && v)) out.push(`menu item '${item.id}' lacks id, label, icon or to`);
-    // Paths are relative to the workspace and must stay within the module's own `<name>/…`.
-    for (const to of [item.to, ...(item.sub ?? []).map((s) => s.to)]) if (!(to === name || to?.startsWith(`${name}/`))) out.push(`menu path '${to}' is outside ${name}/`);
+    // Paths are relative to the workspace and must stay within the module's own paths.
+    for (const to of [item.to, ...(item.sub ?? []).map((s) => s.to)])
+      if (!paths.some((p) => to === p || to?.startsWith(`${p}/`))) out.push(`menu path '${to}' is outside ${paths.map((p) => `${p}/`).join(', ')}`);
   }
   return out;
 }

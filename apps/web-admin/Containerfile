@@ -1,5 +1,5 @@
-# Lifecycle web modules: admin (built) under /mfe/admin/, the plain JavaScript hello module under /mfe/hello/.
-# Releases can also be uploaded instead (deploy/mfe-publish.sh, D70).
+# Lifecycle web modules: every apps/web-<name> (built) under /mfe/<name>/, and the plain JavaScript
+# hello module under /mfe/hello/. Releases can also be uploaded instead (deploy/mfe-publish.sh, D70).
 ARG NODE_IMAGE=docker.io/library/node:24-alpine
 
 FROM ${NODE_IMAGE} AS build
@@ -10,11 +10,13 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     --mount=type=cache,id=turbo,target=/repo/.turbo/cache \
-    pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/web-admin...' \
- && pnpm exec turbo run build --filter '@d4/web-admin...'
+    pnpm install --offline --frozen-lockfile --filter d4 --filter './apps/web-*...' \
+ && pnpm exec turbo run build --filter './apps/web-*' \
+ && mkdir -p /mfe \
+ && for d in apps/web-*/dist; do n=${d#apps/web-}; cp -r "$d" "/mfe/${n%/dist}"; done
 
 FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine
 COPY apps/web-admin/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /repo/apps/web-admin/dist /usr/share/nginx/html/mfe/admin
+COPY --from=build /mfe /usr/share/nginx/html/mfe
 COPY apps/web-hello/hello.js /usr/share/nginx/html/mfe/hello/hello.js
 EXPOSE 8080

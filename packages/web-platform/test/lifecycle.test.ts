@@ -21,6 +21,9 @@ describe('lifecycleProblems', () => {
     expect(lifecycleProblems({ ...good, mount: [] }, 'hello')).toContain('does not export mount as a function or a list of functions');
     const outside = { ...good, manifest: { ...good.manifest, nav: { ...good.manifest.nav, items: [{ ...good.manifest.nav.items[0]!, to: 'admin/x' }] } } };
     expect(lifecycleProblems(outside, 'hello')).toContain("menu path 'admin/x' is outside hello/");
+    const owned = { ...outside, manifest: { ...outside.manifest, paths: ['hello', 'admin'] } };
+    expect(lifecycleProblems(owned, 'hello')).toEqual([]);
+    expect(lifecycleProblems({ ...good, manifest: { ...good.manifest, paths: ['Bad/x'] } }, 'hello')).toContain('has paths that are not lowercase path segments');
   });
 
   it('refuses a module built against other shared majors', () => {

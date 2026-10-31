@@ -1,4 +1,20 @@
-import { IconFlask, IconSettings, type Icon } from '@tabler/icons-react';
+import {
+  IconArrowsDiff,
+  IconDatabaseExport,
+  IconDatabaseSearch,
+  IconFileImport,
+  IconFlask,
+  IconGavel,
+  IconGitPullRequest,
+  IconHierarchy3,
+  IconListCheck,
+  IconPlugConnected,
+  IconReport,
+  IconSettings,
+  IconTable,
+  IconTimeline,
+  type Icon,
+} from '@tabler/icons-react';
 import type { Access, ManifestItem, NavContribution, NavGroup, NavItem, NavSub } from '@d4/web-platform';
 import { moduleStates } from './lifecycle';
 import { MODULES } from './modules';
@@ -20,7 +36,22 @@ function buildNav(contributions: NavContribution[]): NavGroup[] {
 }
 
 /** Icons lifecycle modules may name in their manifest. */
-const ICONS: Record<string, Icon> = { settings: IconSettings, flask: IconFlask };
+const ICONS: Record<string, Icon> = {
+  'arrows-diff': IconArrowsDiff,
+  'database-export': IconDatabaseExport,
+  'database-search': IconDatabaseSearch,
+  'file-import': IconFileImport,
+  flask: IconFlask,
+  gavel: IconGavel,
+  'git-pull-request': IconGitPullRequest,
+  hierarchy: IconHierarchy3,
+  'list-check': IconListCheck,
+  'plug-connected': IconPlugConnected,
+  report: IconReport,
+  settings: IconSettings,
+  table: IconTable,
+  timeline: IconTimeline,
+};
 
 const fromManifest = (i: ManifestItem): NavItem => ({
   ...i,

@@ -10,6 +10,7 @@ export const LOCAL_WORKSPACE_SLUG = 'default';
 /** The modules the dev stack's web-admin container serves under /mfe/ (P6 spike, D64). */
 const LOCAL_WEB_MODULES = [
   { name: 'admin', title: 'Administration', description: 'Workspaces, people and roles, webhooks, usage', owner: 'platform', entry: '/mfe/admin/admin.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'reporting', title: 'Reporting', description: 'Scheduled reports and background jobs', owner: 'platform', entry: '/mfe/reporting/reporting.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
   { name: 'hello', title: 'Hello', description: 'A plain JavaScript module (contract example)', owner: 'platform', entry: '/mfe/hello/hello.js', version: '0.1.0', contract: 2, framework: 'vanilla', enabled: true },
 ];
 
