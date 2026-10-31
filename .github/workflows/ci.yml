@@ -64,3 +64,39 @@ jobs:
           pnpm turbo run build --filter @d4/api
           pnpm --filter @d4/sdk run generate
           git diff --exit-code -- packages/sdk
+
+  # The browser suite against the composed stack (images built from this commit) on rootless
+  # Podman, as deploy/test.sh e2e runs it locally.
+  e2e:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Podman (rootless, with the compose provider)
+        run: |
+          podman version
+          # The compose provider talks to Podman's API socket; the runner has no user session to start it.
+          export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+          sudo mkdir -p "$XDG_RUNTIME_DIR" && sudo chown "$(id -u)" "$XDG_RUNTIME_DIR"
+          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
+          systemctl --user start podman.socket 2>/dev/null || (podman system service --time=0 "unix://$XDG_RUNTIME_DIR/podman/podman.sock" &)
+          for i in $(seq 20); do [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ] && break; sleep 1; done
+          podman compose version
+          # The stack sets memory and CPU limits; rootless Podman needs those cgroup controllers delegated.
+          cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers 2>/dev/null || echo "no user cgroup delegation"
+          podman info --format 'rootless={{.Host.Security.Rootless}} cgroup={{.Host.CgroupsVersion}} manager={{.Host.CgroupManager}}'
+      - name: Infrastructure (data stores, Keycloak, mocks, gateway; migrations and seed)
+        run: deploy/dev-infra.sh up
+      - name: Apps (api, worker, renderer, web, web modules)
+        run: deploy/dev-deploy.sh
+      - name: Browser tests
+        run: deploy/test.sh e2e --retries=1
+      - name: Service logs
+        if: failure()
+        run: cd deploy && podman compose -p d4 -f compose/infra.yaml -f compose/apps.yaml -f compose/web.yaml -f compose/gateway.yaml logs --no-color --tail=200
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-results
+          path: apps/e2e/results
+          retention-days: 7
