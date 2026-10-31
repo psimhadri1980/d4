@@ -431,7 +431,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 | API end to end | `apps/api/test/*.e2e.test.ts`, `e2e.test.ts` | about 45 | real Nest app with harness |
 | Browser | `apps/e2e/tests` | 40 | live stack via `deploy/test.sh e2e` |
 
-- **Order:** before committing, build and redeploy only the touched apps, then run `deploy/test.sh integration --filter <pkg>` for the touched packages before the browser specs that cover the change (`deploy/test.sh e2e <spec>`). A full `test.sh all` is optional (for example before merging a branch). Type check and lint also run in CI (`.github/workflows/ci.yml`), which starts Postgres and Neo4j services. Browser tests are not in CI yet.
+- **Order:** before committing, first test the touched apps on local Node (`deploy/dev.sh <app>`, `deploy/test.sh <suite> --local`, the covering browser specs); this is strongly preferred because it takes seconds. Then build and redeploy only the touched apps, then run `deploy/test.sh integration --filter <pkg>` for the touched packages before the browser specs that cover the change (`deploy/test.sh e2e <spec>`). A full `test.sh all` is optional (for example before merging a branch). Type check and lint also run in CI (`.github/workflows/ci.yml`), which starts Postgres and Neo4j services. Browser tests are not in CI yet.
 - **Timeouts:** integration suites use generous timeouts (`vitest.config.ts` in `graph` and `api`), because they share Neo4j and run alongside other suites.
 - **Not yet covered:** the catalog runner has no dedicated tests. It's exercised through the API and browser suites (runs, test runs, node, relationship and path conversion), but not for timeouts or the row cap directly.
 
