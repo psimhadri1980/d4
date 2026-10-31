@@ -24,6 +24,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 RUN pnpm --filter @d4/worker deploy --prod /app
 
 FROM ${NODE_IMAGE}
+# Only `node` runs here: drop the package managers the base image ships (npm, corepack, yarn).
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 # git: the Git model-as-code connector clones repositories.
 RUN apk add --no-cache git
 ENV NODE_ENV=production

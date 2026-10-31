@@ -25,6 +25,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 RUN pnpm --filter @d4/ops deploy --prod /app
 
 FROM ${NODE_IMAGE}
+# Only `node` runs here: drop the package managers the base image ships (npm, corepack, yarn).
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /app .

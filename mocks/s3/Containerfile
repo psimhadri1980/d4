@@ -13,6 +13,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
  && pnpm exec turbo run build --filter '@d4/mock-s3...'
 
 FROM ${NODE_IMAGE}
+# Only `node` runs here: drop the package managers the base image ships (npm, corepack, yarn).
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 WORKDIR /app
 COPY --from=build /repo/mocks/s3/dist ./dist
 RUN mkdir /data && chown node:node /data
