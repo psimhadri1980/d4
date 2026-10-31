@@ -112,7 +112,7 @@ web-platform, ui-kit, react, react-router-dom, react-query: shared from the shel
 | Auth | `apps/api/src/auth/identity.ts`, `auth.service.ts`, `auth.guard.ts` |
 | Workspace access | `apps/api/src/workspaces/workspace-access.service.ts`; `@Workspace('read'\|'write'\|'review')` (`workspace.decorator.ts`) in handlers; `@Roles('admin')` (`auth/auth.guard.ts`) |
 | Error → HTTP mapping | `apps/api/src/http/errors.ts` |
-| Request schemas + OpenAPI | `apps/api/src/model/model.schemas.ts`, `http/zod.ts` (z, ErrorSchema), `http/zod.pipe.ts` (`@ValidBody`, `@ValidQuery`); paths per feature in `<feature>/<feature>.openapi.ts`, assembled by `http/openapi.ts` |
+| Request schemas + OpenAPI | `apps/api/src/model/model.schemas.ts`, `http/zod.ts` (z, ErrorSchema), `http/zod.pipe.ts` (`@ValidBody`, `@ValidQuery`); paths per feature in `<feature>/<feature>.openapi.ts`; every feature (Nest module and its paths) is one entry in `apps/api/src/features.ts`, read by `app.module.ts` and `http/openapi.ts` |
 | Catalog API | `apps/api/src/catalog/*` |
 | Web modules and routes | `apps/web-<name>/src/index.tsx` (manifest: menu, owned `paths`, `home`; routes under `/w/:ws`; lifecycles); the shell loads them from the registry (`apps/web/src/lifecycle.ts`), routes every workspace page through `components/ModuleOutlet.tsx` and builds the menu in `nav.tsx` (icon names in `ICONS`) |
 | Web API client | `packages/web-platform/src/api.ts` (shared calls over the typed `@d4/sdk` client), `apps/web-<name>/src/api.ts` (a module's own calls) |

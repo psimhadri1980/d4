@@ -1,7 +1,7 @@
 import { startTelemetry } from '@d4/runtime/telemetry';
 startTelemetry('d4-renderer');
 
-import { openJobDeps, processJob } from '@d4/jobs';
+import { JOB_HANDLERS, openJobDeps, processJob } from '@d4/jobs';
 import { RENDER_QUEUE } from '@d4/infra';
 import { createLogger, runMain, startQueueService } from '@d4/runtime';
 import { Chromium } from './chromium';
@@ -25,7 +25,8 @@ runMain(log, async () => {
     queue: config.RENDER_QUEUE ?? RENDER_QUEUE,
     concurrency: config.RENDER_CONCURRENCY,
     healthPort: config.RENDER_HEALTH_PORT,
-    handle: (msg, attempt) => processJob(msg, opened.deps, attempt),
+    // Only renders (Chromium) run here; the worker runs every other kind.
+    handle: (msg, attempt) => processJob(msg, opened.deps, attempt, { render: JOB_HANDLERS.render }),
   });
   service.onShutdown(() => browser.close());
   service.onShutdown(() => opened.close());

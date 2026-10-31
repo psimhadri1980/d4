@@ -29,6 +29,9 @@ export interface JobDeps {
   fetch?: typeof fetch;
 }
 
+/** The kinds of background job (the jobs table's `kind`). */
+export type JobKind = JobRow['kind'];
+
 /** Files up to this size are attached to report emails; larger ones are linked. */
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
@@ -46,7 +49,12 @@ export const outputKey = (jobId: string, filename: string) => `jobs/${jobId}/${f
  * cannot fix them; anything else is rethrown so the queue retries, and only the last attempt
  * marks the job failed.
  */
-export async function processJob(msg: JobMessage, deps: JobDeps, attempt: { made: number; max: number } = { made: 0, max: 1 }): Promise<void> {
+export async function processJob(
+  msg: JobMessage,
+  deps: JobDeps,
+  attempt: { made: number; max: number } = { made: 0, max: 1 },
+  handlers: Partial<Record<JobKind, JobHandler>> = JOB_HANDLERS,
+): Promise<void> {
   const store = new JobStore(deps.db);
   const job = await store.start(msg.tenantId, msg.jobId);
   if (!job) return; // already finished (duplicate delivery)
@@ -54,7 +62,7 @@ export async function processJob(msg: JobMessage, deps: JobDeps, attempt: { made
   try {
     const schedule = job.scheduleId ? await new ScheduleStore(deps.db).get(job.tenantId, job.scheduleId) : undefined;
     if (job.scheduleId) await checkOwner(job, deps.db, schedule);
-    const result = await run(job, deps, store);
+    const result = await run(job, deps, store, handlers);
     await store.succeed(msg.tenantId, job.id, result.result, result.artifact);
     finished = true;
     if (schedule?.recipients.length && result.artifact) await deliver(job, schedule, result.artifact, deps, store);
@@ -125,16 +133,51 @@ export async function pruneArtifacts(db: Db, artifacts: ArtifactStore, before: D
   }
 }
 
-async function run(job: JobRow, deps: JobDeps, store: JobStore) {
-  const tenant = await new TenantStore(deps.db).get(job.tenantId);
-  if (tenant?.status !== 'active') throw new DomainError('VALIDATION', `Not run: the tenant is ${tenant?.status ?? 'unknown'}`);
-  const ws = await new WorkspaceStore(deps.db).get(job.tenantId, job.workspaceId);
-  if (!ws) throw new DomainError('NOT_FOUND', `Workspace '${job.workspaceId}' no longer exists`);
-  const registry = await new MetamodelStore(deps.db).registryForWorkspace(job.tenantId, job.workspaceId);
-  const handles = modelHandles(deps.db, registry, deps.graphs.sessions(job.tenantId), job.tenantId, deps.quota);
-  const progress = (p: number) => store.progress(job.tenantId, job.id, p);
+/** What a job handler gets: the job, its workspace and metamodel, model handles and a progress callback. */
+export interface JobContext {
+  job: JobRow;
+  deps: JobDeps;
+  ws: NonNullable<Awaited<ReturnType<WorkspaceStore['get']>>>;
+  registry: Awaited<ReturnType<MetamodelStore['registryForWorkspace']>>;
+  handles: ReturnType<typeof modelHandles>;
+  progress(percent: number): Promise<void>;
+}
 
-  if (job.kind === 'export') {
+/** What a handler returns: a result for the job record and, optionally, the file it produced. */
+export interface JobOutcome {
+  result: Record<string, unknown>;
+  artifact: { key: string; name: string; type: string; bytes: number } | undefined;
+}
+
+export type JobHandler = (c: JobContext) => Promise<JobOutcome>;
+
+const backup: JobHandler = async ({ job, deps, ws, registry, progress }) => {
+  const c: BackupContext = {
+    db: deps.db,
+    artifacts: deps.artifacts,
+    sessions: deps.graphs.sessions(job.tenantId),
+    registry,
+    tenantId: job.tenantId,
+    workspaceId: ws.id,
+    actor: job.createdBy,
+    jobId: job.id,
+    progress,
+  };
+  let result: Record<string, unknown>;
+  if (job.kind === 'backup') {
+    const b = await snapshotWorkspace(c, (job.params as { reason?: 'scheduled' }).reason ?? 'manual');
+    result = { backupId: b.id, elements: b.elements, relationships: b.relationships, bytes: b.bytes, eventSeq: b.eventSeq, checksum: b.checksum };
+  } else if (job.kind === 'verify') result = await verifyWorkspace(c);
+  else result = await replaceFromLog(c, job.kind === 'restore' ? RestoreParams.parse(job.params) : 'events');
+  return { result, artifact: undefined };
+};
+
+/**
+ * Every job kind's handler. A process runs the kinds it is given (the renderer only `render`);
+ * another kind on its queue fails at once.
+ */
+export const JOB_HANDLERS: Record<JobKind, JobHandler> = {
+  async export({ job, deps, ws, registry, handles, progress }) {
     const p = ExportParams.parse(job.params);
     const snapshot = await exportSnapshot(handles.queries, registry, ws.id, p);
     await progress(50);
@@ -145,9 +188,8 @@ async function run(job: JobRow, deps: JobDeps, store: JobStore) {
       result: { format: p.format ?? 'yaml', elements: file.elements, relationships: file.relationships },
       artifact: { key, name: file.filename, type: file.contentType, bytes },
     };
-  }
-
-  if (job.kind === 'render') {
+  },
+  async render({ job, deps, ws, registry, handles, progress }) {
     const p = RenderParams.parse(job.params);
     const { svg, title } = await renderSvg(handles.queries, registry, ws, p);
     await progress(40);
@@ -158,41 +200,36 @@ async function run(job: JobRow, deps: JobDeps, store: JobStore) {
       result: { target: p.target, format: p.format, title, width: Math.round(svg.width), height: Math.round(svg.height) },
       artifact: { key, name: file.filename, type: file.contentType, bytes },
     };
-  }
-
-  if (job.kind === 'backup' || job.kind === 'verify' || job.kind === 'restore' || job.kind === 'rebuild') {
-    const c: BackupContext = {
-      db: deps.db,
-      artifacts: deps.artifacts,
-      sessions: deps.graphs.sessions(job.tenantId),
-      registry,
-      tenantId: job.tenantId,
-      workspaceId: ws.id,
-      actor: job.createdBy,
-      jobId: job.id,
-      progress,
-    };
-    let result: Record<string, unknown>;
-    if (job.kind === 'backup') {
-      const b = await snapshotWorkspace(c, (job.params as { reason?: 'scheduled' }).reason ?? 'manual');
-      result = { backupId: b.id, elements: b.elements, relationships: b.relationships, bytes: b.bytes, eventSeq: b.eventSeq, checksum: b.checksum };
-    } else if (job.kind === 'verify') result = await verifyWorkspace(c);
-    else result = await replaceFromLog(c, job.kind === 'restore' ? RestoreParams.parse(job.params) : 'events');
-    return { result, artifact: undefined };
-  }
-
-  if (job.kind === 'sync') {
+  },
+  backup,
+  verify: backup,
+  restore: backup,
+  rebuild: backup,
+  async sync({ job, deps, ws, registry, handles, progress }) {
     const result = await runSync(deps.db, handles, registry, { tenantId: job.tenantId, workspaceId: ws.id }, SyncParams.parse(job.params), {
       allowPrivate: deps.allowPrivateUrls ?? false,
       ...(deps.fetch && { fetch: deps.fetch }),
       progress,
     });
     return { result: result as unknown as Record<string, unknown>, artifact: undefined };
-  }
+  },
+  async 'import-tabular'({ job, deps, ws, registry, handles, progress }) {
+    const input = JSON.parse(new TextDecoder().decode(await deps.artifacts.get(inputKey(job.id)))) as TabularJobInput;
+    const files = input.files.map((f) => ({ name: f.name, bytes: new Uint8Array(Buffer.from(f.content, 'base64')) }));
+    const dryRun = (job.params as { dryRun?: boolean }).dryRun === true;
+    const result = await runTabularImport(handles, registry, { workspaceId: ws.id, actor: job.createdBy }, files, input.mappings, dryRun, progress);
+    return { result: { ...result } as Record<string, unknown>, artifact: undefined };
+  },
+};
 
-  const input = JSON.parse(new TextDecoder().decode(await deps.artifacts.get(inputKey(job.id)))) as TabularJobInput;
-  const files = input.files.map((f) => ({ name: f.name, bytes: new Uint8Array(Buffer.from(f.content, 'base64')) }));
-  const dryRun = (job.params as { dryRun?: boolean }).dryRun === true;
-  const result = await runTabularImport(handles, registry, { workspaceId: ws.id, actor: job.createdBy }, files, input.mappings, dryRun, progress);
-  return { result: { ...result } as Record<string, unknown>, artifact: undefined };
+async function run(job: JobRow, deps: JobDeps, store: JobStore, handlers: Partial<Record<JobKind, JobHandler>>): Promise<JobOutcome> {
+  const handler = handlers[job.kind];
+  if (!handler) throw new DomainError('VALIDATION', `This process does not run ${job.kind} jobs`);
+  const tenant = await new TenantStore(deps.db).get(job.tenantId);
+  if (tenant?.status !== 'active') throw new DomainError('VALIDATION', `Not run: the tenant is ${tenant?.status ?? 'unknown'}`);
+  const ws = await new WorkspaceStore(deps.db).get(job.tenantId, job.workspaceId);
+  if (!ws) throw new DomainError('NOT_FOUND', `Workspace '${job.workspaceId}' no longer exists`);
+  const registry = await new MetamodelStore(deps.db).registryForWorkspace(job.tenantId, job.workspaceId);
+  const handles = modelHandles(deps.db, registry, deps.graphs.sessions(job.tenantId), job.tenantId, deps.quota);
+  return handler({ job, deps, ws, registry, handles, progress: (p: number) => store.progress(job.tenantId, job.id, p) });
 }

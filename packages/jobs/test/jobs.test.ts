@@ -8,7 +8,7 @@ import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { createDb, JobStore, LOCAL_TENANT, MetamodelStore, runMigrations, schema, ScheduleStore, seedLocal, UserStore, type DbHandle } from '@d4/db';
 import { GraphQueries, Neo4jModelRepository, type SessionProvider } from '@d4/graph';
 import { Client } from 'pg';
-import { inputKey, processJob, pruneArtifacts, runDueSchedules, type JobDeps, type TabularJobInput } from '../src';
+import { inputKey, JOB_HANDLERS, processJob, pruneArtifacts, runDueSchedules, type JobDeps, type TabularJobInput } from '../src';
 import { JobQueue, MemoryArtifactStore, MemoryMailer, S3ArtifactStore, startJobWorker } from '@d4/infra';
 
 const PG = process.env.D4_TEST_POSTGRES_URL;
@@ -74,6 +74,12 @@ describe.skipIf(!PG || !NEO)('job processing (Postgres + Neo4j)', () => {
     const text = new TextDecoder().decode(await deps.artifacts.get(done!.artifactKey!));
     expect(text).toContain('flowchart LR');
     expect(text).toContain('Client Master');
+  });
+
+  it('runs only the kinds a process is given (the renderer: render)', async () => {
+    const job = await store.create(LOCAL_TENANT, { workspaceId: ws, kind: 'export', params: { format: 'mermaid' }, createdBy: 'u1' });
+    await processJob({ tenantId: LOCAL_TENANT, jobId: job.id }, deps, { made: 0, max: 3 }, { render: JOB_HANDLERS.render });
+    expect(await store.get(LOCAL_TENANT, job.id)).toMatchObject({ status: 'failed', error: 'This process does not run export jobs', attempts: 1 });
   });
 
   it('fails at once on a validation problem, without retrying', async () => {

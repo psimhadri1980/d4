@@ -1,13 +1,7 @@
 import { OpenApiGeneratorV3, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import { Controller, Get } from '@nestjs/common';
 import { Public } from '../auth/auth.guard';
-import { registerAdminRoutes } from '../admin/admin.openapi';
-import { registerWebModuleRoutes } from '../web-modules/web-modules.openapi';
-import { registerCatalogRoutes } from '../catalog/catalog.openapi';
-import { registerIntegrationRoutes } from '../integrations/integrations.openapi';
-import { registerJobRoutes } from '../jobs/jobs.openapi';
-import { registerModelRoutes } from '../model/model.openapi';
-import { registerWorkspaceRoutes } from '../workspaces/workspaces.openapi';
+import { FEATURES } from '../features';
 import type { ApiRoute } from './api-doc';
 
 type OpenApiDocument =ReturnType<OpenApiGeneratorV3['generateDocument']>;
@@ -17,7 +11,7 @@ export function buildOpenApiDocument(): OpenApiDocument {
   registry.registerComponent('securitySchemes', 'bearer', { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' });
   const route: ApiRoute = (r) => registry.registerPath({ security: [{ bearer: [] }], ...r });
   // Each feature describes its own paths, next to its controllers.
-  for (const register of [registerWorkspaceRoutes, registerModelRoutes, registerJobRoutes, registerAdminRoutes, registerIntegrationRoutes, registerCatalogRoutes, registerWebModuleRoutes]) register(route);
+  for (const f of FEATURES) f.routes(route);
 
   return new OpenApiGeneratorV3(registry.definitions).generateDocument({
     openapi: '3.0.3',
