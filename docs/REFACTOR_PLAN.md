@@ -1,6 +1,6 @@
 # D4 refactor plan: production readiness
 
-**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
+**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 approach chosen 2026-10-31 (D64, single-spa); P6 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
 
 Scope, as requested:
 1. Prune the code base: remove duplication, use well-defined patterns, delete dead code.
@@ -22,7 +22,7 @@ Scope, as requested:
 | P3 | nginx gateway (single origin: `/`, `/api`, `/auth`, `/mfe/*`), `dev.sh` local runs routed through it | M | P2 |
 | P4 | Backend pruning and patterns (config, runtime, Nest modules, guards, stores, OpenAPI) | L | P1 (parallel with P2–P3) |
 | P5 | Web app as a modular monolith (module contract, SDK client, CSS split, import boundaries) | M | P1 (parallel with P2–P4) |
-| P6 | Module federation: shell plus six remotes, manifest, per-remote images | L | P3, P5 |
+| P6 | Runtime modules: single-spa shell plus six lifecycle modules, import map, per-module images | L | P3, P5 |
 | P7 | CI on Podman (images + browser tests), docs, decision log, ADR | M | each phase |
 
 ```
@@ -172,7 +172,7 @@ In production the same variable names come from the platform: Podman secrets, Ku
 - **One loader.** Used by `api`, `worker`, `renderer` and `ops`. This removes three `config.ts` copies and four direct `process.env` reads.
 
 **Runtime web config.**
-- The shell fetches `/config.json` before rendering. The gateway renders it from env: OIDC authority, client id, API base `/api`, and the remote manifest.
+- The shell fetches `/config.json` before rendering. The gateway renders it from env: OIDC authority, client id, API base `/api`, and the list of modules.
 - The `VITE_*` build-time settings and `apps/web/src/config.ts` go away, and one image runs anywhere.
 - With a single origin, the defaults are simply relative paths.
 
@@ -236,7 +236,7 @@ ENTRYPOINT ["node", "--enable-source-maps", "dist/main.js"]
 | `api`, `worker`, `ops` | `node:24-alpine` | Pruned, production dependencies only, non-root |
 | `renderer` | Playwright image (glibc) | **Build and run on the same libc.** Install inside a `node:24-bookworm` build stage, not on Alpine |
 | `gateway` | `nginxinc/nginx-unprivileged:alpine` | `templates/` rendered by the image's envsubst at start |
-| `web-shell`, `web-*` | `nginxinc/nginx-unprivileged:alpine` | Static `dist`, shared `deploy/web-static/nginx.conf`: hashed assets `immutable`; `index.html`, `remoteEntry.js` and `mf-manifest.json` `no-cache` |
+| `web-shell`, `web-*` | `nginxinc/nginx-unprivileged:alpine` | Static `dist`, shared `deploy/web-static/nginx.conf`: hashed assets `immutable`; `index.html` and module entries and stylesheets `no-cache` |
 | `e2e` | Playwright image | No `socat`; runs on the host network against `D4_PUBLIC_URL` |
 | test runner | build stage of a `tools` Containerfile | Used by `test.sh --container` |
 
@@ -247,7 +247,7 @@ ENTRYPOINT ["node", "--enable-source-maps", "dist/main.js"]
 | `infra.yaml` | postgres, neo4j, redis, s3, keycloak, mailpit, plus the one-shot jobs `ops-migrate`, `ops-schema` and `s3-init` |
 | `observability.yaml` | otel-collector, tempo, prometheus, grafana |
 | `apps.yaml` | api, worker, renderer |
-| `web.yaml` | web-shell and the six remotes |
+| `web.yaml` | web-shell and the six modules |
 | `gateway.yaml` | gateway |
 | `tools.yaml` | test, e2e |
 
@@ -332,7 +332,7 @@ server {
 
   location /api/  { set $u ${UPSTREAM_API};      rewrite ^/api/(.*)$ /$1 break; proxy_pass http://$u; proxy_read_timeout 120s; }
   location /auth/ { set $u ${UPSTREAM_KEYCLOAK}; proxy_pass http://$u; }
-  include /etc/nginx/conf.d/remotes/*.conf;            # one /mfe/<name>/ block per enabled remote, generated from env
+  include /etc/nginx/conf.d/modules/*.conf;            # one /mfe/<name>/ block per enabled module, generated from env
   include /etc/nginx/conf.d/dev/*.conf;                # /mail/ and /grafana/ only when D4_ENV=dev
   location /      { set $u ${UPSTREAM_WEB_SHELL};    proxy_pass http://$u; }
 }
@@ -403,40 +403,35 @@ export interface D4Module {
 }
 ```
 
-**P6: extract each module into an MF remote:**
-- **Tooling:** `@module-federation/vite` in every web app, with `@module-federation/enhanced/runtime` in the shell for runtime registration. If the Vite plugin's dev mode falls short in the spike, fall back to Rsbuild, which has native Module Federation 2.0.
-- **What a remote is:** each remote `apps/web-<name>` exposes `./module` (a small descriptor entry; pages stay lazy chunks inside the remote).
-- **What the shell owns:** `/`, `/callback` and the `/w/:ws` layout. At start-up it:
-  1. fetches `/config.json` (the remote manifest, from env);
-  2. registers the remotes;
-  3. loads every `./module` descriptor in parallel with a timeout;
-  4. mounts their routes under `/w/:ws`.
+**P6: extract each module into a lifecycle module (single-spa, D64):** spikes in [p6-module-federation.md](spikes/p6-module-federation.md) and [p6-single-spa.md](spikes/p6-single-spa.md).
+- **Tooling:** `single-spa` in the shell; a plain Vite library build per module (`single-spa-react` for React modules). No Module Federation.
+- **What a module is:** each `apps/web-<name>` builds one ES module, `/mfe/<name>/<name>.js`, exporting `manifest` (id, contract version, menu as data) and the lifecycles `bootstrap`, `mount`, `unmount`. It owns every path under `/w/:ws/<name>` with a router of its own; pages stay lazy chunks. Any framework is allowed; React is the default.
+- **What the shell owns:** `/`, `/callback`, the `/w/:ws` layout and its page slot. It renders at once, then imports every module in `/config.json` in parallel (with a timeout), checks each manifest and registers it with single-spa; menu items appear as manifests arrive. A module that fails to load or mount shows an "unavailable" notice on its paths; the rest keeps working.
+- **What modules get:** a framework-neutral `Platform` object in their props (settings, token, typed client, shared query cache, workspace, navigate). `@d4/web-platform` splits into that core and React bindings (`ModuleRoot`, hooks).
+- **Navigation across modules is by URL only.** Legacy redirects (`catalog/:qid`, `studio/:qid`, `stewardship/:qid`) move into the queries module.
 
-  A remote that fails to load shows an "unavailable" notice in its nav group and route (per-remote `ErrorBoundary` plus `Suspense`). The rest of the app keeps working.
-- **Navigation across remotes is by URL only.** Legacy redirects (`catalog/:qid`, `studio/:qid`, `stewardship/:qid`) move into the queries remote.
+| Shared through the shell's import map | Reason |
+|---|---|
+| `react`, `react-dom`, `react/jsx-runtime` | Two copies break hooks |
+| `react-router-dom` | One URL, routers in step |
+| `@tanstack/react-query` | One cache across modules |
+| `@d4/web-platform` (wraps `oidc-client-ts`) | One token store and silent renew |
+| `@d4/ui-kit` | One theme and stylesheet; non-React modules use its CSS only |
 
-| Shared dependency | Singleton | Reason |
-|---|---|---|
-| `react`, `react-dom` | yes (strict) | Two copies break hooks |
-| `react-router-dom` | yes | One router context |
-| `@tanstack/react-query` | yes | One cache across remotes |
-| `@d4/web-platform` (wraps `oidc-client-ts`) | yes | One token store and silent renew |
-| `@d4/ui-kit` | yes | One theme listener and stylesheet |
-| `@d4/core`, `@d4/metamodel` | yes, eager in shell | Large; registry objects cross remote boundaries |
-| `cytoscape`, `@tabler/icons-react` | shared, not singleton | Used by some remotes only |
+Other packages (`cytoscape`, `@d4/core`, `@d4/metamodel`, icons) are bundled per module. The shared list is versioned with the shell; the contract check refuses a module built against another major.
 
 **Independent deployment:**
-- Each remote has its own Containerfile and image tag.
-- `dev-deploy.sh web-plan` rebuilds and restarts only that container. The shell picks up the new `mf-manifest.json` on the next page load, since manifests and entries are `no-cache` and chunks are hashed.
+- Each module has its own Containerfile and image tag.
+- `dev-deploy.sh web-plan` rebuilds and restarts only that container. Entries and stylesheets are `no-cache`, chunks hashed, so the next page load picks it up.
 - Rollback means redeploying the previous tag.
-- `dev.sh web-plan` runs that remote with Vite HMR (`base: '/mfe/plan/'`, HMR through the gateway) while the rest stays in containers.
+- Local work: `localStorage['d4:module:<name>']` points the shell at a local build of one module. Needed first: an import map for the shell's dev server, and a decision on module hot reload (`vite-plugin-single-spa` or watch builds).
 
 **Tests:**
-- Unit tests per remote.
+- Unit tests per module.
 - A contract test that validates every built descriptor against the contract schema.
 - New e2e cases:
   - with `web-plan` stopped, the app loads and Plan shows "unavailable";
-  - a redeployed remote is picked up without restarting the shell.
+  - a redeployed module is picked up without restarting the shell.
 
 ---
 
@@ -485,11 +480,11 @@ export interface D4Module {
   - no module imports another (lint);
   - `api.ts` and the Vite CommonJS workarounds are gone.
 
-### P6: Module federation (L)
-- Section 4.6, P6: shell plus six remotes, manifest, per-remote Containerfiles, gateway `/mfe/*` blocks, `dev.sh` and `dev-deploy.sh` support, contract and resilience tests.
+### P6: Runtime modules with single-spa (L)
+- Section 4.6, P6: single-spa shell plus six lifecycle modules, import map, per-module Containerfiles, gateway `/mfe/*` blocks, `dev.sh` and `dev-deploy.sh` support, contract and resilience tests.
 - **Done when:**
-  - each remote builds, deploys and rolls back alone;
-  - stopping any remote leaves the rest usable;
+  - each module builds, deploys and rolls back alone;
+  - stopping any module leaves the rest usable;
   - the browser suite passes.
 
 ### P7: CI and docs (M, runs alongside)
@@ -524,8 +519,8 @@ export interface D4Module {
 | Compose provider differences under Podman (`depends_on` conditions, profiles; health checks need a systemd user session) | Day 1 spike in P2. Scripts never rely on `--wait` and poll health themselves. Pick and pin one provider in `deploy/lib/compose.sh` |
 | Rootless networking: containers reaching apps on the host (`host.containers.internal` with pasta) | Spike in P2. Local apps bind `0.0.0.0` on dev ports, or set pasta host-loopback mapping in `containers.conf`; `doctor` checks it |
 | Keycloak under `/auth` changes the token issuer | Expected in dev: one sign-out. Update `auth.spec.ts` URL assertions and the API test issuer together |
-| Vite federation plugin maturity (dev mode, shared packages) | ESM builds first (P5). Spike before P6; fall back to Rsbuild |
-| MF operating cost: more images, version skew between shell and remotes | Contract version check, catalog-pinned shared versions, resilience e2e. P5 alone already delivers the code-quality benefit if P6 is deferred |
+| Module dev loop (shell dev server has no import map; no module hot reload) | Spiked (p6-single-spa.md); solve before converting modules |
+| Operating cost: more images, version skew between shell and modules | Contract version check, catalog-pinned shared versions, resilience e2e. P5 alone already delivers the code-quality benefit if P6 is deferred |
 | `pnpm deploy` semantics differ in pnpm 10 | Stay on pnpm 9.12 for this refactor; upgrade separately |
 | 8 GB machines | Seven static nginx containers plus the gateway add about 100 MB; existing caps stay |
 
