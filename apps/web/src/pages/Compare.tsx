@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { useScenarios } from '../components/ViewBar';
 import { type Element, type Relationship, type ViewParams } from '@d4/web-platform';
 import { exploreApi } from '../modules/explore/api';
+import { ErrorBanner, useScenarios } from '@d4/ui-kit';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const inAYear = () => {

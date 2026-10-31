@@ -2,10 +2,9 @@ import type { DecisionRecord, DecisionRef } from '@d4/core';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { ViewBar, ViewNotice } from '../components/ViewBar';
 import { useView, viewQuery } from '@d4/web-platform';
 import { planApi } from '../modules/plan/api';
+import { ErrorBanner, ViewBar, ViewNotice } from '@d4/ui-kit';
 
 const STATUSES = ['PROPOSED', 'ACCEPTED', 'REJECTED', 'SUPERSEDED'];
 

@@ -7,6 +7,8 @@ export type Connection = Schemas['Connection'];
 export type Job = Schemas['Job'];
 export type Cadence = Schemas['Cadence'];
 export type Schedule = Schemas['Schedule'];
+/** A catalog query's parameter (shared by the query forms and proposal steps). */
+export type QueryParamDef = Schemas['QueryParam'];
 
 /** What a sync job reports (`Job.result` for kind `sync`). */
 export interface SyncResult {

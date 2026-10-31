@@ -1,0 +1,220 @@
+/* Queries: catalog, query studio and stewardship. */
+
+.queries {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100%;
+}
+.queries .pane.left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-03);
+  padding: var(--sp-04);
+}
+.accordion {
+  border-top: 1px solid var(--border-subtle);
+}
+.accordion:last-of-type {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.accordion > h3 {
+  margin: 0;
+}
+.accordion > h3 > button {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-03);
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--sp-03);
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.accordion > h3 > button:hover {
+  background: var(--layer-hover);
+}
+.accordion .chevron {
+  width: 12px;
+  color: var(--text-secondary);
+}
+.accordion .count {
+  min-width: 24px;
+  margin-left: auto;
+  padding: 0 var(--sp-03);
+  border-radius: 999px;
+  background: var(--layer-selected);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: center;
+  text-transform: none;
+}
+.accordion > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-03);
+  padding: 0 0 var(--sp-04);
+}
+.queries .items li .item {
+  grid-template-columns: 1fr auto;
+}
+.status-badges {
+  display: inline-flex;
+  gap: var(--sp-02);
+}
+.all-queries summary {
+  padding: var(--sp-03);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.all-queries summary:hover {
+  color: var(--text-primary);
+}
+
+/* Tabs (Carbon "contained" style) */
+/*
+ * Only the active panel scrolls; the tab strip stays put. The strip scrolls sideways when there
+ * are many tabs, and `flex: none` stops a tall panel from squeezing it (overflow makes its
+ * minimum height 0, so it would otherwise shrink and grow its own scrollbar).
+ */
+.pane.main.tabs-area {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.tab-strip {
+  display: flex;
+  flex: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 var(--sp-06);
+  background: var(--layer-02);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  max-width: 280px;
+  min-height: 48px;
+  background: var(--layer-02);
+  border-top: 2px solid transparent;
+  border-right: 1px solid var(--border-subtle);
+}
+.tab:hover {
+  background: var(--layer-hover);
+}
+.tab.active {
+  background: var(--layer-01);
+  border-top-color: var(--interactive);
+}
+.tab-title {
+  height: 100%;
+  padding: 0 var(--sp-02) 0 var(--sp-05);
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.tab.active .tab-title {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.tab-mode {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.tab-close {
+  width: 32px;
+  height: 32px;
+  margin-right: var(--sp-02);
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+.tab-close:hover {
+  background: var(--layer-hover);
+  color: var(--text-primary);
+}
+.tab-panel,
+.tabs-area > .empty {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-05) var(--sp-06);
+}
+.tab-panel[hidden] {
+  display: none;
+}
+.run-panel,
+.studio {
+  max-width: 1120px;
+}
+
+/* Code, checks and comparison */
+pre.cypher {
+  margin: var(--sp-03) 0;
+  padding: var(--sp-04) var(--sp-05);
+  overflow: auto;
+  background: var(--layer-02);
+  border-left: 2px solid var(--border-strong);
+  font-size: 13px;
+  line-height: 20px;
+  white-space: pre-wrap;
+}
+pre.cypher.small {
+  font-size: 12px;
+  line-height: 18px;
+}
+textarea.code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+}
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-02);
+}
+.check.warning {
+  color: var(--support-warning);
+}
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-05);
+}
+.result-graph {
+  display: flex;
+  height: 520px;
+  border: 1px solid var(--border-subtle);
+}
+.result-graph .graph {
+  flex: 1;
+}
+
+@media (max-width: 1100px) {
+  .queries {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    height: auto;
+  }
+  .compare {
+    grid-template-columns: 1fr;
+  }
+}

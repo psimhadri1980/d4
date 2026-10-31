@@ -1,14 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ElementDetails } from '../components/ElementDetails';
-import { ElementList } from '../components/ElementList';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { GraphCanvas, type GraphLayout } from '@d4/ui-kit';
-import { ViewBar, ViewNotice } from '../components/ViewBar';
-import { ExportMenu } from '../components/ExportMenu';
 import { type Element, type Relationship, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import { exploreApi } from '../modules/explore/api';
+import { ElementDetails, ElementList, ErrorBanner, ExportMenu, GraphCanvas, type GraphLayout, ViewBar, ViewNotice } from '@d4/ui-kit';
 
 /**
  * Three panes: find elements (left), see them in context (graph), inspect and change (right).

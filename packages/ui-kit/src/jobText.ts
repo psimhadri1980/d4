@@ -9,7 +9,7 @@ const BACKUP_KINDS: Record<string, string> = {
   sync: 'Connector sync',
 };
 
-export function describe(j: Job): string {
+export function describeJob(j: Job): string {
   if (BACKUP_KINDS[j.kind]) return BACKUP_KINDS[j.kind]!;
   if (j.kind === 'render') return `Picture (${String(j.params['format']).toUpperCase()}) of ${j.params['target'] === 'roadmap' ? 'a roadmap' : 'a graph'}`;
   if (j.kind === 'export') {

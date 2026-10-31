@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { ErrorBanner } from './ErrorBanner';
 import { api, useView, viewQuery } from '@d4/web-platform';
-import { elementName, layerOf, layerVar, typesByLayer } from '../model';
+import { elementName, layerOf, layerVar, typesByLayer } from './model';
 
 interface Props {
   registry: MetamodelRegistry;

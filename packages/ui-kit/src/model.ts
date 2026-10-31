@@ -1,6 +1,6 @@
 import type { AttributeDef, MetamodelRegistry } from '@d4/metamodel';
 
-/** One colour per layer, defined as CSS tokens in styles.css (`--layer-<name>`). */
+/** One colour per layer, defined as CSS tokens in base.css (`--layer-<name>`). */
 export const layerVar = (layer: string | undefined) => `var(--layer-${(layer ?? 'other').toLowerCase()})`;
 
 export function layerOf(reg: MetamodelRegistry, type: string): string {

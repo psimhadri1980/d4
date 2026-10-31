@@ -1,13 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
 import { Backups } from './AdminBackups';
 import { Connectors } from './AdminConnectors';
 import { Usage } from './AdminUsage';
 import { Webhooks } from './AdminWebhooks';
 import { accessOf, api, ROLES } from '@d4/web-platform';
 import { adminApi, type AdminWorkspace } from '../modules/admin/api';
+import { ErrorBanner } from '@d4/ui-kit';
 
 const toSlug = (s: string) =>
   s

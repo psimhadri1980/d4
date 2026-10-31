@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ErrorBanner } from './ErrorBanner';
+import { ErrorBanner } from '@d4/ui-kit';
 import { catalogApi, type QueryVersion } from '../modules/queries/api';
 
 /** Delete (never published) or archive (has published history) a catalog entry. */

@@ -56,7 +56,7 @@ packages/
   sdk/        typed REST client generated from the OpenAPI document (`openapi.json` + `src/schema.ts` are generated)
   connectors/ connector framework: record mapping, HTTP/JSON and Git sources, sync planning
   config/     environment settings for every service: zod fragments, NAME_FILE secrets, derived URLs
-  ui-kit/     React components shared by the web app and embedders: Gantt, GraphCanvas, ResultTable, styles.css
+  ui-kit/     React components shared by the web app and embedders (Gantt, GraphCanvas, ResultTable, element list and details, forms, view bar), styles.css, base.css (tokens, element defaults) and app.css (controls, panes, lists, forms, shared component styles)
   web-platform/ what every web module shares: sign-in, typed API client, query keys, current user and view, module contract
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       compose/ (split by concern), dev-infra.sh, dev-deploy.sh, dev.sh, test.sh, lib/, env/ (layered settings), Keycloak realm, OTel, nginx, e2e runner
@@ -108,7 +108,7 @@ web ──► core, metamodel (bundled for the browser)
 | Catalog API | `apps/api/src/catalog/*` |
 | Web routes | `apps/web/src/App.tsx` |
 | Web API client | `packages/web-platform/src/api.ts` (shared calls over the typed `@d4/sdk` client), `apps/web/src/modules/<module>/api.ts` (a module's own calls) |
-| Design tokens / themes | `apps/web/src/styles.css`, `theme.ts` |
+| Design tokens / themes | `packages/ui-kit/base.css` (tokens, element defaults) and `app.css` (controls and shared components), `apps/web/src/shell.css`, each module's `<module>.css`; `apps/web/src/theme.ts` |
 
 ---
 
@@ -391,7 +391,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 
 ### Add a web screen or component
 
-- Use the existing class names and tokens in `styles.css`. Define colours as tokens with light and dark values, never as literals in components.
+- Use the existing class names and the tokens in `@d4/ui-kit/base.css`. Define colours as tokens with light and dark values, never as literals in components. A screen's own styles go in its module's `<module>.css`; a class used by more than one module, or by a ui-kit component, goes in `app.css`.
 - Use `useRegistry(ws)` for metamodel-driven UI. Call the API through `@d4/web-platform` (`api` for calls several modules make, `d4()` for the typed client) or the module's own `api.ts`; a field the typed client lacks means the API's OpenAPI document is incomplete, so fix the `<feature>.openapi.ts` and regenerate the SDK.
 - **Give form fields unique ids with `useId()`.** Several query tabs can be mounted at once.
 - **List boxes (`select[size]`) need an explicit empty option**, or the browser shows the first option as selected while the value is `''`.

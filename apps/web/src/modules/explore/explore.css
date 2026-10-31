@@ -1,0 +1,296 @@
+/* Explorer, element editor, matrices and Compare. */
+
+.explorer {
+  display: grid;
+  grid-template-columns: 300px 1fr 380px;
+  height: 100%;
+}
+.pane.center {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-04);
+  min-height: 48px;
+  padding: 0 var(--sp-05);
+  background: var(--layer-01);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-03);
+  padding: var(--sp-02) 0;
+}
+.toolbar.secondary {
+  border-top: 0;
+  padding-top: 0;
+}
+.compare-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+  height: 100%;
+}
+.compare-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-05);
+}
+.compare-head h2 {
+  margin: 0;
+}
+.compare-sides {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-04);
+}
+.compare-side {
+  display: flex;
+  gap: var(--sp-04);
+  margin: 0;
+  padding: var(--sp-03) var(--sp-04);
+  border: 1px solid var(--border-subtle);
+  background: var(--layer-01);
+}
+.compare-side legend {
+  padding: 0 var(--sp-02);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.compare-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-05);
+  margin: 0;
+}
+.compare-summary .add,
+.diff-section.add h3 {
+  color: var(--support-success);
+}
+.compare-summary .del,
+.diff-section.del h3 {
+  color: var(--support-error);
+}
+.compare-summary .chg,
+.diff-section.chg h3 {
+  color: var(--support-warning);
+}
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: var(--sp-05);
+  align-items: start;
+}
+.diff-section .count {
+  margin-left: var(--sp-02);
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.rel-type {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.field-changes {
+  margin: var(--sp-02) 0 0;
+  padding-left: var(--sp-05);
+  font-size: 12px;
+}
+.field-changes del {
+  color: var(--support-error);
+}
+.field-changes ins {
+  color: var(--support-success);
+  text-decoration: none;
+}
+@media (max-width: 700px) {
+  .compare-page {
+    padding: var(--sp-04);
+  }
+  .compare-side {
+    flex-direction: column;
+  }
+}
+.matrices-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  height: 100%;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.matrices-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-05);
+}
+.matrices-head h2 {
+  margin: 0;
+}
+.matrix-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-05);
+}
+.matrix-head .button {
+  margin-left: auto;
+}
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-04);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+table.matrix {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+table.matrix th,
+table.matrix td {
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--sp-02) var(--sp-03);
+}
+table.matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--layer-02);
+  vertical-align: bottom;
+}
+table.matrix .col-head {
+  height: 150px;
+  white-space: nowrap;
+}
+table.matrix .col-head span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  max-height: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.matrix.heat .col-head {
+  height: auto;
+}
+table.matrix.heat .col-head span {
+  writing-mode: horizontal-tb;
+  transform: none;
+}
+table.matrix .corner {
+  left: 0;
+  z-index: 3;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+table.matrix .row-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--layer-01);
+  text-align: left;
+  font-weight: 400;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.matrix .group-row th {
+  position: sticky;
+  left: 0;
+  background: var(--layer-02);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+table.matrix td {
+  min-width: 32px;
+  text-align: center;
+  white-space: nowrap;
+}
+table.matrix tbody tr:hover td,
+table.matrix tbody tr:hover .row-head {
+  background: var(--layer-hover);
+}
+.mcell {
+  display: inline-block;
+  min-width: 18px;
+  margin: 0 1px;
+  padding: 0 3px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--text-on-color);
+  background: var(--border-strong);
+}
+.mcell.v-create,
+.mcell.v-master,
+.mcell.v-invest {
+  background: var(--support-success);
+}
+.mcell.v-update,
+.mcell.v-golden_copy,
+.mcell.v-tolerate {
+  background: var(--interactive);
+}
+.mcell.v-read,
+.mcell.v-approved_distributor,
+.mcell.v-realizes {
+  background: var(--layer-data);
+}
+.mcell.v-inactivate,
+.mcell.v-replica,
+.mcell.v-migrate {
+  background: var(--support-warning);
+}
+.mcell.v-delete,
+.mcell.v-eliminate {
+  background: var(--support-error);
+}
+.mcell.v-consumer_cache {
+  background: var(--layer-design);
+}
+.heat-cell {
+  background: rgba(15, 98, 254, calc(var(--heat, 0) * 0.85));
+  font-variant-numeric: tabular-nums;
+}
+.heat-cell.hot {
+  color: var(--text-on-color);
+  font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .explorer {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    height: auto;
+  }
+  .pane.center {
+    height: 60vh;
+  }
+}

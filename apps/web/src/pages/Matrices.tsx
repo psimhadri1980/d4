@@ -2,11 +2,9 @@ import { MATRIX_KINDS, matrixToCsv, type Matrix, type MatrixKind } from '@d4/cor
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { ViewBar, ViewNotice } from '../components/ViewBar';
-import { download } from '../download';
 import { useView, viewQuery } from '@d4/web-platform';
 import { exploreApi } from '../modules/explore/api';
+import { download, ErrorBanner, ViewBar, ViewNotice } from '@d4/ui-kit';
 
 const LABEL: Record<MatrixKind, string> = {
   crud: 'CRUD-I',

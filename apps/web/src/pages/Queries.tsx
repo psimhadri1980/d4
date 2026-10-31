@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
 import { RunPanel } from './Catalog';
 import { Editor, NewQueryForm, StatusBadges } from './QueryStudio';
 import { StewardPanel } from './Stewardship';
 import { accessOf, api } from '@d4/web-platform';
 import { type CatalogEntry } from '../modules/queries/api';
+import { ErrorBanner } from '@d4/ui-kit';
 
 /** What a tab does with its query. */
 export type TabMode = 'run' | 'edit' | 'review';

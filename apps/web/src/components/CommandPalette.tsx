@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { NavGroup } from '../nav';
 import { api } from '@d4/web-platform';
-import { elementName } from '../model';
+import { elementName } from '@d4/ui-kit';
 
 interface Result {
   id: string;

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
-import { ErrorBanner } from './components/ErrorBanner';
 import { Layout } from './components/Layout';
 import { ElementEditor } from './pages/ElementEditor';
 import { Explorer } from './pages/Explorer';
@@ -15,6 +14,7 @@ import { Jobs } from './pages/Jobs';
 import { Reports } from './pages/Reports';
 import { AdminPeoplePage, AdminUsagePage, AdminWebhooksPage, AdminWorkspacesPage, BackupsPage, ConnectorsPage } from './pages/Admin';
 import { api, useAuth } from '@d4/web-platform';
+import { ErrorBanner } from '@d4/ui-kit';
 
 export function App() {
   const { user, ready, returnTo } = useAuth();

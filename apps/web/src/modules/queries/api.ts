@@ -1,9 +1,10 @@
 import { d4, type Schemas } from '@d4/web-platform';
 
+export type { QueryParamDef } from '@d4/web-platform';
+
 export type CatalogEntry = Schemas['CatalogEntry'];
 export type QueryVersion = Schemas['QueryVersion'];
 export type QueryGrant = Schemas['QueryGrant'];
-export type QueryParamDef = QueryVersion['params'][number];
 export type RunResult = Schemas['RunResult'];
 
 export interface Checks {

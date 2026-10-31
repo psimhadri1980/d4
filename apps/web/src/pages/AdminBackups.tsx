@@ -1,9 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { describe, outcome } from '../jobText';
 import { api, type Job } from '@d4/web-platform';
 import { type Backup, backupsApi } from '../modules/data/api';
+import { describeJob, ErrorBanner, outcome } from '@d4/ui-kit';
 
 const REASONS: Record<Backup['reason'], string> = { manual: 'manual', scheduled: 'daily', safety: 'before a restore' };
 const size = (n: number) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -72,7 +71,7 @@ export function Backups({ ws, slug }: { ws: string; slug: string }) {
       {error != null && <ErrorBanner error={error} />}
       {job.data && (
         <p role="status" className={job.data.status === 'failed' || (job.data.kind === 'verify' && job.data.result?.['matches'] === false) ? 'check error' : 'check ok'}>
-          {describe(job.data)}: {running ? `${job.data.status}… ${job.data.progress}%` : outcome(job.data)}
+          {describeJob(job.data)}: {running ? `${job.data.status}… ${job.data.progress}%` : outcome(job.data)}
         </p>
       )}
       {job.data?.kind === 'verify' && Array.isArray(job.data.result?.['examples']) && (job.data.result['examples'] as string[]).length > 0 && (

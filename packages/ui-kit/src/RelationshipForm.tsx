@@ -4,7 +4,7 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { AttributeField } from './AttributeField';
 import { ErrorBanner } from './ErrorBanner';
 import { api, type Element, useView } from '@d4/web-platform';
-import { attrsFromForm, elementName, type FormValues, relationshipOptions } from '../model';
+import { attrsFromForm, elementName, type FormValues, relationshipOptions } from './model';
 
 interface Props {
   registry: MetamodelRegistry;

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
-import { ErrorBanner } from '../components/ErrorBanner';
 import { adminApi, type Webhook } from '../modules/admin/api';
+import { ErrorBanner } from '@d4/ui-kit';
 
 const STATUS_CLASS = { pending: 'job-running', succeeded: 'job-succeeded', failed: 'job-failed' } as const;
 

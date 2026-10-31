@@ -1,0 +1,358 @@
+/* Roadmap, decisions and change proposals. */
+
+.roadmap {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  height: 100%;
+}
+.roadmap .pane.left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  padding: var(--sp-05);
+  overflow: auto;
+}
+.roadmap .pane.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+  overflow: auto;
+}
+.roadmap .pane.right {
+  padding: var(--sp-05);
+  overflow: auto;
+}
+.scope-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+}
+.scope-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-02);
+}
+.scope-group legend {
+  margin-bottom: var(--sp-02);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.scope-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-03);
+  padding: var(--sp-02) 0;
+  cursor: pointer;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-02);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-02);
+  padding: var(--sp-01) var(--sp-02) var(--sp-01) var(--sp-03);
+  border-radius: 12px;
+  background: var(--layer-selected);
+  font-size: 12px;
+}
+.chip button {
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.roadmap-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-02);
+}
+.roadmap-legend span {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-03);
+}
+.swatch {
+  display: inline-block;
+  width: 20px;
+  height: 10px;
+  border-radius: 2px;
+}
+.swatch.bar {
+  background: var(--layer-planning);
+}
+.swatch.planned {
+  border: 1px dashed var(--border-strong);
+}
+.swatch.critical {
+  background: var(--support-error);
+}
+.swatch.milestone {
+  width: 10px;
+  transform: rotate(45deg);
+  background: var(--text-primary);
+}
+.roadmap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-04);
+}
+.roadmap-head .summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-05);
+  color: var(--text-secondary);
+}
+.roadmap-head .summary .warn {
+  color: var(--support-error);
+  font-weight: 600;
+}
+.roadmap-head .actions {
+  display: flex;
+  gap: var(--sp-03);
+}
+.conflict-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.conflict-list .item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-04);
+  width: 100%;
+  padding: var(--sp-03) 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.conflict-list .item:hover {
+  background: var(--layer-hover);
+}
+.conflict-list .badge {
+  flex: none;
+  color: var(--support-error);
+  border-color: var(--support-error);
+}
+.badge.action-introduce {
+  color: var(--support-success);
+}
+.badge.action-retire {
+  color: var(--support-error);
+}
+.roadmap-item .facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-02) var(--sp-05);
+  margin: var(--sp-04) 0 var(--sp-05);
+}
+.roadmap-item .facts dt {
+  color: var(--text-secondary);
+}
+.roadmap-item .facts dd {
+  margin: 0;
+}
+.roadmap-item h3 {
+  margin-top: var(--sp-05);
+}
+@media (max-width: 1100px) {
+  .roadmap {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .roadmap .pane.right {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+.decisions {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  height: 100%;
+}
+.decisions .pane.left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  padding: var(--sp-05);
+  overflow: auto;
+}
+.decisions .pane.main {
+  overflow: auto;
+}
+.decisions-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.decisions-tools h2 {
+  margin: 0;
+}
+/* These lists have no layer dot, so they do not use the dot column of .items. */
+.decisions .items li .item {
+  grid-template-columns: 1fr;
+  gap: var(--sp-01);
+}
+.scope-picker .items li .item {
+  grid-template-columns: 1fr auto;
+}
+.decisions .items .item .name {
+  width: 100%;
+  white-space: normal;
+  overflow: visible;
+}
+.decisions .pane.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+}
+.warn-dot {
+  display: inline-block;
+  width: 16px;
+  margin-right: var(--sp-02);
+  border-radius: 8px;
+  background: var(--support-error);
+  color: var(--text-on-color);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+.badge.dec-accepted,
+.badge.chosen {
+  color: var(--support-success);
+  border-color: var(--support-success);
+}
+.badge.dec-proposed {
+  color: var(--interactive);
+  border-color: var(--interactive);
+}
+.badge.dec-rejected,
+.badge.dec-superseded {
+  color: var(--text-secondary);
+}
+.decision {
+  max-width: 820px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-05);
+}
+.decision h2 {
+  margin: 0 0 var(--sp-02);
+}
+.decision h3 {
+  margin-bottom: var(--sp-03);
+}
+.decision .prose {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.decision .findings {
+  border-left: 3px solid var(--support-error);
+}
+.decision .options li.chosen {
+  font-weight: 600;
+}
+@media (max-width: 900px) {
+  .decisions {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .matrices-page {
+    padding: var(--sp-04);
+  }
+}
+
+/* Change proposals */
+.proposals-page {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: var(--sp-06);
+  align-items: start;
+  height: 100%;
+  max-width: 1400px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  .proposals-page {
+    padding: var(--sp-04);
+  }
+}
+@media (max-width: 800px) {
+  .proposals-page {
+    grid-template-columns: 1fr;
+  }
+}
+.proposal-list .inline-form input {
+  flex: 1;
+  min-width: 0;
+}
+.proposal-items li {
+  padding: var(--sp-03) var(--sp-03);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.proposal-items li.selected {
+  background: var(--layer-selected-subtle);
+}
+.proposal-steps {
+  padding-left: var(--sp-06);
+}
+.proposal-steps li {
+  padding: var(--sp-02) 0;
+  border-left: 3px solid transparent;
+  padding-left: var(--sp-03);
+}
+.proposal-steps li.step-ok {
+  border-left-color: var(--support-success);
+}
+.proposal-steps li.step-error {
+  border-left-color: var(--support-error);
+}
+.proposal-steps li .link {
+  margin-left: var(--sp-03);
+}
+.step-builder,
+.review-box {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--sp-05);
+  padding-top: var(--sp-04);
+}
+.review-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-04);
+}
+.review-box .field {
+  flex: 1 1 320px;
+}
+.review-comment {
+  border-left: 3px solid var(--border-strong);
+  margin: var(--sp-03) 0;
+  padding-left: var(--sp-04);
+}
+.connect-form {
+  align-items: flex-start;
+}
+.connect-form .field label.small {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--sp-02);
+}

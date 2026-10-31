@@ -5,7 +5,7 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { ErrorBanner } from './ErrorBanner';
 import { RelationshipForm } from './RelationshipForm';
 import { api, type Connection, useView, viewQuery } from '@d4/web-platform';
-import { elementName, layerOf, layerVar } from '../model';
+import { elementName, layerOf, layerVar } from './model';
 
 interface Props {
   registry: MetamodelRegistry;

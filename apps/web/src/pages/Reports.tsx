@@ -1,9 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { CadenceFields } from '../components/ScheduleForm';
 import { api, type Cadence, type Schedule } from '@d4/web-platform';
+import { CadenceFields, ErrorBanner } from '@d4/ui-kit';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
 

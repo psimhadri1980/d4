@@ -2,10 +2,10 @@
   "name": "@d4/ui-kit",
   "version": "0.1.0",
   "private": true,
-  "description": "React components for D4 views: roadmap Gantt, relationship graph, query result table.",
+  "description": "React components for D4: views (roadmap Gantt, relationship graph, query result table), the shared screens' building blocks (element list and details, attribute and parameter forms, view bar, export and schedule forms, error banner), model helpers, and the design tokens and base styles.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "styles.css", "README.md"],
+  "files": ["dist", "styles.css", "base.css", "app.css", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsup src/index.ts --format esm --sourcemap --no-config --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -15,19 +15,24 @@
   "dependencies": {
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
-    "@d4/render": "workspace:*"
+    "@d4/render": "workspace:*",
+    "@d4/web-platform": "workspace:*"
   },
   "peerDependencies": {
+    "@tanstack/react-query": "catalog:",
     "cytoscape": "catalog:",
-    "react": "catalog:"
+    "react": "catalog:",
+    "react-router-dom": "catalog:"
   },
   "devDependencies": {
+    "@tanstack/react-query": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "cytoscape": "catalog:",
     "jsdom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-router-dom": "catalog:",
     "tsup": "catalog:"
   },
   "exports": {
@@ -36,6 +41,8 @@
       "browser": "./dist/index.mjs",
       "default": "./dist/index.js"
     },
-    "./styles.css": "./styles.css"
+    "./styles.css": "./styles.css",
+    "./base.css": "./base.css",
+    "./app.css": "./app.css"
   }
 }

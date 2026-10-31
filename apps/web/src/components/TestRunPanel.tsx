@@ -1,7 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ErrorBanner } from './ErrorBanner';
-import { missingRequired, ParamForm, paramLabel, paramsFromForm, type ParamValues } from './ParamForm';
+import { ErrorBanner, missingRequired, ParamForm, paramLabel, paramsFromForm, type ParamValues } from '@d4/ui-kit';
 import { QueryResultView } from './QueryResultView';
 import { catalogApi, type QueryVersion } from '../modules/queries/api';
 

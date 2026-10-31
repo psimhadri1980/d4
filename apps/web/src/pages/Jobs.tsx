@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { describe, outcome } from '../jobText';
 import { api, type Job } from '@d4/web-platform';
+import { describeJob, ErrorBanner, outcome } from '@d4/ui-kit';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
 const size = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -64,7 +63,7 @@ export function Jobs() {
             {jobs.data.map((j) => (
               <tr key={j.id} className={`job ${j.status}`}>
                 <td>
-                  {describe(j)}
+                  {describeJob(j)}
                   {j.scheduleId && <span className="badge muted"> scheduled</span>}
                 </td>
                 <td>

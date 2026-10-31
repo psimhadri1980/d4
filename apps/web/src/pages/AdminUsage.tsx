@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { ErrorBanner } from '../components/ErrorBanner';
 import { adminApi } from '../modules/admin/api';
+import { ErrorBanner } from '@d4/ui-kit';
 
 const LABELS: Record<string, string> = {
   elements: 'Elements',

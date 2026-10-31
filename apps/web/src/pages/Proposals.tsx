@@ -2,10 +2,9 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ErrorBanner } from '../components/ErrorBanner';
-import { ElementPicker } from '../components/ParamForm';
 import { accessOf, api, useRegistry } from '@d4/web-platform';
 import { type Proposal, type ProposalOperation, proposalsApi, type ProposalStatus } from '../modules/plan/api';
+import { ElementPicker, ErrorBanner } from '@d4/ui-kit';
 
 const FILTERS: { label: string; statuses?: ProposalStatus[] }[] = [
   { label: 'Open', statuses: ['draft', 'submitted'] },
