@@ -1,15 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, type Element, type Relationship } from '../api';
 import { ElementDetails } from '../components/ElementDetails';
 import { ElementList } from '../components/ElementList';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { GraphCanvas, type GraphLayout } from '@d4/ui-kit';
-import { useRegistry } from '../model';
-import { useView, viewQuery } from '../view';
 import { ViewBar, ViewNotice } from '../components/ViewBar';
 import { ExportMenu } from '../components/ExportMenu';
+import { type Element, type Relationship, useRegistry, useView, viewQuery } from '@d4/web-platform';
+import { exploreApi } from '../modules/explore/api';
 
 /**
  * Three panes: find elements (left), see them in context (graph), inspect and change (right).
@@ -33,7 +32,7 @@ export function Explorer() {
   const hood = useQuery({
     queryKey: ['neighbourhood', ws, id, depth, vq],
     enabled: !!ws && !!id,
-    queryFn: () => api.neighbourhood(ws!, id!, depth, vq),
+    queryFn: () => exploreApi.neighbourhood(ws!, id!, depth, vq),
   });
 
   // A new focus element or model view starts a fresh graph.
@@ -53,7 +52,7 @@ export function Explorer() {
   }, [hood.data, extra]);
 
   const expand = async (nodeId: string) => {
-    const sub = await api.neighbourhood(ws!, nodeId, 1, vq);
+    const sub = await exploreApi.neighbourhood(ws!, nodeId, 1, vq);
     setExtra((x) => ({
       elements: [...x.elements, sub.root, ...sub.elements],
       relationships: [...x.relationships, ...sub.relationships],

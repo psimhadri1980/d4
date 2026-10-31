@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GraphCanvas, ResultTable } from '@d4/ui-kit';
-import type { Element, Relationship, RunResult } from '../api';
-import { useRegistry } from '../model';
 import { ErrorBanner } from './ErrorBanner';
+import { type Element, type Relationship, useRegistry } from '@d4/web-platform';
+import { type RunResult } from '../modules/queries/api';
 
 /** Node, relationship and path shapes produced by the catalog runner. */
 interface RunnerNode {

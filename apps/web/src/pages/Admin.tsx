@@ -1,12 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { adminApi, api, can, ROLES, type AdminWorkspace } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { Backups } from './AdminBackups';
 import { Connectors } from './AdminConnectors';
 import { Usage } from './AdminUsage';
 import { Webhooks } from './AdminWebhooks';
+import { accessOf, api, ROLES } from '@d4/web-platform';
+import { adminApi, type AdminWorkspace } from '../modules/admin/api';
 
 const toSlug = (s: string) =>
   s
@@ -19,7 +20,7 @@ const toSlug = (s: string) =>
 /** Admin pages share one gate: without the admin role they say so instead of rendering. */
 function AdminGate({ title, children }: { title: string; children: ReactNode }) {
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
-  if (me.data && !can(me.data.roles).admin) {
+  if (me.data && !accessOf(me.data.roles).admin) {
     return (
       <div className="admin-page">
         <p className="muted">Administration needs the admin role.</p>

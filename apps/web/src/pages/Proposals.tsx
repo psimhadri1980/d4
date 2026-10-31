@@ -2,10 +2,10 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { api, canReview, proposalsApi, type Proposal, type ProposalOperation, type ProposalStatus } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ElementPicker } from '../components/ParamForm';
-import { useRegistry } from '../model';
+import { accessOf, api, useRegistry } from '@d4/web-platform';
+import { type Proposal, type ProposalOperation, proposalsApi, type ProposalStatus } from '../modules/plan/api';
 
 const FILTERS: { label: string; statuses?: ProposalStatus[] }[] = [
   { label: 'Open', statuses: ['draft', 'submitted'] },
@@ -208,7 +208,7 @@ function ProposalView({ ws, id }: { ws: string; id: string }) {
         )}
       </div>
 
-      {!mine && p.status === 'submitted' && canReview(me.data.roles) && (
+      {!mine && p.status === 'submitted' && accessOf(me.data.roles).reviewer && (
         <div className="review-box" role="group" aria-label="Review">
           <div className="field">
             <label htmlFor={commentId}>Review comment</label>

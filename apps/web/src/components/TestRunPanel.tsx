@@ -1,9 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { catalogApi, type QueryVersion } from '../api';
 import { ErrorBanner } from './ErrorBanner';
 import { missingRequired, ParamForm, paramLabel, paramsFromForm, type ParamValues } from './ParamForm';
 import { QueryResultView } from './QueryResultView';
+import { catalogApi, type QueryVersion } from '../modules/queries/api';
 
 /** Runs the saved draft (or version in review) with tight limits so authors and stewards can check it. */
 export function TestRunPanel({ workspaceId, queryId, version, title }: { workspaceId: string; queryId: string; version: QueryVersion; title: string }) {

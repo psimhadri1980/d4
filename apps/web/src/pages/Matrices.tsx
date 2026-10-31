@@ -2,11 +2,11 @@ import { MATRIX_KINDS, matrixToCsv, type Matrix, type MatrixKind } from '@d4/cor
 import { useQuery } from '@tanstack/react-query';
 import { Fragment, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ViewBar, ViewNotice } from '../components/ViewBar';
 import { download } from '../download';
-import { useView, viewQuery } from '../view';
+import { useView, viewQuery } from '@d4/web-platform';
+import { exploreApi } from '../modules/explore/api';
 
 const LABEL: Record<MatrixKind, string> = {
   crud: 'CRUD-I',
@@ -45,7 +45,7 @@ export function Matrices() {
   const kind: MatrixKind = raw && MATRIX_KINDS.includes(raw) ? raw : 'crud';
   const { view } = useView();
   const vq = viewQuery(view);
-  const matrix = useQuery({ queryKey: ['matrix', ws, kind, vq], queryFn: () => api.matrix(ws!, kind, vq) });
+  const matrix = useQuery({ queryKey: ['matrix', ws, kind, vq], queryFn: () => exploreApi.matrix(ws!, kind, vq) });
   const m = matrix.data;
 
   return (

@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { catalogApi } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { missingRequired, ParamForm, paramLabel, paramsFromForm, type ParamValues } from '../components/ParamForm';
 import { QueryResultView } from '../components/QueryResultView';
+import { api } from '@d4/web-platform';
+import { catalogApi } from '../modules/queries/api';
 
 /** Run a published catalog query: parameter form, results, Cypher. */
 export function RunPanel({ workspaceId, queryId }: { workspaceId: string; queryId: string }) {
@@ -14,7 +15,7 @@ export function RunPanel({ workspaceId, queryId }: { workspaceId: string; queryI
 
   const published = detail.data?.versions.find((v) => v.status === 'published');
   const run = useMutation({
-    mutationFn: () => catalogApi.run(workspaceId, queryId, paramsFromForm(published?.params ?? [], values)),
+    mutationFn: () => api.runQuery(workspaceId, queryId, paramsFromForm(published?.params ?? [], values)),
   });
 
   if (detail.error) return <ErrorBanner error={detail.error} />;

@@ -15,6 +15,7 @@
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "@d4/ui-kit": "workspace:*",
+    "@d4/web-platform": "workspace:*",
     "@fontsource/ibm-plex-mono": "^5.1.0",
     "@fontsource/source-sans-3": "catalog:",
     "@tabler/icons-react": "3.19.0",

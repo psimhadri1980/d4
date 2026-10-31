@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type Cadence } from '../api';
 import { ErrorBanner } from './ErrorBanner';
+import { api, type Cadence } from '@d4/web-platform';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

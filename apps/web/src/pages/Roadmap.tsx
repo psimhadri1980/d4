@@ -2,12 +2,13 @@ import { LANE_KINDS, type LaneKind, type RoadmapConflict } from '@d4/core';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api, type Element } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ScheduleForm } from '../components/ScheduleForm';
 import { Gantt, type GanttZoom } from '@d4/ui-kit';
 import { roadmapToCsv, roadmapToMermaid } from '@d4/codecs/roadmap';
 import { download } from '../download';
+import { api, type Element } from '@d4/web-platform';
+import { planApi } from '../modules/plan/api';
 
 const LANE_LABEL: Record<LaneKind, string> = {
   initiative: 'Initiative',
@@ -61,7 +62,7 @@ export function Roadmap() {
   const roadmap = useQuery({
     queryKey: ['roadmap', ws, scope, lanes],
     enabled: !!ws && scope.length > 0,
-    queryFn: () => api.roadmap(ws!, scope, lanes),
+    queryFn: () => planApi.roadmap(ws!, scope, lanes),
   });
   const r = roadmap.data;
   useEffect(() => setSelected(null), [scope.join(',')]);

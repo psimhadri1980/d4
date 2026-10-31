@@ -1,9 +1,8 @@
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
 import { ErrorBanner } from './ErrorBanner';
 import { ScheduleForm } from './ScheduleForm';
-import { viewQuery, type ViewState } from '../view';
+import { api, viewQuery, type ViewState } from '@d4/web-platform';
 
 const FORMATS: { value: string; label: string }[] = [
   { value: 'mermaid', label: 'Mermaid diagram (.mmd)' },

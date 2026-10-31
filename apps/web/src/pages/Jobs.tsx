@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { api, type Job } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { describe, outcome } from '../jobText';
+import { api, type Job } from '@d4/web-platform';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
 const size = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -82,7 +82,7 @@ export function Jobs() {
                   {!j.artifact && (j.result as { artifactExpired?: boolean } | null)?.artifactExpired && <span className="muted small">File expired</span>}
                   {j.artifact && (
                     <button className="button small" onClick={() => void download(j)}>
-                      Download ({size(j.artifact.bytes)})
+                      Download{j.artifact.bytes !== null && ` (${size(j.artifact.bytes)})`}
                     </button>
                   )}
                 </td>

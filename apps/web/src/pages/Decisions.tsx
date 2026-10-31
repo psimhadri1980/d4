@@ -2,10 +2,10 @@ import type { DecisionRecord, DecisionRef } from '@d4/core';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ViewBar, ViewNotice } from '../components/ViewBar';
-import { useView, viewQuery } from '../view';
+import { useView, viewQuery } from '@d4/web-platform';
+import { planApi } from '../modules/plan/api';
 
 const STATUSES = ['PROPOSED', 'ACCEPTED', 'REJECTED', 'SUPERSEDED'];
 
@@ -22,7 +22,7 @@ export function Decisions() {
   const searchId = useId();
   const statusId = useId();
   const vq = viewQuery(useView().view);
-  const log = useQuery({ queryKey: ['decisions', ws, vq], queryFn: () => api.decisions(ws!, vq) });
+  const log = useQuery({ queryKey: ['decisions', ws, vq], queryFn: () => planApi.decisions(ws!, vq) });
 
   const all = log.data ?? [];
   const q = text.trim().toLowerCase();

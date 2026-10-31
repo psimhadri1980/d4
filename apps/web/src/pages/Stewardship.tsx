@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { catalogApi, type QueryGrant, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { RemoveQueryButton } from '../components/RemoveQueryButton';
 import { TestRunPanel } from '../components/TestRunPanel';
 import { ChecksList, STATUS_LABEL, VersionHistory } from './QueryStudio';
+import { catalogApi, type QueryGrant, type QueryVersion } from '../modules/queries/api';
 
 /** Roles a steward can grant a query to (mirrors the platform role list). */
 const GRANTABLE_ROLES = ['viewer', 'contributor', 'planner', 'architect', 'query-author', 'query-steward'];

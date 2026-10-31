@@ -1,9 +1,9 @@
-import { ApiError } from '../api';
+import { D4ApiError } from '@d4/web-platform';
 
 /** Shows API errors with their code, issues and rule id. */
 export function ErrorBanner({ error }: { error: unknown }) {
   if (!error) return null;
-  const e = error instanceof ApiError ? error : null;
+  const e = error instanceof D4ApiError ? error : null;
   return (
     <div className="error-banner" role="alert">
       <strong>{e ? friendly(e) : 'Something went wrong'}</strong>
@@ -20,7 +20,7 @@ export function ErrorBanner({ error }: { error: unknown }) {
   );
 }
 
-function friendly(e: ApiError): string {
+function friendly(e: D4ApiError): string {
   switch (e.code) {
     case 'VERSION_CONFLICT':
       return 'Someone else changed this in the meantime — reload and try again.';

@@ -2,10 +2,9 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { MetamodelRegistry } from '@d4/metamodel';
-import { api } from '../api';
-import { elementName, layerOf, layerVar, typesByLayer } from '../model';
-import { useView, viewQuery } from '../view';
 import { ErrorBanner } from './ErrorBanner';
+import { api, useView, viewQuery } from '@d4/web-platform';
+import { elementName, layerOf, layerVar, typesByLayer } from '../model';
 
 interface Props {
   registry: MetamodelRegistry;

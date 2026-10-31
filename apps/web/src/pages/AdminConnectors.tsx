@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
-import { api, connectorsApi, type Cadence, type Connector, type SyncResult } from '../api';
 import { CadenceFields } from '../components/ScheduleForm';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { syncSummary } from '../jobText';
+import { api, type Cadence, type SyncResult } from '@d4/web-platform';
+import { type Connector, connectorsApi } from '../modules/data/api';
 
 /** A starting mapping: one element type, id and name fields, one relationship. Edit to fit the source. */
 const EXAMPLE_MAPPING = JSON.stringify(

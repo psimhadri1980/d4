@@ -1,0 +1,46 @@
+{
+  "name": "@d4/web-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "What every web module shares: sign-in, the typed API client, the query client and keys, the current user and workspace view, runtime settings, and the module contract.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && tsup src/index.ts --format esm --sourcemap --no-config --silent",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@d4/metamodel": "workspace:*",
+    "@d4/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tabler/icons-react": "3.19.0",
+    "@tanstack/react-query": "catalog:",
+    "oidc-client-ts": "catalog:",
+    "react": "catalog:",
+    "react-router-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@tabler/icons-react": "3.19.0",
+    "@tanstack/react-query": "catalog:",
+    "@types/react": "catalog:",
+    "jsdom": "catalog:",
+    "oidc-client-ts": "catalog:",
+    "react": "catalog:",
+    "react-router-dom": "catalog:",
+    "tsup": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    }
+  }
+}

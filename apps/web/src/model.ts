@@ -1,16 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { MetamodelRegistry, type AttributeDef } from '@d4/metamodel';
-import { api } from './api';
-
-/** The workspace metamodel as a registry: same rules the server enforces. */
-export function useRegistry(ws: string | undefined) {
-  return useQuery({
-    queryKey: ['metamodel', ws],
-    enabled: !!ws,
-    staleTime: Infinity,
-    queryFn: async () => new MetamodelRegistry(await api.metamodel(ws!)),
-  });
-}
+import type { AttributeDef, MetamodelRegistry } from '@d4/metamodel';
 
 /** One colour per layer, defined as CSS tokens in styles.css (`--layer-<name>`). */
 export const layerVar = (layer: string | undefined) => `var(--layer-${(layer ?? 'other').toLowerCase()})`;

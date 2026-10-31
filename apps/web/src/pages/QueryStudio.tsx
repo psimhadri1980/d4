@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { catalogApi, type CatalogEntry, type Checks, type QueryVersion } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { RemoveQueryButton } from '../components/RemoveQueryButton';
 import { TestRunPanel } from '../components/TestRunPanel';
+import { catalogApi, type CatalogEntry, type Checks, type QueryVersion } from '../modules/queries/api';
 
 export const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft',

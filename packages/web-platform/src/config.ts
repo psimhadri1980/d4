@@ -1,9 +1,9 @@
 /**
  * Public settings read at start-up from `/config.json`, which the web container writes from its
- * environment (deploy/web/config.sh) and Vite serves in development (vite.config.ts), so one
+ * environment (deploy/web/config.sh) and Vite serves in development (apps/web/vite.config.ts), so one
  * build runs in any environment.
  */
-interface RuntimeConfig {
+export interface RuntimeConfig {
   apiUrl: string;
   oidcAuthority: string;
   oidcClientId: string;
@@ -11,7 +11,7 @@ interface RuntimeConfig {
 
 export const config = {} as RuntimeConfig;
 
-/** Fills `config`; must finish before anything reads it (main.tsx loads the app afterwards). */
+/** Fills `config`; must finish before anything reads it (the web app loads its UI afterwards). */
 export async function loadRuntimeConfig(): Promise<void> {
   const res = await fetch('/config.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`/config.json answered ${res.status}`);

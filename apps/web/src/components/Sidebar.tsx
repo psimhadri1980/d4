@@ -1,8 +1,8 @@
 import { IconChevronDown, IconChevronRight, IconFolders, IconHexagons, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconPlus } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import type { Workspace } from '../api';
 import { activeItem, subActive, type NavGroup, type NavItem } from '../nav';
+import { type Workspace } from '@d4/web-platform';
 
 interface Props {
   ws: string;

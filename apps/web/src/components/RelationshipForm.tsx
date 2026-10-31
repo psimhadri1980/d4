@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { MetamodelRegistry } from '@d4/metamodel';
-import { api, type Element } from '../api';
-import { attrsFromForm, elementName, relationshipOptions, type FormValues } from '../model';
-import { useView } from '../view';
 import { AttributeField } from './AttributeField';
 import { ErrorBanner } from './ErrorBanner';
+import { api, type Element, useView } from '@d4/web-platform';
+import { attrsFromForm, elementName, type FormValues, relationshipOptions } from '../model';
 
 interface Props {
   registry: MetamodelRegistry;

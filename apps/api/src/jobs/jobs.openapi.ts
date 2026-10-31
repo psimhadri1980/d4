@@ -3,7 +3,7 @@ import { json, errors, writeErrors, ws, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
 /** A background job, as the jobs, backups and connector endpoints return it. */
-export const JobSchema = z.object({ id: z.string(), kind: z.enum(['export', 'import-tabular', 'render', 'backup', 'verify', 'restore', 'rebuild', 'sync']), status: z.enum(['queued', 'running', 'succeeded', 'failed']), progress: z.number(), params: z.record(z.unknown()), result: z.record(z.unknown()).nullable(), error: z.string().nullable(), artifact: z.object({ name: z.string(), type: z.string().nullable(), bytes: z.number().nullable() }).nullable(), attempts: z.number(), createdBy: z.string(), createdAt: z.string(), startedAt: z.string().nullable(), finishedAt: z.string().nullable() }).openapi('Job');
+export const JobSchema = z.object({ id: z.string(), kind: z.enum(['export', 'import-tabular', 'render', 'backup', 'verify', 'restore', 'rebuild', 'sync']), status: z.enum(['queued', 'running', 'succeeded', 'failed']), progress: z.number(), params: z.record(z.unknown()), result: z.record(z.unknown()).nullable(), error: z.string().nullable(), artifact: z.object({ name: z.string(), type: z.string().nullable(), bytes: z.number().nullable() }).nullable(), attempts: z.number(), scheduleId: z.string().nullable().describe('Set when a schedule started the job'), createdBy: z.string(), createdAt: z.string(), startedAt: z.string().nullable(), finishedAt: z.string().nullable() }).openapi('Job');
 
 /** OpenAPI paths for jobs and scheduled reports. */
 export function registerJobRoutes(route: ApiRoute) {

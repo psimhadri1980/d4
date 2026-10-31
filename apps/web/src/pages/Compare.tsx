@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api, type Element, type Relationship, type ViewParams } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { useScenarios } from '../components/ViewBar';
+import { type Element, type Relationship, type ViewParams } from '@d4/web-platform';
+import { exploreApi } from '../modules/explore/api';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const inAYear = () => {
@@ -48,7 +49,7 @@ export function Compare() {
   const diff = useQuery({
     queryKey: ['diff', ws, from, to],
     enabled: !!ws && !same,
-    queryFn: () => api.diff(ws!, clean(from), clean(to)),
+    queryFn: () => exploreApi.diff(ws!, clean(from), clean(to)),
   });
   const d = diff.data;
   const name = (id: string) => d?.names[id] ?? id;

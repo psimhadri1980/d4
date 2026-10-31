@@ -1,4 +1,4 @@
-import type { Job, SyncResult } from './api';
+import { type Job, type SyncResult } from '@d4/web-platform';
 
 /** Plain-language descriptions of jobs, shared by the Jobs page and Admin backups. */
 const BACKUP_KINDS: Record<string, string> = {

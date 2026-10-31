@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
-import { api, type QueryParamDef } from '../api';
+import { api } from '@d4/web-platform';
+import { type QueryParamDef } from '../modules/queries/api';
 import { elementName } from '../model';
 
 export type ParamValues = Record<string, string | boolean>;

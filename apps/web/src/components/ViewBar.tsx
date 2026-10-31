@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId } from 'react';
-import { api } from '../api';
-import { isBaselineToday, useView } from '../view';
+import { api, isBaselineToday, useView } from '@d4/web-platform';
 
 /** Scenarios in a workspace, for pickers. */
 export function useScenarios(workspaceId: string) {

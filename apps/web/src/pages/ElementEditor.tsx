@@ -2,10 +2,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { allowedTransitions, isLifecycleState, LIFECYCLE } from '@d4/core';
-import { api } from '../api';
 import { AttributeField } from '../components/AttributeField';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { attrsFromForm, diffAttrs, elementName, toFormValue, typesByLayer, useRegistry, type FormValues } from '../model';
+import { api, useRegistry } from '@d4/web-platform';
+import { attrsFromForm, diffAttrs, elementName, type FormValues, toFormValue, typesByLayer } from '../model';
 
 /** Metamodel-driven form: fields, enums, required flags and lifecycle moves come from the rules. */
 export function ElementEditor({ mode }: { mode: 'create' | 'edit' }) {

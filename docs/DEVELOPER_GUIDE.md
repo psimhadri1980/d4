@@ -57,6 +57,7 @@ packages/
   connectors/ connector framework: record mapping, HTTP/JSON and Git sources, sync planning
   config/     environment settings for every service: zod fragments, NAME_FILE secrets, derived URLs
   ui-kit/     React components shared by the web app and embedders: Gantt, GraphCanvas, ResultTable, styles.css
+  web-platform/ what every web module shares: sign-in, typed API client, query keys, current user and view, module contract
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       compose/ (split by concern), dev-infra.sh, dev-deploy.sh, dev.sh, test.sh, lib/, env/ (layered settings), Keycloak realm, OTel, nginx, e2e runner
 mocks/        development-only S3 (file-backed, S3 REST + SigV4) and SMTP (Mailpit-compatible inbox API)
@@ -78,7 +79,7 @@ metamodel ◄── core ◄── codecs ◄── cli
 web ──► core, metamodel (bundled for the browser)
 ```
 
-- **Module format:** all packages except `web` and `e2e` are **CommonJS** TypeScript (`tsconfig.base.json` uses `NodeNext`), and import each other through `dist/`. Turbo builds dependencies first (`dependsOn: ["^build"]`). The packages the browser uses (`core`, `metamodel`, `render`, `ui-kit`, `sdk`, `codecs`) also build an ESM copy with tsup (`dist/*.mjs`), exported under the `browser` condition; Vite picks it, Node and vitest keep the CommonJS files.
+- **Module format:** all packages except `web` and `e2e` are **CommonJS** TypeScript (`tsconfig.base.json` uses `NodeNext`), and import each other through `dist/`. Turbo builds dependencies first (`dependsOn: ["^build"]`). The packages the browser uses (`core`, `metamodel`, `render`, `ui-kit`, `sdk`, `codecs`, `web-platform`) also build an ESM copy with tsup (`dist/*.mjs`), exported under the `browser` condition; Vite picks it, Node and vitest keep the CommonJS files.
 - **Browser use of `@d4/metamodel`:** its `browser` entry (`src/browser.ts`) leaves out the file loaders in `load.ts` and `packs.ts`. Importing one of them from web code builds a bundle that fails with "is not exported by \"__vite-browser-external\"".
 
 ### Key files by concern
@@ -106,7 +107,7 @@ web ──► core, metamodel (bundled for the browser)
 | Request schemas + OpenAPI | `apps/api/src/model/model.schemas.ts`, `http/zod.ts` (z, ErrorSchema), `http/zod.pipe.ts` (`@ValidBody`, `@ValidQuery`); paths per feature in `<feature>/<feature>.openapi.ts`, assembled by `http/openapi.ts` |
 | Catalog API | `apps/api/src/catalog/*` |
 | Web routes | `apps/web/src/App.tsx` |
-| Web API client | `apps/web/src/api.ts` |
+| Web API client | `packages/web-platform/src/api.ts` (shared calls over the typed `@d4/sdk` client), `apps/web/src/modules/<module>/api.ts` (a module's own calls) |
 | Design tokens / themes | `apps/web/src/styles.css`, `theme.ts` |
 
 ---
@@ -391,7 +392,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 ### Add a web screen or component
 
 - Use the existing class names and tokens in `styles.css`. Define colours as tokens with light and dark values, never as literals in components.
-- Use `useRegistry(ws)` for metamodel-driven UI, and the `api` and `catalogApi` clients in `api.ts`.
+- Use `useRegistry(ws)` for metamodel-driven UI. Call the API through `@d4/web-platform` (`api` for calls several modules make, `d4()` for the typed client) or the module's own `api.ts`; a field the typed client lacks means the API's OpenAPI document is incomplete, so fix the `<feature>.openapi.ts` and regenerate the SDK.
 - **Give form fields unique ids with `useId()`.** Several query tabs can be mounted at once.
 - **List boxes (`select[size]`) need an explicit empty option**, or the browser shows the first option as selected while the value is `''`.
 - Graphs: `GraphCanvas` (layouts radial, force or hierarchy; `fitSignal`). It reads tokens at render time and listens for `THEME_EVENT`.
@@ -460,7 +461,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 
 | Symptom | Cause | Fix in place |
 |---|---|---|
-| Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`auth.tsx`) |
+| Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`packages/web-platform/src/auth.tsx`) |
 | Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in compose; start in stages (see §3) |
 | Explorer tests opened "Client Master contract v2" | Fresh full-text index scored the longer name higher | Exact name matches rank first; tests pick by exact name |
 | Invalid render parameters answered 500 instead of 400 (tests only) | zod 3.25 ships CJS and ESM builds; under vitest, src (ESM) and `@d4/jobs` dist (CJS) saw different `ZodError` classes | The error mapper also recognises zod errors by name and `issues` |

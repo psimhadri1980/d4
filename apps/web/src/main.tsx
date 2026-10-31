@@ -4,8 +4,8 @@ import '@fontsource/source-sans-3/600.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@d4/ui-kit/styles.css';
 import './styles.css';
-import { loadRuntimeConfig } from './config';
 import { applyTheme, storedTheme, watchSystemTheme } from './theme';
+import { loadRuntimeConfig } from '@d4/web-platform';
 
 applyTheme(storedTheme());
 watchSystemTheme();

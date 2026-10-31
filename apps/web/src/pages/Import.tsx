@@ -2,9 +2,9 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, type AnalyzedTable, type TableMapping, type TabularImportResult, type Upload } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { useRegistry } from '../model';
+import { useRegistry } from '@d4/web-platform';
+import { type AnalyzedTable, importApi, type TabularImportResult, type TableMapping, type Upload } from '../modules/data/api';
 
 const ELEMENT_FIELDS = ['name', 'type', 'key', 'id', 'externalKey', 'lifecycle', 'description', 'validFrom', 'validTo', 'scenarioId'];
 const RELATIONSHIP_FIELDS = ['type', 'from', 'to', 'id', 'validFrom', 'validTo', 'scenarioId'];
@@ -53,7 +53,7 @@ export function Import() {
     if (!list?.length) return setFiles([]);
     const uploads = await Promise.all([...list].map(async (f) => ({ name: f.name, content: await toBase64(f) })));
     setFiles(uploads);
-    const analyzed = await step('Reading files…', () => api.analyzeTabular(ws!, uploads));
+    const analyzed = await step('Reading files…', () => importApi.analyze(ws!, uploads));
     if (analyzed) {
       setTables(analyzed.tables);
       setMappings(Object.fromEntries(analyzed.tables.map((t) => [t.name, t.mapping])));
@@ -62,12 +62,12 @@ export function Import() {
 
   const run = async (dryRun: boolean) => {
     if (!dryRun && background) {
-      const job = await step('Starting…', () => api.createImportJob(ws!, files, tables.map((t) => ({ table: t.name, mapping: mappings[t.name]! })), false));
+      const job = await step('Starting…', () => importApi.createJob(ws!, files, tables.map((t) => ({ table: t.name, mapping: mappings[t.name]! })), false));
       if (job) setQueued(true);
       return;
     }
     const r = await step(dryRun ? 'Checking…' : 'Importing…', () =>
-      api.importTabular(ws!, files, tables.map((t) => ({ table: t.name, mapping: mappings[t.name]! })), dryRun),
+      importApi.importTabular(ws!, files, tables.map((t) => ({ table: t.name, mapping: mappings[t.name]! })), dryRun),
     );
     if (r) {
       setResult({ dryRun, r });

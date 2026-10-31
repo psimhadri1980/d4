@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, backupsApi, type Backup, type Job } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { describe, outcome } from '../jobText';
+import { api, type Job } from '@d4/web-platform';
+import { type Backup, backupsApi } from '../modules/data/api';
 
 const REASONS: Record<Backup['reason'], string> = { manual: 'manual', scheduled: 'daily', safety: 'before a restore' };
 const size = (n: number) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);

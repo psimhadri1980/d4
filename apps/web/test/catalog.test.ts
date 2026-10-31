@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { QueryParamDef, RunResult } from '../src/api';
+import type { QueryParamDef, RunResult } from '../src/modules/queries/api';
 import { paramsFromForm } from '../src/components/ParamForm';
 import { hopDistances } from '@d4/ui-kit';
 import { graphFromRows } from '../src/components/QueryResultView';

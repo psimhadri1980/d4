@@ -246,7 +246,7 @@ export function registerModelRoutes(route: ApiRoute) {
   const propPath = '/v1/workspaces/{ws}/proposals';
   const pid = z.string().openapi({ param: { name: 'id', in: 'path' } });
   const propBody = (schema: z.ZodTypeAny) => ({ body: { content: { 'application/json': { schema } } } });
-  route({ method: 'get', path: propPath, tags: ['Proposals'], summary: 'Proposals, newest activity first (?status= repeatable)', request: { params: z.object({ ws }) }, responses: { 200: json(z.array(ProposalSummary), 'Proposals'), ...errors } });
+  route({ method: 'get', path: propPath, tags: ['Proposals'], summary: 'Proposals, newest activity first (?status= repeatable or comma-separated)', request: { params: z.object({ ws }), query: z.object({ status: z.string().optional() }) }, responses: { 200: json(z.array(ProposalSummary), 'Proposals'), ...errors } });
   route({ method: 'post', path: propPath, tags: ['Proposals'], summary: 'Create a draft (write access)', request: { params: z.object({ ws }), ...propBody(CreateProposalBody) }, responses: { 201: json(Proposal, 'Created'), ...errors } });
   route({ method: 'get', path: `${propPath}/{id}`, tags: ['Proposals'], summary: 'A proposal, each step described and checked against the live model', request: { params: z.object({ ws, id: pid }) }, responses: { 200: json(Proposal, 'Proposal'), ...errors } });
   route({ method: 'patch', path: `${propPath}/{id}`, tags: ['Proposals'], summary: 'Change a draft (author only)', request: { params: z.object({ ws, id: pid }), ...propBody(EditProposalBody) }, responses: { 200: json(Proposal, 'Updated'), ...errors } });

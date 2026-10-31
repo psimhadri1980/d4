@@ -2,13 +2,11 @@ import { IconMenu2, IconSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
-import { api, can } from '../api';
-import { useAuth } from '../auth';
 import { activeItem, subActive, visibleNav } from '../nav';
 import { applyTheme, storedTheme, type ThemeChoice } from '../theme';
-import { ViewProvider } from '../view';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
+import { accessOf, api, useAuth, ViewProvider } from '@d4/web-platform';
 
 const COLLAPSED_KEY = 'd4-nav-collapsed';
 
@@ -33,7 +31,7 @@ export function Layout() {
   const [searching, setSearching] = useState(false);
 
   const roles = me.data?.roles;
-  const groups = useMemo(() => visibleNav({ ...can(roles), admin: !!roles?.includes('admin') }), [roles]);
+  const groups = useMemo(() => visibleNav({ ...accessOf(roles), admin: !!roles?.includes('admin') }), [roles]);
   const rest = location.pathname.replace(new RegExp(`^/w/${ws}/?`), '');
   const search = new URLSearchParams(location.search);
   const current = activeItem(groups, rest);

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { catalogApi, type QueryVersion } from '../api';
 import { ErrorBanner } from './ErrorBanner';
+import { catalogApi, type QueryVersion } from '../modules/queries/api';
 
 /** Delete (never published) or archive (has published history) a catalog entry. */
 export function RemoveQueryButton({

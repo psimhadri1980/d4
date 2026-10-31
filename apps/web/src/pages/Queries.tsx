@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { api, can, catalogApi, type CatalogEntry } from '../api';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { RunPanel } from './Catalog';
 import { Editor, NewQueryForm, StatusBadges } from './QueryStudio';
 import { StewardPanel } from './Stewardship';
+import { accessOf, api } from '@d4/web-platform';
+import { type CatalogEntry } from '../modules/queries/api';
 
 /** What a tab does with its query. */
 export type TabMode = 'run' | 'edit' | 'review';
@@ -37,7 +38,7 @@ export function Queries() {
   const { ws } = useParams();
   const [params, setParams] = useSearchParams();
   const me = useQuery({ queryKey: ['me'], queryFn: api.me });
-  const roles = can(me.data?.roles);
+  const roles = accessOf(me.data?.roles);
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   useEffect(() => {
@@ -45,7 +46,7 @@ export function Queries() {
     return () => clearTimeout(t);
   }, [text]);
 
-  const list = useQuery({ queryKey: ['catalog', 'queries', q], queryFn: () => catalogApi.search({ q: q || undefined }) });
+  const list = useQuery({ queryKey: ['catalog', 'queries', q], queryFn: () => api.searchCatalog({ q: q || undefined }) });
   const entries = list.data ?? [];
   const byId = useMemo(() => new Map(entries.map((e) => [e.id, e])), [entries]);
 

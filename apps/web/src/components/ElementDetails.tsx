@@ -2,11 +2,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { MetamodelRegistry } from '@d4/metamodel';
-import { api, type Connection } from '../api';
-import { useView, viewQuery } from '../view';
-import { elementName, layerOf, layerVar } from '../model';
 import { ErrorBanner } from './ErrorBanner';
 import { RelationshipForm } from './RelationshipForm';
+import { api, type Connection, useView, viewQuery } from '@d4/web-platform';
+import { elementName, layerOf, layerVar } from '../model';
 
 interface Props {
   registry: MetamodelRegistry;

@@ -20,19 +20,53 @@ export function registerCatalogRoutes(route: ApiRoute) {
       openStatus: z.enum(['draft', 'in_review']).nullable(),
     })
     .openapi('CatalogEntry');
+  // Same shape as QueryParamDef in @d4/cypher.
+  const QueryParam = z
+    .object({
+      name: z.string(),
+      type: z.enum(['string', 'number', 'integer', 'boolean', 'date', 'enum', 'element', 'string[]']),
+      label: z.string().optional(),
+      description: z.string().optional(),
+      required: z.boolean().optional(),
+      default: z.unknown().optional(),
+      values: z.array(z.string()).optional().describe('Allowed values for enum'),
+      elementTypes: z.array(z.string()).optional().describe('For element: types offered by the picker'),
+    })
+    .openapi('QueryParam');
   const QueryVersion = z
     .object({
       id: z.string(),
       version: z.number().int(),
       status: z.enum(['draft', 'in_review', 'published', 'deprecated', 'retired']),
       cypher: z.string(),
-      params: z.array(z.record(z.unknown())),
+      params: z.array(QueryParam),
       resultShape: z.enum(['table', 'graph']),
       contentHash: z.string(),
       checks: z.object({ errors: z.array(z.string()), warnings: z.array(z.string()) }).nullable(),
+      createdBy: z.string(),
+      createdAt: z.string(),
+      submittedAt: z.string().nullable(),
+      reviewedBy: z.string().nullable(),
+      reviewedAt: z.string().nullable(),
       reviewNote: z.string().nullable(),
+      publishedAt: z.string().nullable(),
     })
     .openapi('QueryVersion');
+  const Execution = z
+    .object({
+      seq: z.number().int(),
+      queryId: z.string(),
+      version: z.number().int(),
+      workspaceId: z.string(),
+      userId: z.string(),
+      params: z.record(z.unknown()),
+      status: z.enum(['ok', 'error', 'timeout']),
+      rowCount: z.number().int().nullable(),
+      durationMs: z.number().int(),
+      error: z.string().nullable(),
+      executedAt: z.string(),
+    })
+    .openapi('QueryExecution');
   const Grant = z.object({ principalType: z.enum(['role', 'group']), principal: z.string() }).openapi('QueryGrant');
   const RunResult = z
     .object({
@@ -134,7 +168,7 @@ export function registerCatalogRoutes(route: ApiRoute) {
     tags: ['Query Catalog'],
     summary: 'Recent runs (query-steward or owning author)',
     request: { params: z.object({ id: qid }) },
-    responses: { 200: json(z.array(z.record(z.unknown())), 'Execution log'), ...errors },
+    responses: { 200: json(z.array(Execution), 'Execution log, newest first (at most 50)'), ...errors },
   });
   route({
     method: 'post',
