@@ -1,4 +1,5 @@
 import { Client } from 'pg';
+import { expect } from 'vitest';
 import { createDb, runMigrations, type DbHandle } from '../src';
 
 /** Admin connection to a Postgres server; integration tests are skipped when unset. */
@@ -27,4 +28,17 @@ export async function freshDatabase(): Promise<DbHandle & { dispose(): Promise<v
       await c.end();
     },
   };
+}
+
+/**
+ * Expects a rejection whose message matches: the Postgres error a drizzle query error wraps
+ * (constraint and trigger messages are in its `cause`), or the error itself when raised in code.
+ */
+export async function rejectsWith(p: Promise<unknown>, re: RegExp): Promise<void> {
+  const e = await p.then(
+    () => undefined,
+    (err: unknown) => err as Error & { cause?: Error },
+  );
+  expect(e, 'expected a rejection').toBeDefined();
+  expect(e!.cause?.message ?? e!.message).toMatch(re);
 }
