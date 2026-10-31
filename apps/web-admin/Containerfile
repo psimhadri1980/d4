@@ -10,8 +10,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     --mount=type=cache,id=turbo,target=/repo/.turbo/cache \
-    pnpm install --offline --frozen-lockfile --filter d4 --filter './apps/web-*...' \
- && pnpm exec turbo run build --filter './apps/web-*' \
+    pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/web-*...' \
+ && pnpm exec turbo run build --filter '@d4/web-*' \
  && mkdir -p /mfe \
  && for d in apps/web-*/dist; do n=${d#apps/web-}; cp -r "$d" "/mfe/${n%/dist}"; done
 
