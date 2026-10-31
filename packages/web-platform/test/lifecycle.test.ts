@@ -23,6 +23,8 @@ describe('lifecycleProblems', () => {
     expect(lifecycleProblems(outside, 'hello')).toContain("menu path 'admin/x' is outside hello/");
     const owned = { ...outside, manifest: { ...outside.manifest, paths: ['hello', 'admin'] } };
     expect(lifecycleProblems(owned, 'hello')).toEqual([]);
+    const query = { ...good, manifest: { ...good.manifest, nav: { ...good.manifest.nav, items: [{ ...good.manifest.nav.items[0]!, to: 'hello?tab=x' }] } } };
+    expect(lifecycleProblems(query, 'hello')).toEqual([]);
     expect(lifecycleProblems({ ...good, manifest: { ...good.manifest, paths: ['Bad/x'] } }, 'hello')).toContain('has paths that are not lowercase path segments');
   });
 

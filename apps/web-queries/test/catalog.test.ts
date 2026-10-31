@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { QueryParamDef, RunResult } from '../src/modules/queries/api';
-import { graphFromRows } from '../src/modules/queries/QueryResultView';
+import type { QueryParamDef, RunResult } from '../src/api';
+import { graphFromRows } from '../src/QueryResultView';
 import { toCsv } from '@d4/ui-kit';
 import { hopDistances, paramsFromForm } from '@d4/ui-kit';
 
@@ -98,7 +98,7 @@ describe('hopDistances', () => {
 
 describe('parseTabs', () => {
   it('reads tabs from the URL, ignoring junk and duplicates', async () => {
-    const { parseTabs } = await import('../src/modules/queries/Queries');
+    const { parseTabs } = await import('../src/Queries');
     expect(parseTabs('run:A,edit:B,run:A,bogus:C,review:,review:D')).toEqual([
       { mode: 'run', id: 'A' },
       { mode: 'edit', id: 'B' },

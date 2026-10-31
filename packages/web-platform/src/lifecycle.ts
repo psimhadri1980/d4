@@ -106,7 +106,7 @@ export function lifecycleProblems(mod: unknown, name: string, provided?: Record<
   for (const item of nav?.items ?? []) {
     if (![item.id, item.label, item.icon, item.to].every((v) => typeof v === 'string' && v)) out.push(`menu item '${item.id}' lacks id, label, icon or to`);
     // Paths are relative to the workspace and must stay within the module's own paths.
-    for (const to of [item.to, ...(item.sub ?? []).map((s) => s.to)])
+    for (const to of [item.to, ...(item.sub ?? []).map((s) => s.to)].map((t) => t?.split('?')[0]))
       if (!paths.some((p) => to === p || to?.startsWith(`${p}/`))) out.push(`menu path '${to}' is outside ${paths.map((p) => `${p}/`).join(', ')}`);
   }
   return out;
