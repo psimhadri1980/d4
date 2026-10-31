@@ -9,7 +9,6 @@ services:
       D4_PUBLIC_API_URL: ${D4_PUBLIC_API_URL:?run through deploy/dev-deploy.sh}
       OIDC_ISSUER: ${OIDC_ISSUER:?run through deploy/dev-deploy.sh}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?run through deploy/dev-deploy.sh}
-      D4_WEB_REMOTES: ${D4_WEB_REMOTES:-admin=/mfe/admin/admin.js,hello=/mfe/hello/hello.js}
     depends_on:
       api: { condition: service_healthy }
     mem_limit: 64m

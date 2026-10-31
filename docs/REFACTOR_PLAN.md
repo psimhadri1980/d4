@@ -1,6 +1,6 @@
 # D4 refactor plan: production readiness
 
-**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 approach chosen 2026-10-31 (D64, single-spa); P6 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
+**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 approach chosen 2026-10-31 (D64, single-spa; module registry D65); P6 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
 
 Scope, as requested:
 1. Prune the code base: remove duplication, use well-defined patterns, delete dead code.
@@ -406,7 +406,7 @@ export interface D4Module {
 **P6: extract each module into a lifecycle module (single-spa, D64):** spikes in [p6-module-federation.md](spikes/p6-module-federation.md) and [p6-single-spa.md](spikes/p6-single-spa.md).
 - **Tooling:** `single-spa` in the shell; a plain Vite library build per module (`single-spa-react` for React modules). No Module Federation.
 - **What a module is:** each `apps/web-<name>` builds one ES module, `/mfe/<name>/<name>.js`, exporting `manifest` (id, contract version, menu as data) and the lifecycles `bootstrap`, `mount`, `unmount`. It owns every path under `/w/:ws/<name>` with a router of its own; pages stay lazy chunks. Any framework is allowed; React is the default.
-- **What the shell owns:** `/`, `/callback`, the `/w/:ws` layout and its page slot. It renders at once, then imports every module in `/config.json` in parallel (with a timeout), checks each manifest and registers it with single-spa; menu items appear as manifests arrive. A module that fails to load or mount shows an "unavailable" notice on its paths; the rest keeps working.
+- **What the shell owns:** `/`, `/callback`, the `/w/:ws` layout and its page slot. It renders at once, then imports every enabled module in the tenant's module registry (`GET /v1/web-modules`, D65) in parallel (with a timeout), checks each manifest and registers it with single-spa; menu items appear as manifests arrive. A module that fails to load or mount shows an "unavailable" notice on its paths; the rest keeps working.
 - **What modules get:** a framework-neutral `Platform` object in their props (settings, token, typed client, shared query cache, workspace, navigate). `@d4/web-platform` splits into that core and React bindings (`ModuleRoot`, hooks).
 - **Navigation across modules is by URL only.** Legacy redirects (`catalog/:qid`, `studio/:qid`, `stewardship/:qid`) move into the queries module.
 
@@ -423,7 +423,8 @@ Other packages (`cytoscape`, `@d4/core`, `@d4/metamodel`, icons) are bundled per
 **Independent deployment:**
 - Each module has its own Containerfile and image tag.
 - `dev-deploy.sh web-plan` rebuilds and restarts only that container. Entries and stylesheets are `no-cache`, chunks hashed, so the next page load picks it up.
-- Rollback means redeploying the previous tag.
+- Rollback means redeploying the previous tag, or pointing the registry at the previous entry and version.
+- **Module registry (D65):** admins register, release, turn off and remove modules (`/v1/admin/web-modules`, Admin › Modules). Open pages follow the registry within 30 s without reloading.
 - Local work: `localStorage['d4:module:<name>']` points the shell at a local build of one module. Needed first: an import map for the shell's dev server, and a decision on module hot reload (`vite-plugin-single-spa` or watch builds).
 
 **Tests:**

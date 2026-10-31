@@ -2680,6 +2680,98 @@
           "version",
           "status"
         ]
+      },
+      "WebModuleList": {
+        "type": "object",
+        "properties": {
+          "modules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "entry": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "contract": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "title",
+                "entry",
+                "version",
+                "contract"
+              ]
+            }
+          }
+        },
+        "required": [
+          "modules"
+        ]
+      },
+      "WebModule": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner": {
+            "type": "string",
+            "nullable": true
+          },
+          "entry": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "contract": {
+            "type": "number"
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "react",
+              "vanilla",
+              "other"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "description",
+          "owner",
+          "entry",
+          "version",
+          "contract",
+          "framework",
+          "enabled",
+          "updatedAt"
+        ]
       }
     },
     "parameters": {}
@@ -11556,6 +11648,333 @@
           },
           "422": {
             "description": "Metamodel, lifecycle or rule violation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/web-modules": {
+      "get": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Web modules"
+        ],
+        "summary": "Enabled web modules the shell loads (ETag; 304 when unchanged)",
+        "responses": {
+          "200": {
+            "description": "Enabled modules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebModuleList"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged"
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/web-modules": {
+      "get": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Web modules"
+        ],
+        "summary": "Every registered web module (admin)",
+        "responses": {
+          "200": {
+            "description": "Modules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WebModule"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/web-modules/{name}": {
+      "put": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Web modules"
+        ],
+        "summary": "Register a web module or record a new release (admin)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "owner": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "entry": {
+                    "type": "string",
+                    "description": "Same-origin path under /mfe/<name>/"
+                  },
+                  "version": {
+                    "type": "string"
+                  },
+                  "contract": {
+                    "type": "number"
+                  },
+                  "framework": {
+                    "type": "string",
+                    "enum": [
+                      "react",
+                      "vanilla",
+                      "other"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "title",
+                  "entry",
+                  "version",
+                  "contract",
+                  "framework"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebModule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Web modules"
+        ],
+        "summary": "Remove a web module (admin)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
             "content": {
               "application/json": {
                 "schema": {

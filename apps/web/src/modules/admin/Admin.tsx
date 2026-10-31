@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
+import { Modules } from './Modules';
 import { Usage } from './Usage';
 import { Webhooks } from './Webhooks';
 import { keys, ROLES } from '@d4/web-platform';
@@ -34,6 +35,12 @@ export function AdminPeoplePage() {
 export const AdminWebhooksPage = () => (
   <AdminGate title="Webhooks">
     <Webhooks />
+  </AdminGate>
+);
+
+export const AdminModulesPage = () => (
+  <AdminGate title="Modules">
+    <Modules />
   </AdminGate>
 );
 

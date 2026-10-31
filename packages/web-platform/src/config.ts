@@ -7,8 +7,6 @@ export interface RuntimeConfig {
   apiUrl: string;
   oidcAuthority: string;
   oidcClientId: string;
-  /** Lifecycle modules (single-spa applications, P6 spike) the shell imports at start-up: `entry` is an ES module URL. Absent = none. */
-  remotes?: { name: string; entry: string }[];
 }
 
 export const config = {} as RuntimeConfig;

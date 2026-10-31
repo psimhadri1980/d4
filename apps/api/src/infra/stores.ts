@@ -12,6 +12,7 @@ import {
   UsageStore,
   UserStore,
   WebhookStore,
+  WebModuleStore,
   WorkspaceStore,
   type DbOrTx,
 } from '@d4/db';
@@ -34,6 +35,7 @@ const STORES: (new (db: DbOrTx) => object)[] = [
   UsageStore,
   UserStore,
   WebhookStore,
+  WebModuleStore,
   WorkspaceStore,
 ];
 

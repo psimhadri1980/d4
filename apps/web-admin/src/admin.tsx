@@ -9,6 +9,7 @@ import '../../web/src/modules/admin/admin.css';
 const AdminWorkspacesPage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminWorkspacesPage');
 const AdminPeoplePage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminPeoplePage');
 const AdminWebhooksPage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminWebhooksPage');
+const AdminModulesPage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminModulesPage');
 const AdminUsagePage = lazyPage(() => import('../../web/src/modules/admin/Admin'), 'AdminUsagePage');
 
 /** Tenant administration as a lifecycle module: workspaces, people and roles, webhooks, usage. */
@@ -30,6 +31,7 @@ export const manifest: ModuleManifest = {
           { label: 'Workspaces', to: 'admin/workspaces' },
           { label: 'People and roles', to: 'admin/people' },
           { label: 'Webhooks', to: 'admin/webhooks' },
+          { label: 'Modules', to: 'admin/modules' },
           { label: 'Usage', to: 'admin/usage' },
         ],
       },
@@ -47,6 +49,7 @@ function Root({ platform }: LifecycleProps) {
             <Route path="workspaces" element={<AdminWorkspacesPage />} />
             <Route path="people" element={<AdminPeoplePage />} />
             <Route path="webhooks" element={<AdminWebhooksPage />} />
+            <Route path="modules" element={<AdminModulesPage />} />
             <Route path="usage" element={<AdminUsagePage />} />
           </Route>
         </Routes>
@@ -67,8 +70,8 @@ const react = singleSpaReact({
   ),
 });
 
-// The stylesheet sits next to this file (vite.config.ts).
-const stylesheet = new URL(/* @vite-ignore */ 'admin.css', import.meta.url).href;
+// The stylesheet sits next to this file (vite.config.ts); the release query (`?v=`) keeps them in step.
+const stylesheet = new URL(/* @vite-ignore */ `admin.css${new URL(import.meta.url).search}`, import.meta.url).href;
 
 export const bootstrap = [() => loadStylesheet(stylesheet), react.bootstrap];
 export const { mount, unmount } = react;

@@ -2,6 +2,8 @@ import { api, d4, type Schemas } from '@d4/web-platform';
 
 export type AdminWorkspace = Schemas['AdminWorkspace'];
 type Member = Schemas['Member'];
+export type WebModule = Schemas['WebModule'];
+type WebModuleInput = Omit<WebModule, 'name' | 'updatedAt'>;
 /** A webhook; `secret` is present only right after creating it or rotating the secret. */
 export type Webhook = Schemas['Webhook'] & { secret?: string };
 type WebhookInput = { name: string; url: string; workspace: string | null; eventTypes: string[] };
@@ -33,6 +35,9 @@ export const adminApi = {
       body: { principalType: m.principalType, principalId: m.principalId, role: m.role } as never,
     }),
   usage: () => d4().get('/v1/admin/usage'),
+  webModules: () => d4().get('/v1/admin/web-modules'),
+  putWebModule: (name: string, body: WebModuleInput) => d4().put('/v1/admin/web-modules/{name}', { path: { name }, body }),
+  removeWebModule: (name: string) => d4().delete('/v1/admin/web-modules/{name}', { path: { name } }),
   webhooks: () => d4().get('/v1/admin/webhooks'),
   eventTypes: () => d4().get('/v1/admin/webhooks/event-types'),
   createWebhook: (body: WebhookInput) => d4().post('/v1/admin/webhooks', { body }),

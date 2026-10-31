@@ -11,10 +11,11 @@ import { InfraModule } from './infra/infra.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ModelModule } from './model/model.module';
+import { WebModulesModule } from './web-modules/web-modules.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 
 @Module({
-  imports: [LoggingModule, InfraModule, AuthModule, WorkspacesModule, ModelModule, CatalogModule, JobsModule, IntegrationsModule, AdminModule],
+  imports: [LoggingModule, InfraModule, AuthModule, WorkspacesModule, ModelModule, CatalogModule, JobsModule, IntegrationsModule, AdminModule, WebModulesModule],
   controllers: [HealthController, OpenApiController],
   providers: [{ provide: APP_FILTER, useClass: ApiExceptionFilter }],
 })

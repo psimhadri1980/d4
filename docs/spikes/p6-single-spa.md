@@ -80,6 +80,21 @@ object, a router per module), not in tooling.
 - The loader is a function of the URL (`import()` today). Module Federation could serve as a
   different loader behind the same contract if ever needed; nothing above depends on it.
 
+## Module registry (added after the spike, D65)
+
+- Postgres `web_modules` per tenant (migration 0013), `WebModuleStore`, seeded with `admin` and
+  `hello` for the local tenant.
+- API: `GET /v1/web-modules` (any member; enabled modules; ETag and 304), and for admins
+  `GET /v1/admin/web-modules`, `PUT /v1/admin/web-modules/{name}` (register or new release),
+  `DELETE`. Entries must be same-origin paths under `/mfe/<name>/`, without `.`/`..` segments;
+  the contract must be one the shell supports.
+- Admin › Modules lists modules with their metadata and lets an admin register, release, turn
+  off and remove them.
+- Hot loading (`apps/web/src/lifecycle.ts`): the shell reads the registry once signed in, then every
+  30 s and when the tab comes back into view. New modules load; a changed release is unmounted,
+  re-imported as `<entry>?v=<version>` and mounted again; removed or turned-off modules unmount and
+  leave the menu. `/config.json` no longer lists modules.
+
 ## Not covered
 
 - Shell in dev mode with modules (finding 5), contract tests, resilience cases in the e2e suite,
