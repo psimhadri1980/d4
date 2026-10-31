@@ -5,6 +5,8 @@ source "$(dirname "$0")/lib/common.sh"
 usage() {
   cat >&2 <<'U'
 usage: deploy/test.sh <suite> [--local] [args]
+  affected [--base ref] build, typecheck, lint and test only the packages changed since ref
+                        (default HEAD: uncommitted changes) and the packages that depend on them
   static                typecheck, lint and knip
   unit [--filter pkg]   unit tests only (integration suites skip without their services)
   integration [--filter pkg]   all tests, with Postgres, Neo4j, Redis and S3
@@ -23,10 +25,16 @@ U
 suite="${1:-}"; shift || true
 # unit, integration, static and web run on local Node when the pinned version is available
 # (seconds, no image build); --container forces the test image. `all` always uses containers.
-local_node=auto; podman_host=0; args=()
-for a in "$@"; do
-  case "$a" in --local) local_node=1 ;; --container) local_node=0 ;; --podman) podman_host=1 ;; *) args+=("$a") ;; esac
+local_node=auto; podman_host=0; base=HEAD; args=()
+while (( $# )); do
+  case "$1" in
+    --local) local_node=1 ;; --container) local_node=0 ;; --podman) podman_host=1 ;;
+    --base) base="$2"; shift ;;
+    *) args+=("$1") ;;
+  esac
+  shift
 done
+[[ "$suite" == affected && $local_node == 0 ]] && die "affected compares with git, so it runs on local Node only"
 if [[ $local_node == auto ]]; then
   [[ "$suite" != all ]] && have_local_node && local_node=1 || local_node=0
 fi
@@ -60,6 +68,10 @@ e2e() {
 }
 
 case "$suite" in
+  affected)
+    # turbo compares files with $base (plus uncommitted ones); `...` adds the dependents.
+    say "Affected since $base: build, typecheck, lint and test"
+    run 1 turbo run build typecheck lint test --concurrency=2 "--filter=...[$base]" ;;
   static)      run 0 turbo run typecheck lint --concurrency=2 && run 0 knip ;;
   unit)        run 0 turbo run test --concurrency=2 $(filter) ;;
   integration) run 1 turbo run test --concurrency=2 $(filter) ;;
