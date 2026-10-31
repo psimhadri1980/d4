@@ -1,6 +1,6 @@
 # D4 refactor plan: production readiness
 
-**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
+**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
 
 Scope, as requested:
 1. Prune the code base: remove duplication, use well-defined patterns, delete dead code.
@@ -585,3 +585,13 @@ Deviations from the P3 design: `/config.json` stays in the web image (served thr
 **After P4 (backend pruning):** one commit per item (11, 10, 9, 2, 6, 5, 4, 7, 8, 3 in two parts); `test.sh all` passed before each code commit (static clean, 351 tests, 72 browser tests); the generated OpenAPI document is unchanged. New packages `@d4/runtime` and `@d4/infra`, new app `apps/ops` (image 229 MB).
 
 Deviations from the P4 design: `@Workspace(access)` covers routes whose access is fixed; handlers whose access depends on the request (dry runs) and helpers that also check ownership still call `WorkspaceAccess.resolve`. Controllers' small inline schemas (admin, webhooks, connectors, schedules, backups, catalog) stay in their controllers; only the model's shared schemas moved to `model/model.schemas.ts`. Access is now checked before the query string is validated (a request that is both forbidden and malformed gets 403, not 400).
+
+**After P5 (web modular monolith):** one commit per step (6, 3, 1, 2, 4, 5); `test.sh all` passed before each code commit (static clean, 351+ tests, 72 browser tests). New package `@d4/web-platform`; `@d4/ui-kit` holds the shared components and the base styles; the web app is a shell plus six modules (`apps/web/src/modules/`), each with a `module.tsx` descriptor. `api.ts` and the Vite CommonJS workarounds are gone, and ESLint rejects a module importing another module or the shell. The 68 manual screenshots match the pre-P5 build apart from run-to-run data, and the served CSS keeps the old rule order.
+
+Deviations from the P5 design:
+- ESM builds are added next to the existing `tsc` CommonJS builds (tsup emits `dist/*.mjs`), exported under the `browser` condition rather than `import`, so Node and vitest keep loading one (CommonJS) copy of each package. `@d4/metamodel` has a browser entry without its file loaders.
+- The base CSS is two files, `@d4/ui-kit/base.css` (tokens, element defaults) and `app.css` (controls, panes, lists, forms, shared components), because the shell's rules sat between them in the old stylesheet; a rule went to `app.css` when another module or a ui-kit component uses its classes, not by line number.
+- The boundary rule is ESLint's built-in `no-restricted-imports` (any `..` import from a module), not `import/no-restricted-paths`: no new plugin.
+- Using the typed client showed where the OpenAPI document under-described the API (catalog versions, the execution log, `Job.scheduleId`, the `archived` and `status` filters); those are documented now. Responses are unchanged.
+- `AdminGate` and the admin workspace list moved down to `ui-kit` and the platform, since the data module's backups and connectors screens use them.
+- `test.sh static` now runs two turbo tasks at a time (it was killed for memory on a cold cache).
