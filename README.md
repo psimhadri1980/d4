@@ -14,6 +14,8 @@ apps/worker           Background job worker: exports and spreadsheet imports fro
 apps/renderer         Renders roadmaps and graphs to PNG/PDF with headless Chromium (render queue)
 apps/web              React app: explorer, queries, roadmap, compare, matrices, decisions, import, jobs
 apps/e2e              Playwright browser tests against the running stack
+apps/ops              d4-ops: migrations and seed, Neo4j schema, tenants, quotas (runs the init jobs)
+apps/gateway          nginx: the one browser-facing origin (web /, API /api, Keycloak /auth)
 packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
 packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
 packages/cypher       Cypher utilities: schema DDL generated from the metamodel
@@ -21,24 +23,28 @@ packages/db           Postgres control plane: Drizzle schema, migrations, stores
 packages/graph        Neo4j adapter: ModelRepository and read queries (list/search, neighbourhood)
 packages/codecs       Model-as-code documents, CSV/Excel import, export formats (CSV, Excel, Mermaid, ArchiMate, Cypher)
 packages/render       SVG pictures: roadmap Gantt and graph neighbourhood (shared with the web chart)
-packages/jobs         Job queue, S3 artefacts, tenant graph routing and the work shared by api and worker
+packages/infra        Adapters: job queue, S3 artefacts, mailer, tenant graph routing and provisioning, usage and quotas
+packages/jobs         Job handlers shared by api, worker and renderer: exports, imports, renders, reports, backups, syncs, webhooks
+packages/runtime      Process plumbing for every service: JSON logs (pino), tracing, the queue service loop
 packages/cli          `d4` command line: validate, import, export, workspaces
 samples/              Example models, e.g. ubs-banking.yaml (illustrative)
-deploy/               docker-compose for local infra, Keycloak realm, Postgres bootstrap
+deploy/               compose files, env files, dev-infra/dev-deploy/dev/test scripts, Keycloak realm
 docs/adr/             Architecture decision records
 ```
 
-## Local stack (Docker only, no Node needed)
+## Local stack (Podman only, no Node needed)
 
-Prerequisite: Docker Desktop running. On an 8 GB machine, give it at least 4 GB of memory under Settings → Resources.
+Prerequisite: rootless Podman 5 with `podman compose`, and `systemctl --user enable --now podman.socket`. `deploy/dev-infra.sh doctor` checks the setup. Settings are in `deploy/env/`.
 
 ```bash
-deploy/dev.sh up        # build the API image, start the core stack, apply the Neo4j schema, create buckets
-deploy/dev.sh smoke     # health checks + Keycloak login + /v1/me
-deploy/dev.sh test      # unit + integration tests inside a container
-deploy/dev.sh e2e       # Playwright browser tests against the running stack (report: apps/e2e/results/report)
-deploy/dev.sh up-obs    # also start OTel collector, Tempo, Prometheus, Grafana
-deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volumes
+deploy/dev-infra.sh up            # data stores, Keycloak, gateway, S3/SMTP mocks; migrations and Neo4j schema
+deploy/dev-deploy.sh              # build and start api, worker, renderer, web (or name one: dev-deploy.sh api)
+deploy/test.sh smoke              # health checks + Keycloak login + /v1/me
+deploy/test.sh static             # typecheck, lint, knip
+deploy/test.sh integration        # unit + integration tests inside a container
+deploy/test.sh e2e                # Playwright browser tests against the running stack (report: apps/e2e/results/report)
+deploy/dev-infra.sh up --obs      # also start OTel collector, Tempo, Prometheus, Grafana
+deploy/dev-infra.sh status | logs <svc> | down | reset   # reset also deletes all volumes
 ```
 
 | Component | Purpose | Memory cap |
@@ -46,12 +52,13 @@ deploy/dev.sh status | logs <svc> | down | reset   # reset also deletes all volu
 | neo4j 5.26 Community + APOC + GDS | Tenant graph (`t_local`) | 1.8 GB |
 | postgres 16 | Control plane (tenants, events) | 256 MB |
 | redis 7 | Queue / cache | 128 MB |
-| s3 (SeaweedFS) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
-| keycloak 25 | OIDC realm `d4`, roles, dev users | 768 MB |
-| db-migrate, neo4j-schema, s3-init | One-shot jobs: Postgres migrations + local seed, Neo4j schema, S3 buckets | — |
-| api | D4 API on :3000 | 384 MB |
+| s3 (mocks/s3, file-backed) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
+| keycloak 25 | OIDC realm `d4`, roles, dev users (at `/auth`) | 768 MB |
+| gateway (nginx) | The browser-facing port: http://localhost:5173 (containers or local `dev.sh` apps) and http://d4.localhost:5173 (containers only), each with web `/`, API `/api`, Keycloak `/auth`, inbox `/mail/` | 64 MB |
+| db-migrate, neo4j-schema | One-shot jobs (ops image): Postgres migrations + local seed, Neo4j schema | — |
+| api | D4 API at http://localhost:5173/api | 384 MB |
 | web | D4 Explorer on http://localhost:5173 (nginx, static build) | 64 MB |
-| otel-collector, tempo, prometheus, grafana (:3001) | Observability profile (optional) | ~1 GB |
+| otel-collector, tempo, prometheus, grafana (`/grafana/`) | Observability profile (optional) | ~1 GB |
 
 ## Web app
 
@@ -74,7 +81,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/dev.sh e2e` runs the Playwright suite in Chromium against the live stack:
+`deploy/test.sh e2e` runs the Playwright suite in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
@@ -92,18 +99,18 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 - the Roadmap Studio: scope, lanes, zoom, conflicts, item details, reload and Mermaid export
 - the Query Catalog end to end: viewer runs a system query; author drafts (checks shown), fixes and submits; steward publishes and grants; viewer runs the new query; steward deprecates and retires it
 
-Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `deploy/dev.sh e2e --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
+Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `deploy/test.sh e2e --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
 
-The stack needs about 3.3 GB, and the browser tests add about 1 GB. On a 4 GB Docker VM it fits, but only just; 6 GB under Docker Desktop → Settings → Resources is more comfortable.
+The stack needs about 3.3 GB, and the browser tests add about 1 GB. Rootless Podman runs containers directly on the host, so keep about 4–5 GB free.
 
 ## API
 
 | Interface | Where | Use |
 |---|---|---|
-| REST | `/v1/...`, OpenAPI at http://localhost:3000/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap; `asOf` and `scenario` on reads; `GET /v1/workspaces/{ws}/diff?fromAsOf=&fromScenario=&toAsOf=&toScenario=`; `GET /v1/workspaces/{ws}/matrix/{crud|capability-application|data-store-roles|lifecycle}` and `/decisions` |
-| GraphQL | `POST /graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
+| REST | `/v1/...`, OpenAPI at http://localhost:5173/api/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap; `asOf` and `scenario` on reads; `GET /v1/workspaces/{ws}/diff?fromAsOf=&fromScenario=&toAsOf=&toScenario=`; `GET /v1/workspaces/{ws}/matrix/{crud|capability-application|data-store-roles|lifecycle}` and `/decisions` |
+| GraphQL | `POST /api/graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
 
-All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/dev.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
+All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/test.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
 
 ## Query Catalog
 
@@ -139,13 +146,12 @@ Export formats: `yaml`, `json`, `elements-csv`, `relationships-csv`, `xlsx` (web
 
 ## Developing with Node locally (optional)
 
-For the web app, the quickest loop is `deploy/dev.sh web-local` (Vite with hot reload on :5173, using the API and Keycloak in Docker), then `web-check` and `e2e-local`; after committing, `deploy/dev.sh web-deploy` updates the container. See the developer guide, §3.
+For the web app, the quickest loop is `deploy/dev.sh web` (Vite with hot reload behind the gateway, still at http://localhost:5173; the container build stays at http://d4.localhost:5173), then `deploy/test.sh web --local` and `test.sh e2e`; after committing, `deploy/dev-deploy.sh web` updates the container. See the developer guide, §3.
 
-For everything else: Node.js ≥ 20.11 and pnpm 9 (`corepack enable`, or `npx pnpm@9.12.0` on Node versions without corepack).
+For everything else: Node.js 24 and pnpm 9 (`corepack enable`). `deploy/dev.sh api|worker|renderer` run the services on local Node (the API behind the gateway) with the settings from `deploy/env/host.env`; `deploy/test.sh <suite> --local` runs tests there.
 
 ```bash
-cp .env.example .env && pnpm install && pnpm build && pnpm test
-pnpm --filter @d4/api dev    # with the data stores from deploy/dev.sh up
+pnpm install && pnpm build && deploy/test.sh unit --local
 ```
 
 Local consoles:
@@ -153,8 +159,9 @@ Local consoles:
 | Service | URL |
 |---|---|
 | Neo4j Browser | http://localhost:7474 (neo4j / d4-local-dev) |
-| Keycloak | http://localhost:8080 (admin / d4-local-dev) |
-| S3 API (SeaweedFS) | http://localhost:8333 (access key d4 / d4-local-dev) |
-| Grafana | http://localhost:3001 (admin / d4-local-dev) |
+| Keycloak | http://localhost:5173/auth (admin / d4-local-dev) |
+| Mail inbox (mocks/smtp) | http://localhost:5173/mail/ |
+| S3 API (mocks/s3) | http://localhost:8333 (access key d4 / d4-local-dev) |
+| Grafana | http://localhost:5173/grafana/ (admin / d4-local-dev; `up --obs`) |
 
 All of these are local development credentials only.

@@ -1,12 +1,10 @@
-import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { roadmapFromGraph, type LaneKind, type RoadmapView } from '@d4/core';
 import type { GraphQueries } from '@d4/graph';
-import type { Principal } from '../auth/identity';
-import { CurrentPrincipal } from '../auth/principal.decorator';
-import { parse } from '../http/errors';
-import { RoadmapQuery } from '../http/schemas';
-import { ModelFactory } from './model.factory';
-import { WorkspaceAccess } from './workspace-access.service';
+import { RoadmapQuery } from './model.schemas';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { z } from '../http/zod';
+import { ValidQuery } from '../http/zod.pipe';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -23,15 +21,8 @@ export async function roadmapFor(
 
 @Controller('v1/workspaces/:ws/roadmap')
 export class RoadmapController {
-  constructor(
-    @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
-    @Inject(ModelFactory) private readonly models: ModelFactory,
-  ) {}
-
   @Get()
-  async get(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
-    const q = parse(RoadmapQuery, query);
-    const scope = await this.access.resolve(p, ws, 'read');
-    return roadmapFor(this.models.for(scope), scope.workspaceId, q.scope, { lanes: q.lanes, today: q.today });
+  async get(@Workspace('read') workspace: OpenWorkspace, @ValidQuery(RoadmapQuery) q: z.output<typeof RoadmapQuery>) {
+    return roadmapFor(workspace, workspace.scope.workspaceId, q.scope, { lanes: q.lanes, today: q.today });
   }
 }

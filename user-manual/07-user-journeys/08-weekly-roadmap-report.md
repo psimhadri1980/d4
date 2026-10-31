@@ -7,7 +7,7 @@
 
    ![Schedule form](../images/schedule-form.png)
 3. Name it "Weekly roadmap", **Repeat: Every week**, **On: Monday**, **At: 06:00 UTC**, add recipients' email addresses, keep "Use the run date" ticked and press **Schedule**.
-4. Open **Reports**: see the next run. Press **Run now** to test; the file shows up on **Jobs** and in your inbox (locally in Mailpit).
+4. Open **Reports**: see the next run. Press **Run now** to test; the file shows up on **Jobs** and in your inbox (locally in the mail catcher at <http://localhost:8025>).
 
    ![Reports](../images/reports.png)
 5. To stop for a while, **Pause**; to stop for good, **Delete**.

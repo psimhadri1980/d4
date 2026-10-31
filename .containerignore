@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.turbo
+.git
+.env
+.claude
+**/.DS_Store
+deploy/data
+deploy/env/local.env
+**/results

@@ -5,8 +5,8 @@ import { expect, test } from '@playwright/test';
 import { openNav, api, defaultWorkspaceId, RUN } from './helpers';
 
 /**
- * A fake CMDB in the test process. As for the webhook test, the worker reaches it at this
- * container's address in Docker, or through the published port with `e2e-local` (E2E_HOOK_URL).
+ * A fake CMDB in the test process. As for the webhook test, the worker reaches it where
+ * E2E_HOOK_URL says (deploy/compose/tools.yaml: the host, from the worker container).
  */
 let records: unknown[] = [];
 let server: Server;

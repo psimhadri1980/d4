@@ -40,7 +40,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
     .configureOutput({ writeOut: io.out, writeErr: io.err });
 
   const api = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
-    const base = (io.env['D4_API_URL'] ?? 'http://localhost:3000').replace(/\/$/, '');
+    const base = (io.env['D4_API_URL'] ?? 'http://localhost:5173/api').replace(/\/$/, '');
     const token = io.env['D4_TOKEN'];
     if (!token) throw new ApiError('D4_TOKEN is not set (deploy/dev.sh token prints one for local dev)');
     const res = await io.fetch(`${base}${path}`, {
@@ -57,7 +57,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
 
   /** For file exports: the body as text. */
   const apiText = async (path: string): Promise<string> => {
-    const base = (io.env['D4_API_URL'] ?? 'http://localhost:3000').replace(/\/$/, '');
+    const base = (io.env['D4_API_URL'] ?? 'http://localhost:5173/api').replace(/\/$/, '');
     const token = io.env['D4_TOKEN'];
     if (!token) throw new ApiError('D4_TOKEN is not set (deploy/dev.sh token prints one for local dev)');
     const res = await io.fetch(`${base}${path}`, { headers: { authorization: `Bearer ${token}` } });

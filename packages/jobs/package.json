@@ -2,7 +2,7 @@
   "name": "@d4/jobs",
   "version": "0.0.1",
   "private": true,
-  "description": "Background jobs: queue, artefact store, tenant graph routing and the export/import work shared by the API and the worker.",
+  "description": "Background job handlers (exports, imports, renders, reports, backups, syncs, webhooks) shared by the API and the worker; adapters are in @d4/infra.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -15,23 +15,20 @@
     "lint": "eslint src test"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.654.0",
     "@d4/codecs": "workspace:*",
     "@d4/connectors": "workspace:*",
     "@d4/core": "workspace:*",
     "@d4/cypher": "workspace:*",
     "@d4/db": "workspace:*",
     "@d4/graph": "workspace:*",
+    "@d4/infra": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "@d4/render": "workspace:*",
-    "bullmq": "^5.13.2",
-    "neo4j-driver": "^5.24.0",
-    "nodemailer": "^6.9.15",
-    "zod": "^3.23.8"
+    "neo4j-driver": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "pg": "^8.12.0",
-    "@types/pg": "^8.11.6",
-    "@types/nodemailer": "^6.4.16"
+    "pg": "catalog:",
+    "@types/pg": "catalog:"
   }
 }

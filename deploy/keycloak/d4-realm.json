@@ -33,10 +33,12 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": [
-        "http://localhost:5173/*"
+        "${D4_PUBLIC_URL}/*",
+        "${D4_PODMAN_URL}/*"
       ],
       "webOrigins": [
-        "http://localhost:5173"
+        "${D4_PUBLIC_URL}",
+        "${D4_PODMAN_URL}"
       ],
       "protocolMappers": [
         {
@@ -61,7 +63,7 @@
         }
       ],
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:5173/*",
+        "post.logout.redirect.uris": "${D4_PUBLIC_URL}/*##${D4_PODMAN_URL}/*",
         "pkce.code.challenge.method": "S256"
       }
     }
@@ -77,7 +79,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "d4-local-dev",
+          "value": "${DEV_USER_PASSWORD}",
           "temporary": false
         }
       ],
@@ -97,7 +99,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "d4-local-dev",
+          "value": "${DEV_USER_PASSWORD}",
           "temporary": false
         }
       ],
@@ -115,7 +117,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "d4-local-dev",
+          "value": "${DEV_USER_PASSWORD}",
           "temporary": false
         }
       ],
@@ -134,7 +136,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "d4-local-dev",
+          "value": "${DEV_USER_PASSWORD}",
           "temporary": false
         }
       ],

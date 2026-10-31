@@ -72,7 +72,7 @@ This manual is for **people who use D4**, not for people who change its code (se
 Screenshots live in [images/](images/) and are captured from the running stack by [apps/e2e/screenshots/manual.shots.ts](../apps/e2e/screenshots/manual.shots.ts):
 
 ```bash
-deploy/dev.sh up && deploy/dev.sh sample
-deploy/dev.sh e2e -c screenshots.config.ts      # writes apps/e2e/results/shots/*.png
+deploy/dev-infra.sh up && deploy/dev-deploy.sh && deploy/dev.sh sample
+deploy/test.sh e2e -c screenshots.config.ts      # writes apps/e2e/results/shots/*.png
 cp apps/e2e/results/shots/*.png user-manual/images/
 ```

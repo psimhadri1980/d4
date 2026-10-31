@@ -3,6 +3,7 @@ import {
   IconDatabaseExport,
   IconDatabaseSearch,
   IconFileImport,
+  IconFlask,
   IconGavel,
   IconGitPullRequest,
   IconHierarchy3,
@@ -14,132 +15,54 @@ import {
   IconTimeline,
   type Icon,
 } from '@tabler/icons-react';
+import type { Access, ManifestItem, NavContribution, NavGroup, NavItem, NavSub } from '@d4/web-platform';
+import { moduleStates } from './lifecycle';
 
-/** Who sees a menu item. Hidden items are not rendered at all (the API still enforces access). */
-export interface Access {
-  admin: boolean;
-  author: boolean;
-  steward: boolean;
+export type { NavGroup, NavItem };
+
+/** The whole navigation, from every module's contribution: the sidebar, breadcrumb and search read it. */
+function buildNav(contributions: NavContribution[]): NavGroup[] {
+  const groups = new Map<string, { order: number; items: NavItem[] }>();
+  for (const nav of contributions) {
+    const g = groups.get(nav.group) ?? { order: nav.order, items: [] };
+    g.items.push(...nav.items);
+    groups.set(nav.group, g);
+  }
+  return [...groups.entries()]
+    .sort(([, a], [, b]) => a.order - b.order)
+    // A stable sort: items without an order keep the order their module lists them in.
+    .map(([label, g]) => ({ label, items: [...g.items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) }));
 }
 
-export interface NavSub {
-  label: string;
-  /** Path under the workspace (no leading slash), with an optional query string. */
-  to: string;
-  visible?: (a: Access) => boolean;
-}
+/** Icons lifecycle modules may name in their manifest. */
+const ICONS: Record<string, Icon> = {
+  'arrows-diff': IconArrowsDiff,
+  'database-export': IconDatabaseExport,
+  'database-search': IconDatabaseSearch,
+  'file-import': IconFileImport,
+  flask: IconFlask,
+  gavel: IconGavel,
+  'git-pull-request': IconGitPullRequest,
+  hierarchy: IconHierarchy3,
+  'list-check': IconListCheck,
+  'plug-connected': IconPlugConnected,
+  report: IconReport,
+  settings: IconSettings,
+  table: IconTable,
+  timeline: IconTimeline,
+};
 
-export interface NavItem {
-  id: string;
-  label: string;
-  icon: Icon;
-  to: string;
-  /** Path prefixes (under the workspace) that count as being in this item. */
-  match: string[];
-  sub?: NavSub[];
-  visible?: (a: Access) => boolean;
-}
+const fromManifest = (i: ManifestItem): NavItem => ({
+  ...i,
+  icon: ICONS[i.icon] ?? IconFlask,
+  visible: i.requires && ((a) => a[i.requires!]),
+  sub: i.sub?.map((s) => ({ ...s, visible: s.requires && ((a) => a[s.requires!]) })),
+});
 
-export interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
-const admins = (a: Access) => a.admin;
-
-/** The whole navigation: groups, menus and sub-items. The sidebar, breadcrumb and search read it. */
-export const NAV: NavGroup[] = [
-  {
-    label: 'Explore',
-    items: [
-      // Explorer is the workspace home and covers element pages and the element editor.
-      { id: 'explorer', label: 'Explorer', icon: IconHierarchy3, to: '', match: ['', 'e/', 'new'] },
-      {
-        id: 'queries',
-        label: 'Queries',
-        icon: IconDatabaseSearch,
-        to: 'queries',
-        match: ['queries', 'catalog', 'studio', 'stewardship'],
-        sub: [
-          { label: 'Catalog', to: 'queries?section=catalog' },
-          { label: 'Query studio', to: 'queries?section=studio', visible: (a) => a.author },
-          { label: 'Stewardship', to: 'queries?section=stewardship', visible: (a) => a.steward },
-        ],
-      },
-      {
-        id: 'matrices',
-        label: 'Matrices',
-        icon: IconTable,
-        to: 'matrices',
-        match: ['matrices'],
-        sub: [
-          { label: 'CRUD-I', to: 'matrices' },
-          { label: 'Capability × application', to: 'matrices?kind=capability-application' },
-          { label: 'Data-store roles', to: 'matrices?kind=data-store-roles' },
-          { label: 'Lifecycle heat-map', to: 'matrices?kind=lifecycle' },
-        ],
-      },
-      { id: 'compare', label: 'Compare', icon: IconArrowsDiff, to: 'compare', match: ['compare'] },
-    ],
-  },
-  {
-    label: 'Plan and govern',
-    items: [
-      { id: 'roadmap', label: 'Roadmap', icon: IconTimeline, to: 'roadmap', match: ['roadmap'] },
-      { id: 'decisions', label: 'Decisions', icon: IconGavel, to: 'decisions', match: ['decisions'] },
-      {
-        id: 'proposals',
-        label: 'Proposals',
-        icon: IconGitPullRequest,
-        to: 'proposals',
-        match: ['proposals'],
-        sub: [
-          { label: 'Open', to: 'proposals?show=open' },
-          { label: 'Waiting for review', to: 'proposals?show=review' },
-          { label: 'Closed', to: 'proposals?show=closed' },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'Data management',
-    items: [
-      { id: 'import', label: 'Import', icon: IconFileImport, to: 'import', match: ['import'] },
-      { id: 'connectors', label: 'Connectors', icon: IconPlugConnected, to: 'connectors', match: ['connectors'], visible: admins },
-      { id: 'backups', label: 'Backups', icon: IconDatabaseExport, to: 'backups', match: ['backups'], visible: admins },
-    ],
-  },
-  {
-    label: 'Reporting',
-    items: [
-      { id: 'reports', label: 'Reports', icon: IconReport, to: 'reports', match: ['reports'] },
-      { id: 'jobs', label: 'Jobs', icon: IconListCheck, to: 'jobs', match: ['jobs'] },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      {
-        id: 'admin',
-        label: 'Admin',
-        icon: IconSettings,
-        to: 'admin/workspaces',
-        match: ['admin'],
-        visible: admins,
-        sub: [
-          { label: 'Workspaces', to: 'admin/workspaces' },
-          { label: 'People and roles', to: 'admin/people' },
-          { label: 'Webhooks', to: 'admin/webhooks' },
-          { label: 'Usage', to: 'admin/usage' },
-        ],
-      },
-    ],
-  },
-];
-
-/** The navigation as this user may see it. */
+/** The navigation as this user may see it: every lifecycle module loaded so far. */
 export function visibleNav(a: Access): NavGroup[] {
-  return NAV.map((g) => ({
+  const loaded = [...moduleStates().values()].flatMap((s) => (s.status === 'ready' ? [{ ...s.manifest.nav, items: s.manifest.nav.items.map(fromManifest) }] : []));
+  return buildNav(loaded).map((g) => ({
     ...g,
     items: g.items.filter((i) => !i.visible || i.visible(a)).map((i) => ({ ...i, ...(i.sub && { sub: i.sub.filter((s) => !s.visible || s.visible(a)) }) })),
   })).filter((g) => g.items.length);

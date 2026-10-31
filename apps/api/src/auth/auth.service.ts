@@ -2,7 +2,6 @@ import { ForbiddenException, Inject, Injectable, UnauthorizedException } from '@
 import { jwtVerify, type JWTPayload, type JWTVerifyGetKey } from 'jose';
 import { RoleStore, TenantStore, UserStore } from '@d4/db';
 import { APP_CONFIG, type AppConfig } from '../config';
-import { Database } from '../infra/database.service';
 import { JWKS, principalFromClaims, type Principal, type Role } from './identity';
 
 const CACHE_TTL_MS = 60_000;
@@ -17,9 +16,11 @@ export class AuthService {
   private readonly cache = new Map<string, { principal: Principal; expires: number }>();
 
   constructor(
+    @Inject(RoleStore) private readonly roleStore: RoleStore,
+    @Inject(TenantStore) private readonly tenantStore: TenantStore,
+    @Inject(UserStore) private readonly userStore: UserStore,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(JWKS) private readonly jwks: JWTVerifyGetKey,
-    @Inject(Database) private readonly database: Database,
   ) {}
 
   async authenticate(authorization: string | undefined): Promise<Principal> {
@@ -27,7 +28,7 @@ export class AuthService {
     let claims: JWTPayload;
     try {
       ({ payload: claims } = await jwtVerify(authorization.slice(7), this.jwks, {
-        issuer: this.config.OIDC_ISSUER,
+        issuer: [this.config.OIDC_ISSUER, ...this.config.OIDC_EXTRA_ISSUERS],
         audience: this.config.OIDC_AUDIENCE,
       }));
     } catch {
@@ -39,12 +40,11 @@ export class AuthService {
     const hit = this.cache.get(key);
     if (hit && hit.expires > Date.now()) return hit.principal;
 
-    const db = this.database.db;
-    const tenant = await new TenantStore(db).get(token.tenantId);
+    const tenant = await this.tenantStore.get(token.tenantId);
     if (!tenant || tenant.status !== 'active') throw new ForbiddenException('Tenant is not active');
 
-    const user = await new UserStore(db).upsertFromToken(token.tenantId, token);
-    const bound = await new RoleStore(db).effectiveRoles(token.tenantId, user.id);
+    const user = await this.userStore.upsertFromToken(token.tenantId, token);
+    const bound = await this.roleStore.effectiveRoles(token.tenantId, user.id);
     const roles = [...new Set<Role>([...token.roles, ...bound])].sort();
 
     const principal: Principal = { subject: token.subject, userId: user.id, tenantId: token.tenantId, roles };

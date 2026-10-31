@@ -1,15 +1,26 @@
 import { loadStarterMetamodel } from '@d4/metamodel';
-import { createDb, type Db } from './client';
-import { runMigrations } from './migrate';
+import type { Db } from './client';
 import { tenantDbInstances, tenants } from './schema';
 import { MetamodelStore, WorkspaceStore } from './stores';
+import { WebModuleStore } from './web-modules';
 
 export const LOCAL_TENANT = 't_local';
 export const LOCAL_WORKSPACE_SLUG = 'default';
 
+/** The modules the dev stack's web-modules image serves under /mfe/ (D64, D73); releases can replace them. */
+const LOCAL_WEB_MODULES = [
+  { name: 'admin', title: 'Administration', description: 'Workspaces, people and roles, webhooks, usage', owner: 'platform', entry: '/mfe/admin/admin.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'reporting', title: 'Reporting', description: 'Scheduled reports and background jobs', owner: 'platform', entry: '/mfe/reporting/reporting.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'queries', title: 'Queries', description: 'Query catalog, query studio and stewardship', owner: 'platform', entry: '/mfe/queries/queries.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'data', title: 'Data management', description: 'Spreadsheet import, connectors and backups', owner: 'platform', entry: '/mfe/data/data.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'plan', title: 'Plan and govern', description: 'Roadmap, decision records and change proposals', owner: 'platform', entry: '/mfe/plan/plan.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'explore', title: 'Explore', description: 'Explorer (the workspace home), element pages and editor, matrices, Compare', owner: 'platform', entry: '/mfe/explore/explore.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'hello', title: 'Hello', description: 'A plain JavaScript module (contract example)', owner: 'platform', entry: '/mfe/hello/hello.js', version: '0.1.0', contract: 2, framework: 'vanilla', enabled: true },
+];
+
 /**
  * Idempotent local-development seed: tenant `t_local` pointing at the compose Neo4j, the starter
- * metamodel (active) and a `default` workspace.
+ * metamodel (active), a `default` workspace and the web modules the dev stack serves.
  */
 export async function seedLocal(db: Db): Promise<{ workspaceId: string; metamodelId: string }> {
   return db.transaction(async (tx) => {
@@ -31,6 +42,9 @@ export async function seedLocal(db: Db): Promise<{ workspaceId: string; metamode
     const metamodelId = await mmStore.register(LOCAL_TENANT, loadStarterMetamodel(), 'seed');
     await mmStore.activate(LOCAL_TENANT, metamodelId);
 
+    const modules = new WebModuleStore(tx);
+    for (const m of LOCAL_WEB_MODULES) await modules.putIfAbsent(LOCAL_TENANT, m.name, m, 'seed');
+
     const wsStore = new WorkspaceStore(tx);
     const existing = await wsStore.bySlug(LOCAL_TENANT, LOCAL_WORKSPACE_SLUG);
     if (existing) {
@@ -48,18 +62,4 @@ export async function seedLocal(db: Db): Promise<{ workspaceId: string; metamode
     });
     return { workspaceId: ws.id, metamodelId };
   });
-}
-
-if (require.main === module) {
-  const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error('POSTGRES_URL is required');
-  const handle = createDb(url, 1);
-  runMigrations(handle.db)
-    .then(() => seedLocal(handle.db))
-    .then((r) => console.log(`Migrated and seeded tenant '${LOCAL_TENANT}':`, r))
-    .catch((e) => {
-      console.error(e);
-      process.exitCode = 1;
-    })
-    .finally(() => handle.close());
 }

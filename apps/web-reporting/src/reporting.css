@@ -1,0 +1,51 @@
+/* Scheduled reports and jobs. */
+
+.jobs-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  height: 100%;
+  max-width: 1200px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.jobs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.jobs-head h2 {
+  margin: 0;
+}
+.job-progress {
+  display: inline-block;
+  width: 80px;
+  height: 4px;
+  margin-left: var(--sp-03);
+  vertical-align: middle;
+  background: var(--layer-02);
+}
+.job-progress span {
+  display: block;
+  height: 100%;
+  background: var(--interactive);
+  transition: width 0.3s;
+}
+tr.job.failed td:nth-child(4) {
+  color: var(--support-error);
+}
+.reports-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-04);
+  height: 100%;
+  max-width: 1280px;
+  padding: var(--sp-05) var(--sp-06);
+  overflow: auto;
+}
+.cadence-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-03);
+}

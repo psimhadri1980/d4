@@ -1,0 +1,38 @@
+# Test runner and browser tests (profile `tools`, used by deploy/test.sh).
+services:
+  test:
+    profiles: [tools]
+    build: { context: ../.., dockerfile: deploy/test/Containerfile }
+    image: localhost/d4-test:local
+    # Capped, with at most two suites at a time, so tests don't starve Neo4j.
+    mem_limit: 1536m
+    cpus: 2.0
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      s3: { condition: service_healthy }
+    environment:
+      # Integration tests create and drop their own throwaway databases on this server.
+      D4_TEST_POSTGRES_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres
+      # Graph tests use a throwaway workspace on the dev Neo4j and delete it afterwards.
+      D4_TEST_NEO4J_URL: bolt://neo4j:7687
+      D4_TEST_NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      # Job tests use their own queue name prefix and bucket keys, and clean up.
+      D4_TEST_REDIS_URL: redis://redis:6379
+      D4_TEST_S3_ENDPOINT: http://s3:8333
+
+  # Browser tests on the host network, through the gateway like a developer's browser.
+  e2e:
+    profiles: [tools]
+    build: { context: ../.., dockerfile: apps/e2e/Containerfile }
+    image: localhost/d4-e2e:local
+    network_mode: host
+    environment:
+      E2E_BASE_URL: ${D4_PUBLIC_URL}
+      # Webhook receiver in the test process; the worker container reaches it on the host.
+      E2E_HOOK_PORT: 3199
+      E2E_HOOK_URL: http://host.containers.internal:3199/d4-hook
+    volumes:
+      - ../../apps/e2e/results:/repo/apps/e2e/results:z
+    shm_size: 1gb

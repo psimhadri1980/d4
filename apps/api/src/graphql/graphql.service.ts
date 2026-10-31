@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { GraphQLError, GraphQLScalarType, valueFromASTUntyped } from 'graphql';
 import mercurius, { type MercuriusOptions } from 'mercurius';
 import type { Element, Relationship } from '@d4/core';
@@ -7,14 +7,13 @@ import type { AttributeDef, MetamodelRegistry } from '@d4/metamodel';
 import { AuthService } from '../auth/auth.service';
 import type { Principal } from '../auth/identity';
 import { parse, toErrorResponse } from '../http/errors';
-import { DiffQuery, MatrixParams, RoadmapQuery, ViewArgsSchema } from '../http/schemas';
+import { DiffQuery, MatrixParams, RoadmapQuery, ViewArgsSchema } from '../model/model.schemas';
 import { decisionsFor, matrixFor } from '../model/insights.controller';
 import { diffFor } from '../model/diff.controller';
 import { resolveView } from '../model/view';
 import { roadmapFor } from '../model/roadmap.controller';
-import { Database } from '../infra/database.service';
-import { ModelFactory, type ModelHandles } from '../model/model.factory';
-import { WorkspaceAccess, type WorkspaceScope } from '../model/workspace-access.service';
+import { ModelFactory, type ModelHandles } from '../workspaces/model.factory';
+import { WorkspaceAccess, type WorkspaceScope } from '../workspaces/workspace-access.service';
 import { typeDefs } from './schema';
 
 interface Ctx {
@@ -40,6 +39,7 @@ interface ViewArgs {
   scenario?: string | null;
 }
 /** Validates GraphQL view arguments with the same rules as REST query strings. */
+const log = new Logger('GraphQL');
 const viewArgs = (a: ViewArgs) => parse(ViewArgsSchema, { asOf: a.asOf ?? undefined, scenario: a.scenario ?? undefined });
 type Direction = 'OUT' | 'IN' | 'BOTH';
 
@@ -54,10 +54,10 @@ const JSONScalar = new GraphQLScalarType({
 @Injectable()
 export class GraphqlService {
   constructor(
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(ModelFactory) private readonly models: ModelFactory,
-    @Inject(Database) private readonly database: Database,
   ) {}
 
   options(): MercuriusOptions {
@@ -81,7 +81,7 @@ export class GraphqlService {
           const original = err.originalError;
           if (!original || original instanceof mercurius.ErrorWithProps) return err;
           const { status, body } = toErrorResponse(original);
-          if (status >= 500) console.error(original);
+          if (status >= 500) log.error(original);
           return new GraphQLError(body.message, {
             nodes: err.nodes,
             source: err.source,
@@ -123,10 +123,10 @@ export class GraphqlService {
       Query: {
         me: (_: unknown, __: Args, ctx: Ctx) => ctx.principal(),
         workspaces: async (_: unknown, __: Args, ctx: Ctx) =>
-          new WorkspaceStore(this.database.db).list((await ctx.principal()).tenantId),
+          this.workspaceStore.list((await ctx.principal()).tenantId),
         workspace: async (_: unknown, args: { id: string }, ctx: Ctx) => {
           const s = await this.scope(ctx, args.id);
-          return new WorkspaceStore(this.database.db).get(s.tenantId, s.workspaceId);
+          return this.workspaceStore.get(s.tenantId, s.workspaceId);
         },
       },
 

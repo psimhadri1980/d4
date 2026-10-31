@@ -47,7 +47,7 @@ export class D4ApiError extends Error {
 }
 
 export interface ClientOptions {
-  /** API root, e.g. `https://d4.example.com` or `http://localhost:3000`. */
+  /** API root behind the gateway, e.g. `https://d4.example.com/api` or `http://localhost:5173/api`. */
   baseUrl: string;
   /** A bearer token, or a function returning a fresh one (called before every request). */
   token?: string | (() => string | Promise<string>);

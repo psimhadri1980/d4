@@ -7,6 +7,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { PinoLogger } from 'nestjs-pino';
 import { AuthService } from './auth.service';
 import { hasAnyRole, type Principal, type Role } from './identity';
 
@@ -16,8 +17,8 @@ const PUBLIC_KEY = 'd4:public';
 const ROLES_KEY = 'd4:roles';
 /** Skip authentication (health probes, OpenAPI document). */
 export const Public = () => SetMetadata(PUBLIC_KEY, true);
-/** Require at least one of the given tenant-wide roles; `admin` always passes. */
-export const RequireRoles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
+/** Require at least one of the given tenant-wide roles (on a handler or a whole controller); `admin` always passes. */
+export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -25,6 +26,7 @@ export class AuthGuard implements CanActivate {
     // Explicit tokens throughout: the dev runner (tsx/esbuild) does not emit decorator metadata.
     @Inject(Reflector) private readonly reflector: Reflector,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(PinoLogger) private readonly log: PinoLogger,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -36,9 +38,11 @@ export class AuthGuard implements CanActivate {
       .getRequest<{ headers: Record<string, string | undefined>; principal?: Principal }>();
     const principal = await this.auth.authenticate(req.headers['authorization']);
     req.principal = principal;
+    // On this request's log lines, including the completion line.
+    this.log.assign({ tenantId: principal.tenantId, userId: principal.userId });
 
     const required = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES_KEY, targets);
-    if (required?.length && !hasAnyRole(principal.roles, required)) throw new ForbiddenException();
+    if (required?.length && !hasAnyRole(principal.roles, required)) throw new ForbiddenException(`Needs the ${required.join(' or ')} role`);
     return true;
   }
 }

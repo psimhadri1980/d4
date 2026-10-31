@@ -1,8 +1,8 @@
 import { IconChevronDown, IconChevronRight, IconFolders, IconHexagons, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconPlus } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import type { Workspace } from '../api';
 import { activeItem, subActive, type NavGroup, type NavItem } from '../nav';
+import { type Workspace } from '@d4/web-platform';
 
 interface Props {
   ws: string;
@@ -30,6 +30,13 @@ export function Sidebar({ ws, groups, workspaces, collapsed, onToggle, onNavigat
   useEffect(() => {
     if (current?.sub?.length) setOpen((o) => ({ ...o, [current.id]: true }));
   }, [current?.id, current?.sub?.length]);
+  // After a menu link navigates, the link would keep focus, and with it the collapsed rail's flyout
+  // (:focus-within) would stay open over the page, whose module renders in a tree of its own.
+  const nav = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = document.activeElement;
+    if (collapsed && el instanceof HTMLElement && nav.current?.contains(el)) el.blur();
+  }, [location.pathname, location.search, collapsed]);
   const base = `/w/${ws}`;
   const href = (to: string) => (to ? `${base}/${to}` : base);
 
@@ -91,7 +98,7 @@ export function Sidebar({ ws, groups, workspaces, collapsed, onToggle, onNavigat
   };
 
   return (
-    <nav className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Main">
+    <nav ref={nav} className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Main">
       <div className="sidebar-head">
         <Link to={base} className="brand" aria-label="D4 home" onClick={onNavigate}>
           <IconHexagons size={22} stroke={1.6} aria-hidden />

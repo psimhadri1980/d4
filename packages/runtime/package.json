@@ -1,0 +1,34 @@
+{
+  "name": "@d4/runtime",
+  "version": "0.0.1",
+  "private": true,
+  "description": "What every D4 process shares at run time: JSON logs, tracing, health, shutdown and the queue service loop.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./telemetry": {
+      "types": "./dist/telemetry.d.ts",
+      "default": "./dist/telemetry.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@d4/infra": "workspace:*",
+    "@opentelemetry/auto-instrumentations-node": "^0.49.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.52.1",
+    "@opentelemetry/sdk-node": "^0.52.1",
+    "pino": "^9.4.0"
+  }
+}

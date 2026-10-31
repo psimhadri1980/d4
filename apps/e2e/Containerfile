@@ -1,0 +1,13 @@
+# Browser tests: Playwright's image (browsers included). Runs on the host network against the
+# gateway (E2E_BASE_URL), like a developer's browser.
+FROM mcr.microsoft.com/playwright:v1.47.2-jammy
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+WORKDIR /repo
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/e2e/package.json apps/e2e/
+RUN pnpm install --frozen-lockfile --filter @d4/e2e
+COPY apps/e2e apps/e2e
+COPY samples samples
+WORKDIR /repo/apps/e2e
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENTRYPOINT ["npx", "playwright", "test"]

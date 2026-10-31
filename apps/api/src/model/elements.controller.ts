@@ -1,30 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
-import type { Principal } from '../auth/identity';
-import { CurrentPrincipal } from '../auth/principal.decorator';
-import { parse } from '../http/errors';
-import {
-  ConnectionsQuery,
-  CreateElementBody,
-  DeleteQuery,
-  ListElementsQuery,
-  NeighbourhoodQuery,
-  UpdateBody,
-} from '../http/schemas';
-import { ModelFactory } from './model.factory';
+import { Controller, Delete, Get, HttpCode, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { ConnectionsQuery, CreateElementBody, DeleteQuery, ListElementsQuery, NeighbourhoodQuery, UpdateBody } from './model.schemas';
 import { resolveView } from './view';
-import { WorkspaceAccess, type Access } from './workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { z } from '../http/zod';
+import { ValidBody, ValidQuery } from '../http/zod.pipe';
 
 @Controller('v1/workspaces/:ws/elements')
 export class ElementsController {
-  constructor(
-    @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
-    @Inject(ModelFactory) private readonly models: ModelFactory,
-  ) {}
 
   @Get()
-  async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
-    const q = parse(ListElementsQuery, query);
-    const { queries, scope } = await this.open(p, ws, 'read');
+  async list(@Workspace('read') { queries, scope }: OpenWorkspace, @ValidQuery(ListElementsQuery) q: z.output<typeof ListElementsQuery>) {
     const view = await resolveView(queries, scope.registry, scope.workspaceId, q);
     return queries.listElements(
       scope.workspaceId,
@@ -35,15 +20,13 @@ export class ElementsController {
   }
 
   @Post()
-  async create(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
-    const input = parse(CreateElementBody, body);
-    const { service, scope } = await this.open(p, ws, 'write');
+  async create(@Workspace('write') { service, scope }: OpenWorkspace, @ValidBody(CreateElementBody) input: z.output<typeof CreateElementBody>) {
     return service.createElement(scope.ctx, input);
   }
 
   @Get(':id')
-  async get(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
-    const { queries, scope } = await this.open(p, ws, 'read');
+  async get(@Workspace('read') { queries, scope }: OpenWorkspace, @Param('id') id: string) {
+
     const el = await queries.getElement(scope.workspaceId, id);
     if (!el) throw new NotFoundException(`Element '${id}' not found`);
     return el;
@@ -51,13 +34,10 @@ export class ElementsController {
 
   @Patch(':id')
   async update(
-    @CurrentPrincipal() p: Principal,
-    @Param('ws') ws: string,
+    @Workspace('write') { service, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Body() body: unknown,
+    @ValidBody(UpdateBody) input: z.output<typeof UpdateBody>,
   ) {
-    const input = parse(UpdateBody, body);
-    const { service, scope } = await this.open(p, ws, 'write');
     return service.updateElement(scope.ctx, { id, ...input });
   }
 
@@ -65,38 +45,29 @@ export class ElementsController {
   @Delete(':id')
   @HttpCode(204)
   async remove(
-    @CurrentPrincipal() p: Principal,
-    @Param('ws') ws: string,
+    @Workspace('write') { service, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Query() query: unknown,
+    @ValidQuery(DeleteQuery) { expectedVersion }: z.output<typeof DeleteQuery>,
   ) {
-    const { expectedVersion } = parse(DeleteQuery, query);
-    const { service, scope } = await this.open(p, ws, 'write');
     await service.deleteElement(scope.ctx, { id, expectedVersion });
   }
 
   @Get(':id/relationships')
   async connections(
-    @CurrentPrincipal() p: Principal,
-    @Param('ws') ws: string,
+    @Workspace('read') { queries, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Query() query: unknown,
+    @ValidQuery(ConnectionsQuery) q: z.output<typeof ConnectionsQuery>,
   ) {
-    const q = parse(ConnectionsQuery, query);
-    const { queries, scope } = await this.open(p, ws, 'read');
     const view = await resolveView(queries, scope.registry, scope.workspaceId, q);
     return queries.connections(scope.workspaceId, id, { direction: q.direction, types: q.type }, view);
   }
 
   @Get(':id/neighbourhood')
   async neighbourhood(
-    @CurrentPrincipal() p: Principal,
-    @Param('ws') ws: string,
+    @Workspace('read') { queries, scope }: OpenWorkspace,
     @Param('id') id: string,
-    @Query() query: unknown,
+    @ValidQuery(NeighbourhoodQuery) q: z.output<typeof NeighbourhoodQuery>,
   ) {
-    const q = parse(NeighbourhoodQuery, query);
-    const { queries, scope } = await this.open(p, ws, 'read');
     const sub = await queries.neighbourhood(scope.workspaceId, id, {
       depth: q.depth,
       types: q.type,
@@ -109,14 +80,9 @@ export class ElementsController {
 
   /** Change history from the event log, oldest first. */
   @Get(':id/history')
-  async history(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
-    const { events, scope } = await this.open(p, ws, 'read');
+  async history(@Workspace('read') { events, scope }: OpenWorkspace, @Param('id') id: string) {
+
     const list = await events.forSubject(scope.tenantId, id);
     return list.filter((e) => e.workspaceId === scope.workspaceId);
-  }
-
-  private async open(p: Principal, ws: string, need: Access) {
-    const scope = await this.access.resolve(p, ws, need);
-    return { scope, ...this.models.for(scope) };
   }
 }

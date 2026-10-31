@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { InMemoryModelRepository, planImport, type CommandContext } from '@d4/core';
+import { InMemoryModelRepository } from '@d4/core/testing';
+import { planImport, type CommandContext } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import {
   CodecError,

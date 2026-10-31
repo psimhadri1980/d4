@@ -38,5 +38,5 @@ Each run also appears on [Jobs](jobs.md), marked *scheduled*. Files are kept for
 ## Good to know
 
 - A schedule **pauses itself**, with the reason shown, if its owner loses access to the workspace.
-- Locally, emails are caught by Mailpit at <http://localhost:8025> and never leave the machine.
+- Locally, emails are caught by the local mail catcher at <http://localhost:8025> and never leave the machine.
 - Reports run as their creator, so they only contain what that person may see.

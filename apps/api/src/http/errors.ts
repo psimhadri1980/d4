@@ -1,9 +1,9 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@nestjs/common';
 import { ZodError, type ZodType, type ZodTypeDef } from 'zod';
 import { CodecError } from '@d4/codecs';
 import { DomainError, type DomainErrorCode } from '@d4/core';
 
-export const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
+const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
   VALIDATION: 422,
   INVALID_TRANSITION: 422,
   RULE_VIOLATION: 422,
@@ -13,7 +13,7 @@ export const DOMAIN_STATUS: Record<DomainErrorCode, number> = {
   LOCKED: 423,
 };
 
-export interface ErrorBody {
+interface ErrorBody {
   error: string;
   message: string;
   issues?: string[];
@@ -75,9 +75,11 @@ interface Reply {
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly log = new Logger('ApiExceptionFilter');
+
   catch(e: unknown, host: ArgumentsHost) {
     const { status, body } = toErrorResponse(e);
-    if (status >= 500) console.error(e);
+    if (status >= 500) this.log.error(e);
     void host.switchToHttp().getResponse<Reply>().status(status).send(body);
   }
 }

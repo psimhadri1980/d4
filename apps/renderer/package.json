@@ -6,19 +6,22 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
   },
   "dependencies": {
-    "@d4/db": "workspace:*",
+    "@d4/config": "workspace:*",
+    "@d4/infra": "workspace:*",
     "@d4/jobs": "workspace:*",
-    "@fontsource/source-sans-3": "^5.1.0",
+    "@d4/runtime": "workspace:*",
+    "@fontsource/source-sans-3": "catalog:",
     "playwright-core": "1.47.2",
-    "zod": "^3.23.8"
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "tsx": "^4.19.0",
+    "tsx": "catalog:",
     "@d4/render": "workspace:*"
   }
 }

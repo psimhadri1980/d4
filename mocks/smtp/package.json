@@ -1,0 +1,17 @@
+{
+  "name": "@d4/mock-smtp",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Development-only mail catcher: SMTP in, a Mailpit-compatible inbox API out (replaces Mailpit).",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "catalog:",
+    "nodemailer": "catalog:"
+  }
+}

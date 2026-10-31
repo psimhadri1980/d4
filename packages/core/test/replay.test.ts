@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
-import { compareStates, emptyState, InMemoryModelRepository, ModelService, replayEvents, stageProposal, type CommandContext, type ModelState } from '../src';
+import { InMemoryModelRepository } from '../src/testing';
+import { compareStates, emptyState, ModelService, replayEvents, stageProposal, type CommandContext, type ModelState } from '../src';
 
 const reg = new MetamodelRegistry(loadStarterMetamodel());
 const ctx: CommandContext = { workspaceId: 'ws1', actor: 'u1' };

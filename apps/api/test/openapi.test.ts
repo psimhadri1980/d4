@@ -7,9 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { buildOpenApiDocument } from '../src/http/openapi';
 
-/** Every route the API serves, as `METHOD /path/{param}`, read from the controllers' metadata. */
+/** Every route the API serves, as `METHOD /path/{param}`, read from the controllers' metadata in every module. */
 function servedRoutes(): string[] {
-  const controllers = (Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, AppModule) ?? []) as (new (...args: never[]) => unknown)[];
+  type Class = new (...args: never[]) => unknown;
+  const modules = (m: Class): Class[] => [m, ...((Reflect.getMetadata(MODULE_METADATA.IMPORTS, m) ?? []) as Class[]).flatMap(modules)];
+  const controllers = modules(AppModule).flatMap((m) => (Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, m) ?? []) as Class[]);
   const out: string[] = [];
   for (const c of controllers) {
     const base = String(Reflect.getMetadata(PATH_METADATA, c) ?? '');

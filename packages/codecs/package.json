@@ -5,9 +5,21 @@
   "description": "Model-as-code documents, tabular (CSV/Excel) imports and export formats.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    },
+    "./roadmap": {
+      "types": "./dist/roadmap.d.ts",
+      "browser": "./dist/roadmap.mjs",
+      "default": "./dist/roadmap.js"
+    }
+  },
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsup src/index.ts src/roadmap.ts --format esm --sourcemap --no-config --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
@@ -16,7 +28,10 @@
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "exceljs": "^4.4.0",
-    "yaml": "^2.5.0",
-    "zod": "^3.23.8"
+    "yaml": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "tsup": "catalog:"
   }
 }

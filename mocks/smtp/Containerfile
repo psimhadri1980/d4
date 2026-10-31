@@ -1,0 +1,19 @@
+# Development-only smtp mock: no runtime dependencies, so only its compiled files.
+ARG NODE_IMAGE=docker.io/library/node:24-alpine
+
+FROM ${NODE_IMAGE} AS build
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+WORKDIR /repo
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
+COPY . .
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    --mount=type=cache,id=turbo,target=/repo/.turbo/cache \
+    pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/mock-smtp...' \
+ && pnpm exec turbo run build --filter '@d4/mock-smtp...'
+
+FROM ${NODE_IMAGE}
+WORKDIR /app
+COPY --from=build /repo/mocks/smtp/dist ./dist
+USER node
+CMD ["node", "dist/main.js"]

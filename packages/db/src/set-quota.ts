@@ -1,14 +1,9 @@
-import { createDb } from './client';
 import { QUOTA_METRICS } from './schema';
-import { UsageStore, type Limits, type QuotaMetric } from './usage';
+import type { Limits, QuotaMetric } from './usage';
 
 /**
- * Operator tool: changes one tenant's limits. Tenant admins can see limits but not change them.
- *
- *   node dist/set-quota.js <tenant> elements=200000 jobsPerDay=unlimited workspaces=default
- *
- * A number sets the limit, `unlimited` removes it, `default` returns to the built-in default.
- * With no settings it prints the tenant's current overrides.
+ * Applies `metric=value` settings to a tenant's limit overrides (`d4-ops quota`): a number sets
+ * the limit, `unlimited` removes it, `default` returns to the built-in default.
  */
 export function applySettings(current: Partial<Limits>, settings: string[]): Partial<Limits> {
   const next: Partial<Limits> = { ...current };
@@ -24,25 +19,4 @@ export function applySettings(current: Partial<Limits>, settings: string[]): Par
     else throw new Error(`'${s}': ${value} is not a whole number`);
   }
   return next;
-}
-
-if (require.main === module) {
-  const [tenant, ...settings] = process.argv.slice(2);
-  const url = process.env.POSTGRES_URL;
-  if (!url || !tenant) {
-    console.error('usage: POSTGRES_URL=… node dist/set-quota.js <tenant> [metric=value …]');
-    process.exit(2);
-  }
-  const handle = createDb(url, 1);
-  const store = new UsageStore(handle.db);
-  (async () => {
-    const current = await store.overrides(tenant);
-    if (settings.length) await store.setOverrides(tenant, applySettings(current, settings), 'operator');
-    console.log(JSON.stringify(await store.overrides(tenant)));
-  })()
-    .catch((e) => {
-      console.error(e instanceof Error ? e.message : e);
-      process.exitCode = 1;
-    })
-    .finally(() => handle.close());
 }

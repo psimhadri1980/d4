@@ -6,10 +6,12 @@ import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { exportSnapshot, modelDocument, renderExport } from '@d4/jobs';
-import { ExportQuery, z } from '../http/schemas';
-import { Database } from '../infra/database.service';
-import { ModelFactory } from './model.factory';
-import { WorkspaceAccess } from './workspace-access.service';
+import { ExportQuery } from './model.schemas';
+import { z } from '../http/zod';
+import { ModelFactory } from '../workspaces/model.factory';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { ValidQuery } from '../http/zod.pipe';
 
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
 
@@ -22,9 +24,9 @@ interface Reply {
 @Controller('v1/workspaces/:ws')
 export class TransferController {
   constructor(
+    @Inject(WorkspaceStore) private readonly workspaceStore: WorkspaceStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(ModelFactory) private readonly models: ModelFactory,
-    @Inject(Database) private readonly database: Database,
   ) {}
 
   @Post('import')
@@ -58,16 +60,12 @@ export class TransferController {
    */
   @Get('export')
   async export(
-    @CurrentPrincipal() p: Principal,
-    @Param('ws') ws: string,
-    @Query() query: unknown,
+    @Workspace('read') { scope, queries }: OpenWorkspace,
+    @ValidQuery(ExportQuery) q: z.output<typeof ExportQuery>,
     @Res({ passthrough: true }) reply: Reply,
   ) {
-    const q = parse(ExportQuery, query);
-    const scope = await this.access.resolve(p, ws, 'read');
-    const { queries } = this.models.for(scope);
     const snapshot = await exportSnapshot(queries, scope.registry, scope.workspaceId, q);
-    const row = await new WorkspaceStore(this.database.db).get(scope.tenantId, scope.workspaceId);
+    const row = await this.workspaceStore.get(scope.tenantId, scope.workspaceId);
     const meta = { name: row?.name ?? scope.workspaceId, slug: row?.slug ?? 'model', description: row?.description ?? null };
     if (!q.format) return modelDocument(scope.registry, snapshot, meta);
 

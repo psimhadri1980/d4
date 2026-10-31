@@ -1,12 +1,11 @@
 import { CONNECTOR_KINDS, Mapping, mapRecords, planSync, SourceError, type MappingResult } from '@d4/connectors';
+import { type JobQueue, assertJobQuota } from '@d4/infra';
 import { DomainError, planImport, type Element } from '@d4/core';
 import { claimDueConnectors, ConnectorStore, JobStore, type ConnectorRow, type Db } from '@d4/db';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { z } from 'zod';
 import type { ModelHandles } from './model-handles';
 import { Cadence, nextRun } from './schedule';
-import type { JobQueue } from './queue';
-import { assertJobQuota } from './usage';
 import { checkWebhookUrl } from './webhooks';
 
 export const SyncParams = z.object({ connectorId: z.string().min(1), dryRun: z.boolean().default(false) }).strict();

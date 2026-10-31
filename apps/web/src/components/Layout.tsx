@@ -1,14 +1,13 @@
 import { IconMenu2, IconSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
-import { api, can } from '../api';
-import { useAuth } from '../auth';
+import { modulesVersion, startModules, subscribeModules } from '../lifecycle';
 import { activeItem, subActive, visibleNav } from '../nav';
 import { applyTheme, storedTheme, type ThemeChoice } from '../theme';
-import { ViewProvider } from '../view';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
+import { accessOf, api, keys, useAuth, useMe, ViewProvider } from '@d4/web-platform';
 
 const COLLAPSED_KEY = 'd4-nav-collapsed';
 
@@ -25,15 +24,17 @@ export function Layout() {
   const { ws } = useParams();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const workspaces = useQuery({ queryKey: ['workspaces'], queryFn: api.workspaces });
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me });
+  const workspaces = useQuery({ queryKey: keys.workspaces, queryFn: api.workspaces });
+  const me = useMe();
   const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
   const [collapsed, setCollapsed] = useState(storedCollapsed);
   const [drawer, setDrawer] = useState(false);
   const [searching, setSearching] = useState(false);
 
+  const modules = useSyncExternalStore(subscribeModules, modulesVersion);
   const roles = me.data?.roles;
-  const groups = useMemo(() => visibleNav({ ...can(roles), admin: !!roles?.includes('admin') }), [roles]);
+  // `modules` changes when a lifecycle module's menu arrives.
+  const groups = useMemo(() => visibleNav({ ...accessOf(roles), admin: !!roles?.includes('admin') }), [roles, modules]);
   const rest = location.pathname.replace(new RegExp(`^/w/${ws}/?`), '');
   const search = new URLSearchParams(location.search);
   const current = activeItem(groups, rest);
@@ -61,6 +62,8 @@ export function Layout() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+  // The page slot below exists from here on: single-spa may mount lifecycle modules into it.
+  useEffect(startModules, []);
   // A new page closes the drawer on narrow screens.
   useEffect(() => setDrawer(false), [location.pathname]);
 
@@ -120,8 +123,13 @@ export function Layout() {
         </header>
         <main className="content">
           <ViewProvider workspaceId={ws!}>
-            <Outlet />
+            {/* Pages are lazy chunks; the shell stays while one loads. */}
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
           </ViewProvider>
+          {/* Lifecycle modules render here (lifecycle.ts), each in a tree of its own. */}
+          <div id="d4-module-slot" />
         </main>
       </div>
       <CommandPalette ws={ws!} groups={groups} open={searching} onClose={() => setSearching(false)} />

@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Workbook } from 'exceljs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { InMemoryModelRepository, planImport, type ModelSnapshot } from '@d4/core';
+import { InMemoryModelRepository } from '@d4/core/testing';
+import { planImport, type ModelSnapshot } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import {
   elementsToCsv,

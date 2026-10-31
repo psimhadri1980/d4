@@ -1,7 +1,7 @@
 import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import type { Session } from 'neo4j-driver';
 import type { SessionProvider } from '@d4/graph';
-import { graphConfig, TenantGraphs } from '@d4/jobs';
+import { graphConfig, TenantGraphs } from '@d4/infra';
 import { APP_CONFIG, type AppConfig } from '../config';
 import { Database } from './database.service';
 

@@ -1,0 +1,77 @@
+import React from 'react';
+import ReactDOMClient from 'react-dom/client';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import singleSpaReact from 'single-spa-react';
+import { lazyPage, LIFECYCLE_CONTRACT, loadStylesheet, ModuleRoot, type LifecycleProps, type ModuleManifest } from '@d4/web-platform';
+import './admin.css';
+
+const AdminWorkspacesPage = lazyPage(() => import('./Admin'), 'AdminWorkspacesPage');
+const AdminPeoplePage = lazyPage(() => import('./Admin'), 'AdminPeoplePage');
+const AdminWebhooksPage = lazyPage(() => import('./Admin'), 'AdminWebhooksPage');
+const AdminModulesPage = lazyPage(() => import('./Admin'), 'AdminModulesPage');
+const AdminUsagePage = lazyPage(() => import('./Admin'), 'AdminUsagePage');
+
+/** Tenant administration as a lifecycle module: workspaces, people and roles, webhooks, usage. */
+export const manifest: ModuleManifest = {
+  id: 'admin',
+  contract: LIFECYCLE_CONTRACT,
+  shared: __D4_SHARED__,
+  nav: {
+    group: 'Administration',
+    order: 50,
+    items: [
+      {
+        id: 'admin',
+        label: 'Admin',
+        icon: 'settings',
+        to: 'admin/workspaces',
+        match: ['admin'],
+        requires: 'admin',
+        sub: [
+          { label: 'Workspaces', to: 'admin/workspaces' },
+          { label: 'People and roles', to: 'admin/people' },
+          { label: 'Webhooks', to: 'admin/webhooks' },
+          { label: 'Modules', to: 'admin/modules' },
+          { label: 'Usage', to: 'admin/usage' },
+        ],
+      },
+    ],
+  },
+};
+
+function Root({ platform }: LifecycleProps) {
+  return (
+    <ModuleRoot platform={platform}>
+      <React.Suspense fallback={null}>
+        <Routes>
+          <Route path="/w/:ws/admin">
+            <Route index element={<Navigate to="workspaces" replace />} />
+            <Route path="workspaces" element={<AdminWorkspacesPage />} />
+            <Route path="people" element={<AdminPeoplePage />} />
+            <Route path="webhooks" element={<AdminWebhooksPage />} />
+            <Route path="modules" element={<AdminModulesPage />} />
+            <Route path="usage" element={<AdminUsagePage />} />
+          </Route>
+        </Routes>
+      </React.Suspense>
+    </ModuleRoot>
+  );
+}
+
+const react = singleSpaReact({
+  React,
+  ReactDOMClient,
+  rootComponent: Root,
+  errorBoundary: (err) => (
+    <div className="error-banner" role="alert">
+      <strong>Something went wrong</strong>
+      <div>{String(err)}</div>
+    </div>
+  ),
+});
+
+// The stylesheet sits next to this file (vite.config.ts); the release query (`?v=`) keeps them in step.
+const stylesheet = new URL(/* @vite-ignore */ `admin.css${new URL(import.meta.url).search}`, import.meta.url).href;
+
+export const bootstrap = [() => loadStylesheet(stylesheet), react.bootstrap];
+export const { mount, unmount } = react;

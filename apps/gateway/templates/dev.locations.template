@@ -1,0 +1,12 @@
+# Development consoles, included only when D4_ENV=dev.
+location = /mail { return 301 /mail/; }
+location /mail/ {
+  set $u $up_mail;
+  rewrite ^/mail/(.*)$ /$1 break;
+  proxy_pass http://$u;
+}
+# Grafana serves under /grafana itself (GF_SERVER_SERVE_FROM_SUB_PATH).
+location /grafana/ {
+  set $u $up_grafana;
+  proxy_pass http://$u;
+}

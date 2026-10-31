@@ -1,7 +1,9 @@
 import { expect, type Page } from '@playwright/test';
 
-export const KEYCLOAK = process.env.E2E_KEYCLOAK_URL ?? 'http://localhost:8080';
-export const API = process.env.E2E_API_URL ?? 'http://localhost:3000';
+/** The gateway: the web app at /, the API under /api and Keycloak under /auth (one origin). */
+export const BASE = (process.env.E2E_BASE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+export const KEYCLOAK = `${BASE}/auth`;
+export const API = `${BASE}/api`;
 
 /** Local dev users from deploy/keycloak/d4-realm.json (not real accounts). */
 export const USERS = {

@@ -9,7 +9,8 @@ import { Client } from 'pg';
 import { parseModelDocument } from '@d4/codecs';
 import { allElements, createClient, D4ApiError } from '@d4/sdk';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
-import { JobQueue, processJob, S3ArtifactStore, startJobWorker } from '@d4/jobs';
+import { processJob } from '@d4/jobs';
+import { JobQueue, S3ArtifactStore, startJobWorker } from '@d4/infra';
 import { createDb, LOCAL_TENANT, MetamodelStore, RoleStore, runMigrations, schema, seedLocal, TenantStore, UsageStore, WorkspaceStore, type DbHandle } from '@d4/db';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
@@ -87,6 +88,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
         .sign(privateKey);
 
     const config = loadConfig({
+      D4_ENV: 'dev',
       POSTGRES_URL: url.toString(),
       NEO4J_PASSWORD: NEO_PASSWORD,
       NEO4J_URI: NEO,
@@ -94,6 +96,8 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       // Jobs: a queue of our own, so a running dev worker does not take these jobs.
       REDIS_URL: REDIS ?? '',
       S3_ENDPOINT: S3 ?? '',
+      S3_ACCESS_KEY: 'd4',
+      S3_SECRET_KEY: 'd4-local-dev',
       S3_BUCKET: 'd4-test-artifacts',
       JOB_QUEUE: `d4-jobs-e2e-${dbName}`,
     });

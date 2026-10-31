@@ -2,9 +2,9 @@ import { IconArrowRight, IconDatabaseSearch, IconHierarchy3, IconSearch, type Ic
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, catalogApi } from '../api';
-import { elementName } from '../model';
 import type { NavGroup } from '../nav';
+import { api } from '@d4/web-platform';
+import { elementName } from '@d4/ui-kit';
 
 interface Result {
   id: string;
@@ -39,7 +39,7 @@ export function CommandPalette({ ws, groups, open, onClose }: { ws: string; grou
   }, [open]);
 
   const elements = useQuery({ queryKey: ['palette', 'elements', ws, q], queryFn: () => api.listElements(ws, { q, first: 8 }), enabled: open && q.length > 1 });
-  const queries = useQuery({ queryKey: ['palette', 'queries', q], queryFn: () => catalogApi.search({ q }), enabled: open && q.length > 1 });
+  const queries = useQuery({ queryKey: ['palette', 'queries', q], queryFn: () => api.searchCatalog({ q }), enabled: open && q.length > 1 });
 
   const results = useMemo<Result[]>(() => {
     const needle = text.trim().toLowerCase();

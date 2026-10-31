@@ -2,15 +2,16 @@ import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundExce
 import { bindParams, checkCatalogQuery, checkReadOnly, contentHash, paramDefIssues } from '@d4/cypher';
 import { DomainError } from '@d4/core';
 import { QueryCatalogStore } from '@d4/db';
-import { assertQueryRunQuota } from '@d4/jobs';
+import { assertQueryRunQuota } from '@d4/infra';
 import { DEFAULT_LIMITS, neo4jExplainer, runCatalogQuery, type QueryResultSet, type RunLimits } from '@d4/graph';
 import type { Principal } from '../auth/identity';
 import { Database } from '../infra/database.service';
 import { TenantGraphService } from '../infra/tenant-graph.service';
-import { WorkspaceAccess } from '../model/workspace-access.service';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
 import { CatalogService, isAuthor, isSteward } from './catalog.service';
 import { PackInstaller } from './pack-installer.service';
 
+/** @public Named in the controller's emitted declarations. */
 export interface RunResponse extends QueryResultSet {
   queryId: string;
   version: number;
@@ -18,7 +19,7 @@ export interface RunResponse extends QueryResultSet {
 }
 
 /** Draft test runs are for checking shape and correctness, so they get tighter limits. */
-export const TEST_LIMITS: RunLimits = { timeoutMs: 10_000, maxRows: 100 };
+const TEST_LIMITS: RunLimits = { timeoutMs: 10_000, maxRows: 100 };
 
 /** Neo4j reports transaction timeouts with these status codes. */
 const TIMEOUT_CODES = [
@@ -33,6 +34,7 @@ const TIMEOUT_CODES = [
 @Injectable()
 export class QueryRunService {
   constructor(
+    @Inject(QueryCatalogStore) private readonly queryCatalogStore: QueryCatalogStore,
     @Inject(Database) private readonly database: Database,
     @Inject(TenantGraphService) private readonly graph: TenantGraphService,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
@@ -54,7 +56,7 @@ export class QueryRunService {
     if (!isAuthor(p) && !isSteward(p)) throw new ForbiddenException('Requires query-author or query-steward');
     const scope = await this.access.resolve(p, workspaceId, 'read');
     await this.catalog.entry(p, queryId);
-    const store = new QueryCatalogStore(this.database.db);
+    const store = this.queryCatalogStore;
     const open = await store.openVersion(queryId);
     if (!open) throw new NotFoundException('There is no draft or version in review to test');
     if (open.status === 'draft' && !isAuthor(p)) throw new ForbiddenException('Drafts can be tested by authors');
@@ -98,7 +100,7 @@ export class QueryRunService {
   ): Promise<RunResponse> {
     const scope = await this.access.resolve(p, workspaceId, 'read');
     await this.packs.ensureInstalled(p.tenantId);
-    const store = new QueryCatalogStore(this.database.db);
+    const store = this.queryCatalogStore;
     await this.catalog.entry(p, queryId);
 
     // Grant check (stewards may run anything published, e.g. to review usage).

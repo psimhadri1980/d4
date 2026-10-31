@@ -1,17 +1,20 @@
-import { Body, Controller, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
+import { Controller, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
 import { suggestMapping, type TableMapping } from '@d4/codecs';
 import { readTables, runTabularImport } from '@d4/jobs';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { TabularAnalyzeBody, TabularImportBody, z } from '../http/schemas';
-import { ModelFactory } from './model.factory';
-import { WorkspaceAccess } from './workspace-access.service';
+import { TabularAnalyzeBody, TabularImportBody } from './model.schemas';
+import { z } from '../http/zod';
+import { ModelFactory } from '../workspaces/model.factory';
+import { WorkspaceAccess } from '../workspaces/workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { ValidBody } from '../http/zod.pipe';
 
 const ImportQuery = z.object({ dryRun: z.enum(['true', 'false']).optional() });
 const PREVIEW_ROWS = 5;
 
-export const decodeUploads = (files: { name: string; content: string }[]) =>
+const decodeUploads =(files: { name: string; content: string }[]) =>
   files.map((f) => ({ name: f.name, bytes: new Uint8Array(Buffer.from(f.content, 'base64')) }));
 
 /**
@@ -28,9 +31,7 @@ export class TabularController {
 
   @Post('analyze')
   @HttpCode(200)
-  async analyze(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
-    const { files } = parse(TabularAnalyzeBody, body);
-    const scope = await this.access.resolve(p, ws, 'read');
+  async analyze(@Workspace('read') { scope }: OpenWorkspace, @ValidBody(TabularAnalyzeBody) { files }: z.output<typeof TabularAnalyzeBody>) {
     const tables = await readTables(decodeUploads(files));
     return {
       tables: tables.map((t) => ({
@@ -45,9 +46,8 @@ export class TabularController {
 
   @Post()
   @HttpCode(200)
-  async import(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown, @Body() body: unknown) {
+  async import(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown, @ValidBody(TabularImportBody) { files, mappings }: z.output<typeof TabularImportBody>) {
     const dryRun = parse(ImportQuery, query).dryRun === 'true';
-    const { files, mappings } = parse(TabularImportBody, body);
     // Dry runs only need read access, as for model documents.
     const scope = await this.access.resolve(p, ws, dryRun ? 'read' : 'write');
     return runTabularImport(this.models.for(scope), scope.registry, scope.ctx, decodeUploads(files), mappings as { table: string; mapping: TableMapping }[], dryRun);

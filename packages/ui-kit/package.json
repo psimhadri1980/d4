@@ -2,12 +2,12 @@
   "name": "@d4/ui-kit",
   "version": "0.1.0",
   "private": true,
-  "description": "React components for D4 views: roadmap Gantt, relationship graph, query result table.",
+  "description": "React components for D4: views (roadmap Gantt, relationship graph, query result table), the shared screens' building blocks (element list and details, attribute and parameter forms, view bar, export and schedule forms, error banner), model helpers, and the design tokens and base styles.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "styles.css", "README.md"],
+  "files": ["dist", "styles.css", "base.css", "app.css", "README.md"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsup src/index.ts --format esm --sourcemap --no-config --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
@@ -15,19 +15,34 @@
   "dependencies": {
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
-    "@d4/render": "workspace:*"
+    "@d4/render": "workspace:*",
+    "@d4/web-platform": "workspace:*"
   },
   "peerDependencies": {
-    "cytoscape": "^3.30.2",
-    "react": "^18.3.1"
+    "@tanstack/react-query": "catalog:",
+    "cytoscape": "catalog:",
+    "react": "catalog:",
+    "react-router-dom": "catalog:"
   },
   "devDependencies": {
-    "@types/cytoscape": "^3.21.7",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "cytoscape": "^3.30.2",
-    "jsdom": "^25.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@tanstack/react-query": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "cytoscape": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router-dom": "catalog:",
+    "tsup": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./styles.css",
+    "./base.css": "./base.css",
+    "./app.css": "./app.css"
   }
 }

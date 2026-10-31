@@ -1,5 +1,5 @@
 import { Inject, Injectable, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
-import { JobQueue, RENDER_QUEUE, S3ArtifactStore } from '@d4/jobs';
+import { JobQueue, RENDER_QUEUE, S3ArtifactStore } from '@d4/infra';
 import { APP_CONFIG, type AppConfig } from '../config';
 
 /** The job queue (Redis) and artefact store (S3), when configured. */
@@ -10,7 +10,7 @@ export class JobsInfra implements OnModuleDestroy {
   private readonly a?: S3ArtifactStore;
 
   constructor(@Inject(APP_CONFIG) config: AppConfig) {
-    if (config.REDIS_URL && config.S3_ENDPOINT) {
+    if (config.REDIS_URL && config.S3_ENDPOINT && config.S3_ACCESS_KEY && config.S3_SECRET_KEY) {
       this.q = new JobQueue(config.REDIS_URL, config.JOB_QUEUE);
       this.rq = new JobQueue(config.REDIS_URL, config.RENDER_QUEUE ?? RENDER_QUEUE);
       this.a = new S3ArtifactStore({
@@ -23,18 +23,18 @@ export class JobsInfra implements OnModuleDestroy {
   }
 
   get queue(): JobQueue {
-    if (!this.q) throw new ServiceUnavailableException('Background jobs are not configured (REDIS_URL, S3_ENDPOINT)');
+    if (!this.q) throw new ServiceUnavailableException('Background jobs are not configured (REDIS_URL, S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY)');
     return this.q;
   }
 
   /** Renders go to the renderer service (Chromium). */
   get renderQueue(): JobQueue {
-    if (!this.rq) throw new ServiceUnavailableException('Background jobs are not configured (REDIS_URL, S3_ENDPOINT)');
+    if (!this.rq) throw new ServiceUnavailableException('Background jobs are not configured (REDIS_URL, S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY)');
     return this.rq;
   }
 
   get artifacts(): S3ArtifactStore {
-    if (!this.a) throw new ServiceUnavailableException('Background jobs are not configured (REDIS_URL, S3_ENDPOINT)');
+    if (!this.a) throw new ServiceUnavailableException('Background jobs are not configured (REDIS_URL, S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY)');
     return this.a;
   }
 

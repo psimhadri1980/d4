@@ -17,8 +17,15 @@ import { Gantt } from '@d4/ui-kit';
 <Gantt roadmap={roadmap} zoom="month" selected={null} highlight={[]} onSelect={open} today="2027-01-15" />;
 ```
 
-Peer dependencies: `react` 18 and `cytoscape` 3 (for `GraphCanvas`). The package is CommonJS;
-bundlers such as Vite need it listed in `optimizeDeps.include`.
+The D4 web app's shared building blocks live here too: `ElementList`, `ElementDetails`,
+`AttributeField`, `ParamForm`, `ViewBar`, `ExportMenu`, `ScheduleForm`, `ErrorBanner`, the model
+helpers and the job texts. They call the API through `@d4/web-platform`. `base.css` holds the D4
+design tokens and element defaults, `app.css` the controls and these components' styles; load
+them (in that order) before any screen's styles.
+
+Peer dependencies: `react` 18, `cytoscape` 3 (for `GraphCanvas`), and for the app components
+`react-router-dom` and `@tanstack/react-query`. Bundlers get an ESM build (`browser` condition);
+Node gets CommonJS.
 
 ## Theming
 

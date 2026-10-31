@@ -1,0 +1,33 @@
+{
+  "name": "@d4/infra",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Adapters to the outside: job queue, S3 artefact store, mailer, tenant graph routing and provisioning, usage and quotas.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "catalog:",
+    "@d4/core": "workspace:*",
+    "@d4/cypher": "workspace:*",
+    "@d4/db": "workspace:*",
+    "@d4/graph": "workspace:*",
+    "@d4/metamodel": "workspace:*",
+    "bullmq": "^5.13.2",
+    "neo4j-driver": "catalog:",
+    "nodemailer": "catalog:"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "catalog:",
+    "@types/pg": "catalog:",
+    "pg": "catalog:"
+  }
+}

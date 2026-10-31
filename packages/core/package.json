@@ -5,14 +5,29 @@
   "description": "IO-free D4 domain: elements, relationships, lifecycle, metamodel rules, model commands.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "browser": "./dist/testing.mjs",
+      "default": "./dist/testing.js"
+    }
+  },
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsup src/index.ts src/testing.ts --format esm --sourcemap --no-config --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
   },
   "dependencies": {
     "@d4/metamodel": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "catalog:"
   }
 }

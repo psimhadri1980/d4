@@ -1,13 +1,16 @@
-import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post } from '@nestjs/common';
 import { stageProposal, type ModelReader, type ProposalOperation, type StagedProposal } from '@d4/core';
 import { PROPOSAL_STATUSES, ProposalStore, withLockedProposal, type ProposalRow } from '@d4/db';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
-import { CreateProposalBody, EditProposalBody, ReviewBody, z } from '../http/schemas';
+import { CreateProposalBody, EditProposalBody, ReviewBody } from './model.schemas';
+import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
-import { ModelFactory } from './model.factory';
-import { WorkspaceAccess, type Access, type WorkspaceScope } from './workspace-access.service';
+import { ModelFactory } from '../workspaces/model.factory';
+import { WorkspaceAccess, type Access, type WorkspaceScope } from '../workspaces/workspace-access.service';
+import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
+import { ValidBody, ValidQuery } from '../http/zod.pipe';
 
 // `status` may repeat (`?status=a&status=b`) or be comma-separated (`?status=a,b`, as the web client sends it).
 const ListQuery = z.object({
@@ -25,25 +28,22 @@ const ListQuery = z.object({
 @Controller('v1/workspaces/:ws/proposals')
 export class ProposalsController {
   constructor(
+    @Inject(ProposalStore) private readonly proposalStore: ProposalStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
     @Inject(ModelFactory) private readonly models: ModelFactory,
     @Inject(Database) private readonly database: Database,
   ) {}
 
   @Get()
-  async list(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Query() query: unknown) {
-    const q = parse(ListQuery, query);
-    const scope = await this.access.resolve(p, ws, 'read');
+  async list(@Workspace('read') { scope }: OpenWorkspace, @ValidQuery(ListQuery) q: z.output<typeof ListQuery>) {
     const statuses = q.status?.length ? q.status : undefined;
-    return (await this.store().list(scope.tenantId, scope.workspaceId, statuses)).map(summary);
+    return (await this.proposalStore.list(scope.tenantId, scope.workspaceId, statuses)).map(summary);
   }
 
   @Post()
   @HttpCode(201)
-  async create(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Body() body: unknown) {
-    const b = parse(CreateProposalBody, body);
-    const scope = await this.access.resolve(p, ws, 'write');
-    const row = await this.store().create(scope.tenantId, { workspaceId: scope.workspaceId, title: b.title, description: b.description ?? null, operations: b.operations, createdBy: p.userId });
+  async create(@CurrentPrincipal() p: Principal, @Workspace('write') { scope }: OpenWorkspace, @ValidBody(CreateProposalBody) b: z.output<typeof CreateProposalBody>) {
+    const row = await this.proposalStore.create(scope.tenantId, { workspaceId: scope.workspaceId, title: b.title, description: b.description ?? null, operations: b.operations, createdBy: p.userId });
     return this.detail(scope, row);
   }
 
@@ -55,11 +55,10 @@ export class ProposalsController {
   }
 
   @Patch(':id')
-  async edit(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @Body() body: unknown) {
-    const b = parse(EditProposalBody, body);
+  async edit(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string, @ValidBody(EditProposalBody) b: z.output<typeof EditProposalBody>) {
     const { scope, row } = await this.find(p, ws, id, 'write');
     this.author(p, row);
-    const updated = await this.store().editDraft(scope.tenantId, id, b);
+    const updated = await this.proposalStore.editDraft(scope.tenantId, id, b);
     if (!updated) throw new ConflictException(`Only drafts can be changed; this proposal is ${row.status}`);
     return this.detail(scope, updated);
   }
@@ -69,7 +68,7 @@ export class ProposalsController {
   async remove(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
     const { scope, row } = await this.find(p, ws, id, 'write');
     this.author(p, row);
-    if (!(await this.store().remove(scope.tenantId, id))) throw new ConflictException(`Only drafts can be deleted; withdraw a ${row.status} proposal instead`);
+    if (!(await this.proposalStore.remove(scope.tenantId, id))) throw new ConflictException(`Only drafts can be deleted; withdraw a ${row.status} proposal instead`);
   }
 
   /** Sends a draft for review; it must apply cleanly to the current model. */
@@ -81,7 +80,7 @@ export class ProposalsController {
     if (!ops.length) throw new BadRequestException('Add at least one change before submitting');
     const staged = await this.stage(scope, row);
     if (!staged.ok) throw new ConflictException(failure(staged));
-    return this.moved(scope, await this.store().transition(scope.tenantId, id, ['draft'], 'submitted', { submittedAt: new Date() }), row);
+    return this.moved(scope, await this.proposalStore.transition(scope.tenantId, id, ['draft'], 'submitted', { submittedAt: new Date() }), row);
   }
 
   /** Takes a submitted proposal back to draft so the author can change it. */
@@ -89,14 +88,14 @@ export class ProposalsController {
   async reopen(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
     const { scope, row } = await this.find(p, ws, id, 'write');
     this.author(p, row);
-    return this.moved(scope, await this.store().transition(scope.tenantId, id, ['submitted'], 'draft', { submittedAt: null }), row);
+    return this.moved(scope, await this.proposalStore.transition(scope.tenantId, id, ['submitted'], 'draft', { submittedAt: null }), row);
   }
 
   @Post(':id/withdraw')
   async withdraw(@CurrentPrincipal() p: Principal, @Param('ws') ws: string, @Param('id') id: string) {
     const { scope, row } = await this.find(p, ws, id, 'write');
     this.author(p, row);
-    return this.moved(scope, await this.store().transition(scope.tenantId, id, ['draft', 'submitted'], 'withdrawn'), row);
+    return this.moved(scope, await this.proposalStore.transition(scope.tenantId, id, ['draft', 'submitted'], 'withdrawn'), row);
   }
 
   @Post(':id/reject')
@@ -105,7 +104,7 @@ export class ProposalsController {
     if (!comment) throw new BadRequestException('Say why the proposal is rejected');
     const { scope, row } = await this.find(p, ws, id, 'review');
     this.notAuthor(p, row);
-    return this.moved(scope, await this.store().transition(scope.tenantId, id, ['submitted'], 'rejected', { decidedBy: p.userId, decidedAt: new Date(), reviewComment: comment }), row);
+    return this.moved(scope, await this.proposalStore.transition(scope.tenantId, id, ['submitted'], 'rejected', { decidedBy: p.userId, decidedAt: new Date(), reviewComment: comment }), row);
   }
 
   /** Applies every step as one change, then marks the proposal applied. */
@@ -129,13 +128,9 @@ export class ProposalsController {
     return this.moved(scope, applied, row);
   }
 
-  private store() {
-    return new ProposalStore(this.database.db);
-  }
-
   private async find(p: Principal, ws: string, id: string, access: Access) {
     const scope = await this.access.resolve(p, ws, access);
-    const row = await this.store().get(scope.tenantId, scope.workspaceId, id);
+    const row = await this.proposalStore.get(scope.tenantId, scope.workspaceId, id);
     if (!row) throw new NotFoundException(`Proposal '${id}' not found`);
     return { scope, row };
   }

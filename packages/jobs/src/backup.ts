@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
+import { type ArtifactStore, type JobQueue } from '@d4/infra';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { canonical, compareStates, DomainError, emptyState, replayEvents, type Element, type ModelState, type ReplayEvent, type Relationship } from '@d4/core';
 import { BackupStore, JobStore, TenantStore, utcDayStart, WorkspaceEvents, WorkspaceLock, WorkspaceStore, type BackupRow, type Db } from '@d4/db';
 import { readWorkspaceGraph, replaceWorkspaceGraph, type SessionProvider } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { z } from 'zod';
-import type { ArtifactStore } from './artifacts';
-import type { JobQueue } from './queue';
 
 /** Snapshots kept per workspace; older ones are pruned (safety snapshots count too). */
 export const BACKUPS_KEPT = 14;

@@ -575,3 +575,34 @@ export const connectorItems = pgTable(
   },
   (t) => ({ pk: primaryKey({ columns: [t.connectorId, t.externalKey] }) }),
 );
+
+// ── Web modules (P6, D64) ───────────────────────────────────────────────
+
+/**
+ * The module registry: web modules the shell loads at run time (single-spa lifecycle modules),
+ * with what they are and which release to load. Per tenant, so an admin chooses what their people
+ * get; the shell picks up changes while it runs.
+ */
+export const webModules = pgTable(
+  'web_modules',
+  {
+    tenantId: text('tenant_id').notNull(),
+    /** Also the path it owns under a workspace: `/w/:ws/<name>`. */
+    name: text('name').notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    /** The team that answers for it. */
+    owner: text('owner'),
+    /** Same-origin URL of its ES module entry, under `/mfe/<name>/`. */
+    entry: text('entry').notNull(),
+    version: text('version').notNull(),
+    /** The lifecycle contract it was built for. */
+    contract: integer('contract').notNull(),
+    framework: text('framework').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.name] }) }),
+);

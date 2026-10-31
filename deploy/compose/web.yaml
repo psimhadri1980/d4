@@ -1,0 +1,28 @@
+# Web app (static files). See infra.yaml for how the files combine.
+services:
+  web:
+    build: { context: ../.., dockerfile: apps/web/Containerfile }
+    image: localhost/d4-web:local
+    # Behind the gateway (gateway.yaml), which owns the browser-facing port.
+    # Written to /config.json at start (deploy/web/config.sh): public values only.
+    environment:
+      D4_PUBLIC_API_URL: ${D4_PUBLIC_API_URL:?run through deploy/dev-deploy.sh}
+      OIDC_ISSUER: ${OIDC_ISSUER:?run through deploy/dev-deploy.sh}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?run through deploy/dev-deploy.sh}
+    depends_on:
+      api: { condition: service_healthy }
+    mem_limit: 64m
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/ >/dev/null']
+      interval: 10s
+      retries: 6
+
+  # Lifecycle web modules (P6 spike), at /mfe/ behind the gateway.
+  web-modules:
+    build: { context: ../.., dockerfile: deploy/web-modules/Containerfile }
+    image: localhost/d4-web-modules:local
+    mem_limit: 32m
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/mfe/admin/admin.js >/dev/null']
+      interval: 10s
+      retries: 6

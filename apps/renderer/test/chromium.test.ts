@@ -7,7 +7,7 @@ const svg = { svg: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="
 
 describe('renderer config', () => {
   it('defaults to one render at a time on its own queue', () => {
-    const c = loadConfig({ POSTGRES_URL: 'postgres://u:p@h/d', NEO4J_PASSWORD: 'x', REDIS_URL: 'redis://r:6379', S3_ENDPOINT: 'http://s3:8333' });
+    const c = loadConfig({ POSTGRES_URL: 'postgres://u:p@h/d', NEO4J_PASSWORD: 'x', REDIS_URL: 'redis://r:6379', S3_ENDPOINT: 'http://s3:8333', S3_ACCESS_KEY: 'k', S3_SECRET_KEY: 's', D4_PUBLIC_URL: 'http://localhost:5173' });
     expect(c).toMatchObject({ RENDER_CONCURRENCY: 1, RENDER_HEALTH_PORT: 3003 });
     expect(c.RENDER_QUEUE).toBeUndefined();
   });
@@ -16,7 +16,7 @@ describe('renderer config', () => {
 // Needs Chromium: runs in the renderer image (or with CHROMIUM_PATH / installed Playwright browsers).
 describe.skipIf(!process.env['D4_TEST_CHROMIUM'])('Chromium rasterizer', () => {
   it('makes a PDF and a 2× PNG', async () => {
-    const chrome = new Chromium();
+    const chrome = new Chromium(process.env['CHROMIUM_PATH']);
     try {
       const pdf = await chrome.rasterize(pageHtml(svg, { title: 't', fit: { width: 1123, height: 794 } }), { format: 'pdf', width: 1123, height: 794 });
       expect(new TextDecoder().decode(pdf.slice(0, 5))).toBe('%PDF-');
