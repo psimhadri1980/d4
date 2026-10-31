@@ -9,7 +9,7 @@ services:
       D4_PUBLIC_API_URL: ${D4_PUBLIC_API_URL:?run through deploy/dev-deploy.sh}
       OIDC_ISSUER: ${OIDC_ISSUER:?run through deploy/dev-deploy.sh}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?run through deploy/dev-deploy.sh}
-      D4_WEB_REMOTES: ${D4_WEB_REMOTES:-admin=/mfe/admin/remoteEntry.js}
+      D4_WEB_REMOTES: ${D4_WEB_REMOTES:-admin=/mfe/admin/admin.js,hello=/mfe/hello/hello.js}
     depends_on:
       api: { condition: service_healthy }
     mem_limit: 64m
@@ -18,12 +18,12 @@ services:
       interval: 10s
       retries: 6
 
-  # The admin module as a Module Federation remote (P6 spike), at /mfe/admin/ behind the gateway.
+  # Lifecycle web modules (P6 spike), at /mfe/ behind the gateway.
   web-admin:
     build: { context: ../.., dockerfile: apps/web-admin/Containerfile }
     image: localhost/d4-web-admin:local
     mem_limit: 32m
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/mfe/admin/remoteEntry.js >/dev/null']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/mfe/admin/admin.js >/dev/null']
       interval: 10s
       retries: 6

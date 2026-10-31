@@ -3,22 +3,23 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The admin web module as a Module Federation remote (P6 spike): exposes ./module.",
+  "description": "The admin web module as a single-spa application (P6 spike): an ES module the shell imports.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@d4/ui-kit": "workspace:*",
     "@d4/web-platform": "workspace:*",
-    "@tabler/icons-react": "3.19.0",
     "@tanstack/react-query": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:"
+    "react-router-dom": "catalog:",
+    "single-spa-react": "6.0.2"
   },
   "devDependencies": {
-    "@module-federation/vite": "1.23.5",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^4.3.1",
     "vite": "^5.4.6"
   }

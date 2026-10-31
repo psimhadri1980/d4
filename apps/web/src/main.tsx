@@ -17,7 +17,6 @@ watchSystemTheme();
 const root = document.getElementById('root')!;
 // The app (and its sign-in client) is imported only once the runtime settings are known.
 loadRuntimeConfig()
-  .then(() => import('./remotes').then((r) => r.loadRemoteModules()))
   .then(() => import('./root'))
   .then(({ renderApp }) => renderApp(root))
   .catch((e: unknown) => {

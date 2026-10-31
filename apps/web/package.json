@@ -18,17 +18,16 @@
     "@d4/web-platform": "workspace:*",
     "@fontsource/ibm-plex-mono": "^5.1.0",
     "@fontsource/source-sans-3": "catalog:",
-    "@module-federation/runtime": "2.9.2",
     "@tabler/icons-react": "3.19.0",
     "@tanstack/react-query": "catalog:",
     "cytoscape": "catalog:",
     "oidc-client-ts": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:"
+    "react-router-dom": "catalog:",
+    "single-spa": "6.0.3"
   },
   "devDependencies": {
-    "@module-federation/vite": "1.23.5",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^4.3.1",

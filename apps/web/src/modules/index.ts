@@ -6,10 +6,9 @@ import { queriesModule } from './queries/module';
 import { planModule } from './plan/module';
 import { dataModule } from './data/module';
 import { reportingModule } from './reporting/module';
-import { remoteModules } from '../remotes';
 
-// P6 spike: admin comes from its remote (apps/web-admin) when /config.json lists it.
-const ALL: D4Module[] = [exploreModule, queriesModule, planModule, dataModule, reportingModule, ...remoteModules];
+// P6 spike: admin is a lifecycle module (apps/web-admin) loaded through /config.json (../lifecycle.ts).
+const ALL: D4Module[] = [exploreModule, queriesModule, planModule, dataModule, reportingModule];
 
 /** The modules the shell mounts; one built for another contract version is left out with an error. */
 export const MODULES = ALL.filter((m) => {

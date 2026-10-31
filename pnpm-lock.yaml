@@ -277,9 +277,6 @@ importers:
       '@fontsource/source-sans-3':
         specifier: 'catalog:'
         version: 5.3.1
-      '@module-federation/runtime':
-        specifier: 2.9.2
-        version: 2.9.2
       '@tabler/icons-react':
         specifier: 3.19.0
         version: 3.19.0(react@18.3.1)
@@ -301,10 +298,10 @@ importers:
       react-router-dom:
         specifier: 'catalog:'
         version: 6.30.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      single-spa:
+        specifier: 6.0.3
+        version: 6.0.3
     devDependencies:
-      '@module-federation/vite':
-        specifier: 1.23.5
-        version: 1.23.5(typescript@5.9.3)(vite@5.4.21(@types/node@24.19.2))
       '@types/react':
         specifier: 'catalog:'
         version: 18.3.31
@@ -323,15 +320,9 @@ importers:
 
   apps/web-admin:
     dependencies:
-      '@d4/ui-kit':
-        specifier: workspace:*
-        version: link:../../packages/ui-kit
       '@d4/web-platform':
         specifier: workspace:*
         version: link:../../packages/web-platform
-      '@tabler/icons-react':
-        specifier: 3.19.0
-        version: 3.19.0(react@18.3.1)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.104.4(@types/react@18.3.31)(react@18.3.1)
@@ -344,10 +335,16 @@ importers:
       react-router-dom:
         specifier: 'catalog:'
         version: 6.30.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      single-spa-react:
+        specifier: 6.0.2
+        version: 6.0.2(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react@18.3.1)
     devDependencies:
-      '@module-federation/vite':
-        specifier: 1.23.5
-        version: 1.23.5(typescript@5.9.3)(vite@5.4.21(@types/node@24.19.2))
+      '@types/react':
+        specifier: 'catalog:'
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 18.3.7(@types/react@18.3.31)
       '@vitejs/plugin-react':
         specifier: ^4.3.1
         version: 4.7.0(vite@5.4.21(@types/node@24.19.2))
@@ -1818,39 +1815,6 @@ packages:
     resolution: {integrity: sha512-9I2Zn6+NJLfaGoz9jN3lpwDgAYvfGeNYdbAIjJOqzs4Tpc+VU3Jqq4IofSUBKajiDS8k9fZIg18/z13mpk1bsA==}
     engines: {node: '>=8'}
 
-  '@module-federation/dts-plugin@2.9.2':
-    resolution: {integrity: sha512-J84cRrewtUFnFdMeD/91mHtW+Toh3mAWvGnhsFAc9oEbGwqfzJEfgPJri65xdtzWcNhs1d6FImPMTvnjzOnYvA==}
-    peerDependencies:
-      typescript: ^4.9.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
-      vue-tsc: '>=1.0.24'
-    peerDependenciesMeta:
-      vue-tsc:
-        optional: true
-
-  '@module-federation/error-codes@2.9.2':
-    resolution: {integrity: sha512-MTpKubqsJSBgnuw+2Pli1kHL4INeHD5cGnHL84oRANwQAWK7b6lN3ZZTmL3FL6lYn65ImineqZNqGWBv5GQVLQ==}
-
-  '@module-federation/managers@2.9.2':
-    resolution: {integrity: sha512-VtSKLkT2EA1wqCMFXNiklC+XF+5bZPYY3sUQ9LCFHqKS7v7NOJDrwMV6Qtw3fxH4Y6Pe6P28MiU8D9dlzknCKQ==}
-
-  '@module-federation/runtime-core@2.9.2':
-    resolution: {integrity: sha512-S9roTDqLtAWaaDBuug69ZnXXGEx0pUq/yG06J759bjRgfAg2P9+dWEv1q7rB2eMIp7HH4L6s3ColDRYdL6tJ9w==}
-
-  '@module-federation/runtime@2.9.2':
-    resolution: {integrity: sha512-1lPZVy7TkMTTBMkkjgQt7jA+9FAx226yQqEz+X0lFAIbpxIWfpzNQLD+7IydEe83ZhDJpK3cv/9bn3jjQBZeqQ==}
-
-  '@module-federation/sdk@2.9.2':
-    resolution: {integrity: sha512-ILtBFPuYpVcRA/Qay1lJ2hMtZI8fDE/v1n7xiN17e5qx5rSBR3FaamTsmRpN1hIt+gVnoa76CzOP/Y73d8hHNg==}
-
-  '@module-federation/third-party-dts-extractor@2.9.2':
-    resolution: {integrity: sha512-FKJVGx+/jIe16RfmwoyIDVMPAttIFJv6AJCLkKf05IRNvI3RJFqQ1tLP1YjcfGuumCbYuWGa4QKnMla7YjVpqg==}
-
-  '@module-federation/vite@1.23.5':
-    resolution: {integrity: sha512-pZ4gwP3SyuNG9JnYAWFIOJyFz1Kl37hnJyKjajMpPqQwTQkCjY7gn58qEmVwTyBv8VqOA5XxEXe1ZMF3AsOmnw==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    peerDependencies:
-      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
-
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
     resolution: {integrity: sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ==}
     cpu: [arm64]
@@ -3050,10 +3014,6 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
-  adm-zip@0.6.1:
-    resolution: {integrity: sha512-Xwrja8nx9e5o2N1my4DsKCeKpdrnACyr1wtbPxBDgGzKzKyE9kRtBFA8mWldI+RVlD7CBZNWY/wQ2+ydwOR6kQ==}
-    engines: {node: '>=14.0'}
-
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
@@ -3202,6 +3162,9 @@ packages:
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
+
+  browserslist-config-single-spa@1.0.1:
+    resolution: {integrity: sha512-nqOxTbatv6FcdgBvUTuH4MuojMZwvskspz5Y4dmpVcKd0uaQY8KEl3iALWus16+AwPVe3BIerBNEgELyaHZcQg==}
 
   browserslist@4.29.3:
     resolution: {integrity: sha512-1R4kiYKXGViqEN0CnoDrXc1StD9niAwu+j2dukWzrD4bJgsD4lDmEp0CRbc6E/vYJIfTHwPmwyaKtVSudICdPA==}
@@ -4173,11 +4136,6 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
-  isomorphic-ws@5.0.0:
-    resolution: {integrity: sha512-muId7Zzn9ywDsyXgTIafTry2sV3nySZeUDe6YedVd1Hvuuep5AsIlqK+XefWpYTyJG5e503F2xIuT2lcU6rCSw==}
-    peerDependencies:
-      ws: '*'
-
   iterare@1.2.1:
     resolution: {integrity: sha512-RKYVTCjAnRthyJes037NX/IiqeidgN1xc3j1RjFfECFp28A1GVwK9nA+i0rJPaHqSZwygLzRnFlzUuHFoWWy+Q==}
     engines: {node: '>=6'}
@@ -5028,6 +4986,21 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
+  single-spa-react@6.0.2:
+    resolution: {integrity: sha512-nRz5Izf57iYZXMXdTh+RmHnxxQojFL8NCIVUyA7PpXRib1ykmbat6JgT3yFPgXRs129BCC4+j+O5TLQOmLzF4Q==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: '*'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
+  single-spa@6.0.3:
+    resolution: {integrity: sha512-pXlwHXHhs3hx/MnGQHBLdFCVAN2rlm9TLBKazbDMyZ25QRxoen2vlUZ47MyXKa9K8Gd5UZs/gkuQad4TGbViwg==}
+
   single-user-cache@0.6.0:
     resolution: {integrity: sha512-uMrANoiybpbsrVDbZ2M7GPzxeqZiirwkVnsDAre1zGhXAAw+2dImTxu7h0l1sIVtwGeJnVsRxgG4I5rZrUX0rw==}
 
@@ -5335,10 +5308,6 @@ packages:
     resolution: {integrity: sha512-raqeBD6NQK4SkWhQzeYKd1KmIG6dllBOTt55Rmkt4HtI9mwdWtJljnrXjAFUBLTSN67HWrOIZ3EPF4kjUw80Bg==}
     engines: {node: '>=14.0'}
 
-  undici@7.29.1:
-    resolution: {integrity: sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==}
-    engines: {node: '>=20.18.1'}
-
   unplugin-swc@1.6.0:
     resolution: {integrity: sha512-aOdzxAwJvz1GeQ8vwSNA2N8AreHYBrpwxqnwzxmB7LCdeZiXOBDj0rgjZod+lMxFsJGm8k6lF/1iKF/9wacLbw==}
     peerDependencies:
@@ -5543,18 +5512,6 @@ packages:
 
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
-
-  ws@8.21.3:
-    resolution: {integrity: sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
 
   ws@8.22.0:
     resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
@@ -6517,54 +6474,6 @@ snapshots:
   '@lukeed/csprng@1.1.0': {}
 
   '@lukeed/ms@2.0.2': {}
-
-  '@module-federation/dts-plugin@2.9.2(typescript@5.9.3)':
-    dependencies:
-      '@module-federation/error-codes': 2.9.2
-      '@module-federation/managers': 2.9.2
-      '@module-federation/sdk': 2.9.2
-      '@module-federation/third-party-dts-extractor': 2.9.2
-      adm-zip: 0.6.1
-      isomorphic-ws: 5.0.0(ws@8.21.3)
-      typescript: 5.9.3
-      undici: 7.29.1
-      ws: 8.21.3
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
-  '@module-federation/error-codes@2.9.2': {}
-
-  '@module-federation/managers@2.9.2':
-    dependencies:
-      '@module-federation/sdk': 2.9.2
-
-  '@module-federation/runtime-core@2.9.2':
-    dependencies:
-      '@module-federation/error-codes': 2.9.2
-      '@module-federation/sdk': 2.9.2
-
-  '@module-federation/runtime@2.9.2':
-    dependencies:
-      '@module-federation/error-codes': 2.9.2
-      '@module-federation/runtime-core': 2.9.2
-      '@module-federation/sdk': 2.9.2
-
-  '@module-federation/sdk@2.9.2': {}
-
-  '@module-federation/third-party-dts-extractor@2.9.2': {}
-
-  '@module-federation/vite@1.23.5(typescript@5.9.3)(vite@5.4.21(@types/node@24.19.2))':
-    dependencies:
-      '@module-federation/dts-plugin': 2.9.2(typescript@5.9.3)
-      '@module-federation/runtime': 2.9.2
-      '@module-federation/sdk': 2.9.2
-      vite: 5.4.21(@types/node@24.19.2)
-    transitivePeerDependencies:
-      - bufferutil
-      - typescript
-      - utf-8-validate
-      - vue-tsc
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4':
     optional: true
@@ -7868,8 +7777,6 @@ snapshots:
 
   acorn@8.19.0: {}
 
-  adm-zip@0.6.1: {}
-
   agent-base@7.1.4: {}
 
   aggregate-error@3.1.0:
@@ -8028,6 +7935,8 @@ snapshots:
   braces@3.0.3:
     dependencies:
       fill-range: 7.1.1
+
+  browserslist-config-single-spa@1.0.1: {}
 
   browserslist@4.29.3:
     dependencies:
@@ -9160,10 +9069,6 @@ snapshots:
 
   isexe@2.0.0: {}
 
-  isomorphic-ws@5.0.0(ws@8.21.3):
-    dependencies:
-      ws: 8.21.3
-
   iterare@1.2.1: {}
 
   jackspeak@3.4.3:
@@ -10070,6 +9975,16 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
+  single-spa-react@6.0.2(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react@18.3.1):
+    dependencies:
+      browserslist-config-single-spa: 1.0.1
+      react: 18.3.1
+    optionalDependencies:
+      '@types/react': 18.3.31
+      '@types/react-dom': 18.3.7(@types/react@18.3.31)
+
+  single-spa@6.0.3: {}
+
   single-user-cache@0.6.0:
     dependencies:
       safe-stable-stringify: 2.5.0
@@ -10404,8 +10319,6 @@ snapshots:
     dependencies:
       '@fastify/busboy': 2.1.1
 
-  undici@7.29.1: {}
-
   unplugin-swc@1.6.0(@swc/core@1.16.18)(esbuild@0.28.2)(rollup@4.64.8)(vite@5.4.21(@types/node@24.19.2)):
     dependencies:
       '@rollup/pluginutils': 5.4.0(rollup@4.64.8)
@@ -10621,8 +10534,6 @@ snapshots:
       strip-ansi: 7.2.0
 
   wrappy@1.0.2: {}
-
-  ws@8.21.3: {}
 
   ws@8.22.0: {}
 

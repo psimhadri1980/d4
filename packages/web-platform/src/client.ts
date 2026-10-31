@@ -5,7 +5,8 @@ import { config } from './config';
 export { D4ApiError };
 export type { Schemas } from '@d4/sdk';
 
-async function token(): Promise<string> {
+/** The signed-in user's access token (empty when signed out). */
+export async function accessToken(): Promise<string> {
   return (await userManager().getUser())?.access_token ?? '';
 }
 
@@ -15,7 +16,7 @@ let client: D4Client | undefined;
  * The typed API client (paths, parameters, bodies and results checked against the OpenAPI
  * document), signed in as the current user. Created on first use, after the runtime settings.
  */
-export const d4 = (): D4Client => (client ??= createClient({ baseUrl: config.apiUrl, token }));
+export const d4 = (): D4Client => (client ??= createClient({ baseUrl: config.apiUrl, token: accessToken }));
 
 /** Downloads a file response (exports, job artifacts): the body and the server's file name. */
 export async function downloadFile(
@@ -25,7 +26,7 @@ export async function downloadFile(
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== '') qs.set(k, String(v));
   const res = await fetch(`${config.apiUrl}${path}${qs.size ? `?${qs.toString()}` : ''}`, {
-    headers: { authorization: `Bearer ${await token()}` },
+    headers: { authorization: `Bearer ${await accessToken()}` },
   });
   if (!res.ok) {
     const json = (await res.json().catch(() => ({}))) as {

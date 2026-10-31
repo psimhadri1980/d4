@@ -6,3 +6,5 @@ export * from './config';
 export * from './module';
 export * from './queries';
 export * from './view';
+export * from './lifecycle';
+export * from './module-root';

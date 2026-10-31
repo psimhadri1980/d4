@@ -1,7 +1,8 @@
 import { IconMenu2, IconSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
+import { modulesVersion, startModules, subscribeModules } from '../lifecycle';
 import { activeItem, subActive, visibleNav } from '../nav';
 import { applyTheme, storedTheme, type ThemeChoice } from '../theme';
 import { CommandPalette } from './CommandPalette';
@@ -30,8 +31,10 @@ export function Layout() {
   const [drawer, setDrawer] = useState(false);
   const [searching, setSearching] = useState(false);
 
+  const modules = useSyncExternalStore(subscribeModules, modulesVersion);
   const roles = me.data?.roles;
-  const groups = useMemo(() => visibleNav({ ...accessOf(roles), admin: !!roles?.includes('admin') }), [roles]);
+  // `modules` changes when a lifecycle module's menu arrives.
+  const groups = useMemo(() => visibleNav({ ...accessOf(roles), admin: !!roles?.includes('admin') }), [roles, modules]);
   const rest = location.pathname.replace(new RegExp(`^/w/${ws}/?`), '');
   const search = new URLSearchParams(location.search);
   const current = activeItem(groups, rest);
@@ -59,6 +62,8 @@ export function Layout() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+  // The page slot below exists from here on: single-spa may mount lifecycle modules into it.
+  useEffect(startModules, []);
   // A new page closes the drawer on narrow screens.
   useEffect(() => setDrawer(false), [location.pathname]);
 
@@ -123,6 +128,8 @@ export function Layout() {
               <Outlet />
             </Suspense>
           </ViewProvider>
+          {/* Lifecycle modules render here (lifecycle.ts), each in a tree of its own. */}
+          <div id="d4-module-slot" />
         </main>
       </div>
       <CommandPalette ws={ws!} groups={groups} open={searching} onClose={() => setSearching(false)} />

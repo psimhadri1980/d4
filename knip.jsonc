@@ -16,5 +16,6 @@
     "packages/*": { "entry": ["src/index.ts"] },
     "mocks/*": { "entry": ["src/main.ts"] }
   },
-  "ignore": ["packages/sdk/src/schema.ts"]
+  // apps/web-hello: a lifecycle module the shell imports by URL at run time (P6 spike).
+  "ignore": ["packages/sdk/src/schema.ts", "apps/web-hello/hello.js"]
 }

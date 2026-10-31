@@ -1,12 +1,14 @@
-import type { Access, D4Module, NavGroup, NavItem, NavSub } from '@d4/web-platform';
+import { IconFlask, IconSettings, type Icon } from '@tabler/icons-react';
+import type { Access, ManifestItem, NavContribution, NavGroup, NavItem, NavSub } from '@d4/web-platform';
+import { moduleStates } from './lifecycle';
 import { MODULES } from './modules';
 
 export type { NavGroup, NavItem };
 
 /** The whole navigation, from every module's contribution: the sidebar, breadcrumb and search read it. */
-function buildNav(modules: D4Module[]): NavGroup[] {
+function buildNav(contributions: NavContribution[]): NavGroup[] {
   const groups = new Map<string, { order: number; items: NavItem[] }>();
-  for (const { nav } of modules) {
+  for (const nav of contributions) {
     const g = groups.get(nav.group) ?? { order: nav.order, items: [] };
     g.items.push(...nav.items);
     groups.set(nav.group, g);
@@ -17,11 +19,20 @@ function buildNav(modules: D4Module[]): NavGroup[] {
     .map(([label, g]) => ({ label, items: [...g.items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)) }));
 }
 
-const NAV = buildNav(MODULES);
+/** Icons lifecycle modules may name in their manifest. */
+const ICONS: Record<string, Icon> = { settings: IconSettings, flask: IconFlask };
 
-/** The navigation as this user may see it. */
+const fromManifest = (i: ManifestItem): NavItem => ({
+  ...i,
+  icon: ICONS[i.icon] ?? IconFlask,
+  visible: i.requires && ((a) => a[i.requires!]),
+  sub: i.sub?.map((s) => ({ ...s, visible: s.requires && ((a) => a[s.requires!]) })),
+});
+
+/** The navigation as this user may see it: the built-in modules and every lifecycle module loaded so far. */
 export function visibleNav(a: Access): NavGroup[] {
-  return NAV.map((g) => ({
+  const loaded = [...moduleStates().values()].flatMap((s) => (s.status === 'ready' ? [{ ...s.manifest.nav, items: s.manifest.nav.items.map(fromManifest) }] : []));
+  return buildNav([...MODULES.map((m) => m.nav), ...loaded]).map((g) => ({
     ...g,
     items: g.items.filter((i) => !i.visible || i.visible(a)).map((i) => ({ ...i, ...(i.sub && { sub: i.sub.filter((s) => !s.visible || s.visible(a)) }) })),
   })).filter((g) => g.items.length);
