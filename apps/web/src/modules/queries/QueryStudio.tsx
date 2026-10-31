@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { RemoveQueryButton } from '../components/RemoveQueryButton';
-import { TestRunPanel } from '../components/TestRunPanel';
-import { catalogApi, type CatalogEntry, type Checks, type QueryVersion } from '../modules/queries/api';
+import { RemoveQueryButton } from './RemoveQueryButton';
+import { TestRunPanel } from './TestRunPanel';
+import { catalogApi, type CatalogEntry, type Checks, type QueryVersion } from './api';
 import { ErrorBanner } from '@d4/ui-kit';
+import { keys } from '@d4/web-platform';
 
 export const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft',
@@ -58,7 +59,7 @@ export function NewQueryForm({ onCreated }: { onCreated(id: string): void }) {
         slug: slug || suggested,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
       });
-      await queryClient.invalidateQueries({ queryKey: ['catalog'] });
+      await queryClient.invalidateQueries({ queryKey: keys.catalog });
       setOpen(false);
       onCreated(created.id);
     } catch (err) {
@@ -140,7 +141,7 @@ export function Editor({ queryId, onRemoved }: { queryId: string; onRemoved(): v
   }
 
   const inReview = open?.status === 'in_review';
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['catalog'] }).then(() => queryClient.invalidateQueries({ queryKey: ['catalog-detail', queryId] }));
+  const refresh = () => queryClient.invalidateQueries({ queryKey: keys.catalog }).then(() => queryClient.invalidateQueries({ queryKey: ['catalog-detail', queryId] }));
 
   const save = async () => {
     setError(null);

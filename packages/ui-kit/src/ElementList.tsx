@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { ErrorBanner } from './ErrorBanner';
-import { api, useView, viewQuery } from '@d4/web-platform';
+import { api, keys, useView, viewQuery } from '@d4/web-platform';
 import { elementName, layerOf, layerVar, typesByLayer } from './model';
 
 interface Props {
@@ -27,7 +27,7 @@ export function ElementList({ registry, workspaceId, selectedId }: Props) {
 
   const vq = viewQuery(useView().view);
   const list = useInfiniteQuery({
-    queryKey: ['elements', workspaceId, q, layer, type, vq],
+    queryKey: [...keys.elements(workspaceId), q, layer, type, vq],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
       api.listElements(workspaceId, {

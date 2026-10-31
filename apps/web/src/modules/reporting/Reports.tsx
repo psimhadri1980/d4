@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, type Cadence, type Schedule } from '@d4/web-platform';
+import { api, type Cadence, keys, type Schedule } from '@d4/web-platform';
 import { CadenceFields, ErrorBanner } from '@d4/ui-kit';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
@@ -23,7 +23,7 @@ export function Reports() {
   const [editing, setEditing] = useState<string | null>(null);
   const [cadence, setCadence] = useState<Cadence | null>(null);
   const list = useQuery({
-    queryKey: ['schedules', ws],
+    queryKey: keys.schedules(ws),
     queryFn: () => api.schedules(ws!),
     refetchInterval: (q) => (q.state.data?.some((s) => s.lastJob && ['queued', 'running'].includes(s.lastJob.status)) ? 1500 : false),
   });
@@ -31,7 +31,7 @@ export function Reports() {
     setError(null);
     try {
       await fn();
-      await queryClient.invalidateQueries({ queryKey: ['schedules', ws] });
+      await queryClient.invalidateQueries({ queryKey: keys.schedules(ws) });
     } catch (e) {
       setError(e);
     }

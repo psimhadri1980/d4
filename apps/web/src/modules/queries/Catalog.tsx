@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { QueryResultView } from '../components/QueryResultView';
+import { QueryResultView } from './QueryResultView';
 import { api } from '@d4/web-platform';
-import { catalogApi } from '../modules/queries/api';
+import { catalogApi } from './api';
 import { ErrorBanner, missingRequired, ParamForm, paramLabel, paramsFromForm, type ParamValues } from '@d4/ui-kit';
 
 /** Run a published catalog query: parameter form, results, Cypher. */

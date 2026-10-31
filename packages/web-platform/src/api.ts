@@ -67,6 +67,8 @@ export const api = {
   metamodel: async (ws: string) =>
     (await d4().get('/v1/workspaces/{ws}/metamodel', { path: { ws } })) as unknown as Metamodel,
   me: () => d4().get('/v1/me'),
+  /** Every workspace with its slug, archived ones too (admin only). */
+  adminWorkspaces: () => d4().get('/v1/admin/workspaces', { query: { archived: 'true' } }),
 
   listElements: (ws: string, f: ListFilter, v: ViewParams = {}) =>
     d4().get('/v1/workspaces/{ws}/elements', {

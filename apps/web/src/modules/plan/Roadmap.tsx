@@ -3,8 +3,8 @@ import { useQueries, useQuery } from '@tanstack/react-query';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { roadmapToCsv, roadmapToMermaid } from '@d4/codecs/roadmap';
-import { api, type Element } from '@d4/web-platform';
-import { planApi } from '../modules/plan/api';
+import { api, type Element, keys } from '@d4/web-platform';
+import { planApi } from './api';
 import { download, ErrorBanner, Gantt, type GanttZoom, ScheduleForm } from '@d4/ui-kit';
 
 const LANE_LABEL: Record<LaneKind, string> = {
@@ -321,15 +321,15 @@ function ScopePicker({ workspaceId, scope, onChange }: { workspaceId: string; sc
   }, [text]);
 
   const initiatives = useQuery({
-    queryKey: ['elements', workspaceId, 'Initiative'],
+    queryKey: [...keys.elements(workspaceId), 'Initiative'],
     queryFn: () => api.listElements(workspaceId, { type: ['Initiative', 'Program', 'Portfolio'], first: 100 }),
   });
   const divisions = useQuery({
-    queryKey: ['elements', workspaceId, 'Division'],
+    queryKey: [...keys.elements(workspaceId), 'Division'],
     queryFn: () => api.listElements(workspaceId, { type: ['Division'], first: 100 }),
   });
   const found = useQuery({
-    queryKey: ['elements', workspaceId, 'search', q],
+    queryKey: [...keys.elements(workspaceId), 'search', q],
     enabled: q.length > 1,
     queryFn: () => api.listElements(workspaceId, { q, first: 10 }),
   });
@@ -338,7 +338,7 @@ function ScopePicker({ workspaceId, scope, onChange }: { workspaceId: string; sc
   );
   const unknown = scope.filter((id) => !known.has(id));
   const extra = useQueries({
-    queries: unknown.map((id) => ({ queryKey: ['element', workspaceId, id], queryFn: () => api.element(workspaceId, id) })),
+    queries: unknown.map((id) => ({ queryKey: keys.element(workspaceId, id), queryFn: () => api.element(workspaceId, id) })),
   });
   for (const e of extra) if (e.data) known.set(e.data.id, e.data);
 

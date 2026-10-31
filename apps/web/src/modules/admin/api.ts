@@ -1,4 +1,4 @@
-import { d4, type Schemas } from '@d4/web-platform';
+import { api, d4, type Schemas } from '@d4/web-platform';
 
 export type AdminWorkspace = Schemas['AdminWorkspace'];
 type Member = Schemas['Member'];
@@ -7,7 +7,7 @@ export type Webhook = Schemas['Webhook'] & { secret?: string };
 type WebhookInput = { name: string; url: string; workspace: string | null; eventTypes: string[] };
 
 export const adminApi = {
-  workspaces: () => d4().get('/v1/admin/workspaces', { query: { archived: 'true' } }),
+  workspaces: api.adminWorkspaces,
   createWorkspace: (body: {
     slug: string;
     name: string;

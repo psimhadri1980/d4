@@ -36,7 +36,7 @@ apps/
   api/        NestJS (Fastify) API: REST + read-only GraphQL, auth, catalog, jobs
   worker/     Background job worker (BullMQ consumer): exports and spreadsheet imports
   renderer/   Render queue consumer: PNG/PDF via headless Chromium (Playwright image)
-  web/        React + Vite SPA, served by nginx in a container
+  web/        React + Vite SPA, served by nginx in a container: the shell (src/App.tsx, components/, nav.tsx) and six modules (src/modules/)
   e2e/        Playwright browser tests (run in a container against the live stack)
 packages/
   metamodel/  Metamodel schema (zod), loader, registry; starter.yaml; industry packs in packs/
@@ -106,7 +106,7 @@ web ──► core, metamodel (bundled for the browser)
 | Error → HTTP mapping | `apps/api/src/http/errors.ts` |
 | Request schemas + OpenAPI | `apps/api/src/model/model.schemas.ts`, `http/zod.ts` (z, ErrorSchema), `http/zod.pipe.ts` (`@ValidBody`, `@ValidQuery`); paths per feature in `<feature>/<feature>.openapi.ts`, assembled by `http/openapi.ts` |
 | Catalog API | `apps/api/src/catalog/*` |
-| Web routes | `apps/web/src/App.tsx` |
+| Web modules and routes | `apps/web/src/modules/<explore\|queries\|plan\|data\|reporting\|admin>/module.tsx` (each module's routes and menu items, registered in `modules/index.ts`); the shell (`App.tsx`, `components/Layout.tsx`, `nav.tsx`) mounts them under `/w/:ws` |
 | Web API client | `packages/web-platform/src/api.ts` (shared calls over the typed `@d4/sdk` client), `apps/web/src/modules/<module>/api.ts` (a module's own calls) |
 | Design tokens / themes | `packages/ui-kit/base.css` (tokens, element defaults) and `app.css` (controls and shared components), `apps/web/src/shell.css`, each module's `<module>.css`; `apps/web/src/theme.ts` |
 
@@ -396,9 +396,9 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 - **Give form fields unique ids with `useId()`.** Several query tabs can be mounted at once.
 - **List boxes (`select[size]`) need an explicit empty option**, or the browser shows the first option as selected while the value is `''`.
 - Graphs: `GraphCanvas` (layouts radial, force or hierarchy; `fitSignal`). It reads tokens at render time and listens for `THEME_EVENT`.
-- Routing: `App.tsx`. Query screens are tabs inside `/w/:ws/queries`, with state in `?tabs=mode:id,…&active=…`.
-- **Navigation:** add the page to `NAV` in `nav.tsx` (group, icon from `@tabler/icons-react`, `match` prefixes, optional `sub` items and `visible` rule). The sidebar, the breadcrumb and the Ctrl K search all read it. A sub-item that sets a query parameter (`matrices?kind=…`) is active when the URL has that parameter, so the page must read it.
-- **Admin-only pages** each have their own route and use `AdminGate` in `pages/Admin.tsx`.
+- **Modules:** a screen belongs to one module (`apps/web/src/modules/<module>/`). Add its route to that module's `module.tsx` as a lazy page (`lazyPage(() => import('./Page'), 'Page')`). A module imports only `@d4/web-platform`, `@d4/ui-kit` and domain packages, never another module or the shell; code two modules need goes into one of those packages. Query screens are tabs inside `/w/:ws/queries`, with state in `?tabs=mode:id,…&active=…`.
+- **Navigation:** add the page to its module's `nav` (group and group `order`, icon from `@tabler/icons-react`, `match` prefixes, optional `sub` items, `visible` rule, and `order` when several modules share a group). `nav.tsx` builds the menu from every module; the sidebar, the breadcrumb and the Ctrl K search all read it. A sub-item that sets a query parameter (`matrices?kind=…`) is active when the URL has that parameter, so the page must read it.
+- **Admin-only pages** each have their own route and wrap their content in `AdminGate` from `@d4/ui-kit`.
 
 ### Add a browser test
 

@@ -1,4 +1,5 @@
 import type { Icon } from '@tabler/icons-react';
+import { lazy, type ComponentType } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import type { Access } from './access';
 
@@ -21,6 +22,8 @@ export interface NavItem {
   match: string[];
   sub?: NavSub[];
   visible?: (a: Access) => boolean;
+  /** Position within its group when several modules add to it (low first). */
+  order?: number;
 }
 
 export interface NavGroup {
@@ -49,3 +52,11 @@ export interface D4Module {
   /** Relative to `/w/:ws`; pages are React.lazy chunks. */
   routes: RouteObject[];
 }
+
+/**
+ * A page as a lazy chunk, from a module file's named export:
+ * `const Jobs = lazyPage(() => import('./Jobs'), 'Jobs');`
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- any props, as React.lazy itself allows
+export const lazyPage = <M extends Record<K, ComponentType<any>>, K extends keyof M>(load: () => Promise<M>, name: K) =>
+  lazy(async () => ({ default: (await load())[name] }));

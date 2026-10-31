@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ErrorBanner } from '@d4/ui-kit';
-import { catalogApi, type QueryVersion } from '../modules/queries/api';
+import { catalogApi, type QueryVersion } from './api';
+import { keys } from '@d4/web-platform';
 
 /** Delete (never published) or archive (has published history) a catalog entry. */
 export function RemoveQueryButton({
@@ -28,7 +29,7 @@ export function RemoveQueryButton({
     if (!window.confirm(msg)) return;
     try {
       await catalogApi.remove(queryId);
-      await queryClient.invalidateQueries({ queryKey: ['catalog'] });
+      await queryClient.invalidateQueries({ queryKey: keys.catalog });
       onRemoved();
     } catch (e) {
       setError(e);

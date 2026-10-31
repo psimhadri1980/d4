@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId } from 'react';
-import { api, isBaselineToday, useView } from '@d4/web-platform';
+import { api, isBaselineToday, keys, useView } from '@d4/web-platform';
 
 /** Scenarios in a workspace, for pickers. */
 export function useScenarios(workspaceId: string) {
   return useQuery({
-    queryKey: ['elements', workspaceId, 'scenarios'],
+    queryKey: [...keys.elements(workspaceId), 'scenarios'],
     queryFn: () => api.listElements(workspaceId, { type: ['Scenario'], first: 200 }),
     select: (page) => page.items,
   });

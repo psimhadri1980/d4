@@ -13,8 +13,10 @@ export const keys = {
   workspaces: ['workspaces'] as const,
   metamodel: (ws: string) => ['metamodel', ws] as const,
   /** Every element list and lookup in a workspace (invalidate after model changes). */
-  elements: (ws: string) => ['elements', ws] as const,
-  element: (ws: string, id: string) => ['element', ws, id] as const,
-  schedules: (ws: string) => ['schedules', ws] as const,
+  elements: (ws: string | undefined) => ['elements', ws] as const,
+  element: (ws: string | undefined, id: string | undefined) => ['element', ws, id] as const,
+  schedules: (ws: string | undefined) => ['schedules', ws] as const,
   catalog: ['catalog'] as const,
+  /** Every workspace, archived ones too (administration, backups). */
+  adminWorkspaces: ['admin', 'workspaces'] as const,
 };

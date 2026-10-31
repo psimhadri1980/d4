@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { api, type Job } from '@d4/web-platform';
-import { type Backup, backupsApi } from '../modules/data/api';
-import { describeJob, ErrorBanner, outcome } from '@d4/ui-kit';
+import { useParams } from 'react-router-dom';
+import { api, keys, type Job } from '@d4/web-platform';
+import { type Backup, backupsApi } from './api';
+import { AdminGate, describeJob, ErrorBanner, outcome } from '@d4/ui-kit';
 
 const REASONS: Record<Backup['reason'], string> = { manual: 'manual', scheduled: 'daily', safety: 'before a restore' };
 const size = (n: number) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -124,4 +125,19 @@ export function Backups({ ws, slug }: { ws: string; slug: string }) {
       )}
     </section>
   );
+}
+
+export function BackupsPage() {
+  const { ws } = useParams();
+  return (
+    <AdminGate title="Backups">
+      <CurrentBackups ws={ws!} />
+    </AdminGate>
+  );
+}
+
+function CurrentBackups({ ws }: { ws: string }) {
+  const list = useQuery({ queryKey: keys.adminWorkspaces, queryFn: api.adminWorkspaces });
+  const slug = list.data?.find((w) => w.id === ws)?.slug;
+  return slug ? <Backups ws={ws} slug={slug} /> : null;
 }

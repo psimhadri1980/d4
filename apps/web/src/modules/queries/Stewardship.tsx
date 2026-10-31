@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { RemoveQueryButton } from '../components/RemoveQueryButton';
-import { TestRunPanel } from '../components/TestRunPanel';
+import { RemoveQueryButton } from './RemoveQueryButton';
+import { TestRunPanel } from './TestRunPanel';
 import { ChecksList, STATUS_LABEL, VersionHistory } from './QueryStudio';
-import { catalogApi, type QueryGrant, type QueryVersion } from '../modules/queries/api';
+import { catalogApi, type QueryGrant, type QueryVersion } from './api';
 import { ErrorBanner } from '@d4/ui-kit';
+import { keys } from '@d4/web-platform';
 
 /** Roles a steward can grant a query to (mirrors the platform role list). */
 const GRANTABLE_ROLES = ['viewer', 'contributor', 'planner', 'architect', 'query-author', 'query-steward'];
@@ -25,7 +26,7 @@ export function StewardPanel({ queryId, onRemoved }: { queryId: string; onRemove
   useEffect(() => setGrants(detail.data?.grants ?? []), [detail.data?.grants]);
 
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['catalog'] });
+    await queryClient.invalidateQueries({ queryKey: keys.catalog });
     await queryClient.invalidateQueries({ queryKey: ['catalog-detail', queryId] });
   };
   const act = async (label: string, fn: () => Promise<unknown>) => {

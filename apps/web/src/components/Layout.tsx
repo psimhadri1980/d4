@@ -1,12 +1,12 @@
 import { IconMenu2, IconSearch } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
 import { activeItem, subActive, visibleNav } from '../nav';
 import { applyTheme, storedTheme, type ThemeChoice } from '../theme';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
-import { accessOf, api, useAuth, ViewProvider } from '@d4/web-platform';
+import { accessOf, api, keys, useAuth, useMe, ViewProvider } from '@d4/web-platform';
 
 const COLLAPSED_KEY = 'd4-nav-collapsed';
 
@@ -23,8 +23,8 @@ export function Layout() {
   const { ws } = useParams();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const workspaces = useQuery({ queryKey: ['workspaces'], queryFn: api.workspaces });
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me });
+  const workspaces = useQuery({ queryKey: keys.workspaces, queryFn: api.workspaces });
+  const me = useMe();
   const [theme, setTheme] = useState<ThemeChoice>(storedTheme);
   const [collapsed, setCollapsed] = useState(storedCollapsed);
   const [drawer, setDrawer] = useState(false);
@@ -118,7 +118,10 @@ export function Layout() {
         </header>
         <main className="content">
           <ViewProvider workspaceId={ws!}>
-            <Outlet />
+            {/* Pages are lazy chunks; the shell stays while one loads. */}
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
           </ViewProvider>
         </main>
       </div>

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Fragment, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useView, viewQuery } from '@d4/web-platform';
-import { exploreApi } from '../modules/explore/api';
+import { exploreApi } from './api';
 import { download, ErrorBanner, ViewBar, ViewNotice } from '@d4/ui-kit';
 
 const LABEL: Record<MatrixKind, string> = {

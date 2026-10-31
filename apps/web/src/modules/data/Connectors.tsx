@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
+import { useParams } from 'react-router-dom';
 import { api, type Cadence, type SyncResult } from '@d4/web-platform';
-import { type Connector, connectorsApi } from '../modules/data/api';
-import { CadenceFields, ErrorBanner, syncSummary } from '@d4/ui-kit';
+import { type Connector, connectorsApi } from './api';
+import { AdminGate, CadenceFields, ErrorBanner, syncSummary } from '@d4/ui-kit';
 
 /** A starting mapping: one element type, id and name fields, one relationship. Edit to fit the source. */
 const EXAMPLE_MAPPING = JSON.stringify(
@@ -425,5 +426,14 @@ function NewConnector({
         </button>
       </div>
     </form>
+  );
+}
+
+export function ConnectorsPage() {
+  const { ws } = useParams();
+  return (
+    <AdminGate title="Connectors">
+      <Connectors ws={ws!} />
+    </AdminGate>
   );
 }

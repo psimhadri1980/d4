@@ -4,8 +4,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { RunPanel } from './Catalog';
 import { Editor, NewQueryForm, StatusBadges } from './QueryStudio';
 import { StewardPanel } from './Stewardship';
-import { accessOf, api } from '@d4/web-platform';
-import { type CatalogEntry } from '../modules/queries/api';
+import { accessOf, api, keys, useMe } from '@d4/web-platform';
+import { type CatalogEntry } from './api';
 import { ErrorBanner } from '@d4/ui-kit';
 
 /** What a tab does with its query. */
@@ -37,7 +37,7 @@ export function parseTabs(raw: string | null): QueryTab[] {
 export function Queries() {
   const { ws } = useParams();
   const [params, setParams] = useSearchParams();
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me });
+  const me = useMe();
   const roles = accessOf(me.data?.roles);
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
@@ -46,7 +46,7 @@ export function Queries() {
     return () => clearTimeout(t);
   }, [text]);
 
-  const list = useQuery({ queryKey: ['catalog', 'queries', q], queryFn: () => api.searchCatalog({ q: q || undefined }) });
+  const list = useQuery({ queryKey: [...keys.catalog, 'queries', q], queryFn: () => api.searchCatalog({ q: q || undefined }) });
   const entries = list.data ?? [];
   const byId = useMemo(() => new Map(entries.map((e) => [e.id, e])), [entries]);
 

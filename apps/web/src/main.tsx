@@ -7,13 +7,7 @@ import '@d4/ui-kit/styles.css';
 import '@d4/ui-kit/base.css';
 import './shell.css';
 import '@d4/ui-kit/app.css';
-// Screen styles, in the order they had in the single stylesheet.
-import './modules/explore/explore.css';
-import './modules/queries/queries.css';
-import './modules/plan/plan.css';
-import './modules/data/data.css';
-import './modules/reporting/reporting.css';
-import './modules/admin/admin.css';
+// Each module imports its own stylesheet (modules/<module>/module.tsx), after these.
 import { applyTheme, storedTheme, watchSystemTheme } from './theme';
 import { loadRuntimeConfig } from '@d4/web-platform';
 

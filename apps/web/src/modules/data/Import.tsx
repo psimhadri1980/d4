@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useRegistry } from '@d4/web-platform';
-import { type AnalyzedTable, importApi, type TabularImportResult, type TableMapping, type Upload } from '../modules/data/api';
+import { type AnalyzedTable, importApi, type TabularImportResult, type TableMapping, type Upload } from './api';
 import { ErrorBanner } from '@d4/ui-kit';
 
 const ELEMENT_FIELDS = ['name', 'type', 'key', 'id', 'externalKey', 'lifecycle', 'description', 'validFrom', 'validTo', 'scenarioId'];

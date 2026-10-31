@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { type Element, type Relationship, useRegistry, useView, viewQuery } from '@d4/web-platform';
-import { exploreApi } from '../modules/explore/api';
+import { exploreApi } from './api';
 import { ElementDetails, ElementList, ErrorBanner, ExportMenu, GraphCanvas, type GraphLayout, ViewBar, ViewNotice } from '@d4/ui-kit';
 
 /**

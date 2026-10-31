@@ -2,8 +2,8 @@ import type { MetamodelRegistry } from '@d4/metamodel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { accessOf, api, useRegistry } from '@d4/web-platform';
-import { type Proposal, type ProposalOperation, proposalsApi, type ProposalStatus } from '../modules/plan/api';
+import { accessOf, api, keys, useMe, useRegistry } from '@d4/web-platform';
+import { type Proposal, type ProposalOperation, proposalsApi, type ProposalStatus } from './api';
 import { ElementPicker, ErrorBanner } from '@d4/ui-kit';
 
 const FILTERS: { label: string; statuses?: ProposalStatus[] }[] = [
@@ -95,7 +95,7 @@ function ProposalView({ ws, id }: { ws: string; id: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const registry = useRegistry(ws);
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me });
+  const me = useMe();
   const q = useQuery({ queryKey: ['proposal', ws, id], queryFn: () => proposalsApi.get(ws, id) });
   const [error, setError] = useState<unknown>(null);
   const [comment, setComment] = useState('');
@@ -301,7 +301,7 @@ function ChangeElement({ ws, registry, onAdd }: { ws: string; registry: Metamode
   const pickId = useId();
   const attrId = useId();
   const valueId = useId();
-  const el = useQuery({ queryKey: ['element', ws, id], queryFn: () => api.element(ws, id), enabled: !!id });
+  const el = useQuery({ queryKey: keys.element(ws, id), queryFn: () => api.element(ws, id), enabled: !!id });
   const defs = el.data ? registry.attributesFor(el.data.type).filter((a) => a.name !== 'externalKey') : [];
   const def = defs.find((a) => a.name === attr);
   const options = def?.enum ? (registry.metamodel.enums[def.enum] ?? []) : null;
@@ -422,7 +422,7 @@ function Connect({ ws, registry, created, onAdd }: { ws: string; registry: Metam
 type End = { ref: string; existing: string };
 
 function useEndType(ws: string, end: End, created: Created[]) {
-  const el = useQuery({ queryKey: ['element', ws, end.existing], queryFn: () => api.element(ws, end.existing), enabled: !end.ref && !!end.existing });
+  const el = useQuery({ queryKey: keys.element(ws, end.existing), queryFn: () => api.element(ws, end.existing), enabled: !end.ref && !!end.existing });
   return end.ref ? created.find((c) => c.ref === end.ref)?.type : el.data?.type;
 }
 
@@ -458,7 +458,7 @@ function EndPicker({ label, ws, created, value, onChange }: { label: string; ws:
 function DeleteElement({ ws, onAdd }: { ws: string; onAdd(o: ProposalOperation): void }) {
   const [id, setId] = useState('');
   const pickId = useId();
-  const el = useQuery({ queryKey: ['element', ws, id], queryFn: () => api.element(ws, id), enabled: !!id });
+  const el = useQuery({ queryKey: keys.element(ws, id), queryFn: () => api.element(ws, id), enabled: !!id });
   return (
     <form
       className="admin-create"

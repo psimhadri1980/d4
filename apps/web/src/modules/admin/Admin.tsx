@@ -1,13 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { Backups } from './AdminBackups';
-import { Connectors } from './AdminConnectors';
-import { Usage } from './AdminUsage';
-import { Webhooks } from './AdminWebhooks';
-import { accessOf, api, ROLES } from '@d4/web-platform';
-import { adminApi, type AdminWorkspace } from '../modules/admin/api';
-import { ErrorBanner } from '@d4/ui-kit';
+import { Usage } from './Usage';
+import { Webhooks } from './Webhooks';
+import { keys, ROLES } from '@d4/web-platform';
+import { adminApi, type AdminWorkspace } from './api';
+import { AdminGate, ErrorBanner } from '@d4/ui-kit';
 
 const toSlug = (s: string) =>
   s
@@ -17,23 +15,6 @@ const toSlug = (s: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 48);
 
-/** Admin pages share one gate: without the admin role they say so instead of rendering. */
-function AdminGate({ title, children }: { title: string; children: ReactNode }) {
-  const me = useQuery({ queryKey: ['me'], queryFn: api.me });
-  if (me.data && !accessOf(me.data.roles).admin) {
-    return (
-      <div className="admin-page">
-        <p className="muted">Administration needs the admin role.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="admin-page">
-      <h2>{title}</h2>
-      {children}
-    </div>
-  );
-}
 
 export const AdminWorkspacesPage = () => (
   <AdminGate title="Workspaces">
@@ -62,33 +43,9 @@ export const AdminUsagePage = () => (
   </AdminGate>
 );
 
-export function ConnectorsPage() {
-  const { ws } = useParams();
-  return (
-    <AdminGate title="Connectors">
-      <Connectors ws={ws!} />
-    </AdminGate>
-  );
-}
-
-export function BackupsPage() {
-  const { ws } = useParams();
-  return (
-    <AdminGate title="Backups">
-      <CurrentBackups ws={ws!} />
-    </AdminGate>
-  );
-}
-
-function CurrentBackups({ ws }: { ws: string }) {
-  const list = useQuery({ queryKey: ['admin', 'workspaces'], queryFn: adminApi.workspaces });
-  const slug = list.data?.find((w) => w.id === ws)?.slug;
-  return slug ? <Backups ws={ws} slug={slug} /> : null;
-}
-
 function Workspaces() {
   const queryClient = useQueryClient();
-  const list = useQuery({ queryKey: ['admin', 'workspaces'], queryFn: adminApi.workspaces });
+  const list = useQuery({ queryKey: keys.adminWorkspaces, queryFn: adminApi.workspaces });
   const [error, setError] = useState<unknown>(null);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -106,7 +63,7 @@ function Workspaces() {
     try {
       await fn();
       await queryClient.invalidateQueries({ queryKey: ['admin'] });
-      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      await queryClient.invalidateQueries({ queryKey: keys.workspaces });
     } catch (e) {
       setError(e);
     }
@@ -242,7 +199,7 @@ function Members({ defaultScope }: { defaultScope: string }) {
   const scopeId = useId();
   const userSel = useId();
   const roleSel = useId();
-  const workspaces = useQuery({ queryKey: ['admin', 'workspaces'], queryFn: adminApi.workspaces });
+  const workspaces = useQuery({ queryKey: keys.adminWorkspaces, queryFn: adminApi.workspaces });
   const users = useQuery({ queryKey: ['admin', 'users'], queryFn: adminApi.users });
   const members = useQuery({ queryKey: ['admin', 'members', scope], queryFn: () => adminApi.members(scope) });
 

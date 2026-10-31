@@ -1,6 +1,7 @@
 export * from './Gantt';
 export * from './GraphCanvas';
 export * from './ResultTable';
+export * from './AdminGate';
 export * from './AttributeField';
 export * from './download';
 export * from './ElementDetails';

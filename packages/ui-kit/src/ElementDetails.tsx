@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { ErrorBanner } from './ErrorBanner';
 import { RelationshipForm } from './RelationshipForm';
-import { api, type Connection, useView, viewQuery } from '@d4/web-platform';
+import { api, type Connection, keys, useView, viewQuery } from '@d4/web-platform';
 import { elementName, layerOf, layerVar } from './model';
 
 interface Props {
@@ -21,7 +21,7 @@ export function ElementDetails({ registry, workspaceId: ws, elementId: id }: Pro
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const element = useQuery({ queryKey: ['element', ws, id], queryFn: () => api.element(ws, id) });
+  const element = useQuery({ queryKey: keys.element(ws, id), queryFn: () => api.element(ws, id) });
   const { view } = useView();
   const vq = viewQuery(view);
   const connections = useQuery({ queryKey: ['connections', ws, id, vq], queryFn: () => api.connections(ws, id, vq) });
