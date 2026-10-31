@@ -29,6 +29,12 @@ location /mfe/_r/ {
   proxy_pass http://$u;
 }
 
+# A web module rebuilt on the host by deploy/dev.sh web-<name> (502 when none runs).
+location /mfe/_dev/ {
+  set $u $up_mfe_dev;
+  proxy_pass http://$u;
+}
+
 # Web modules built into the module image (seeded admin and hello).
 location /mfe/ {
   set $u $up_web_admin;

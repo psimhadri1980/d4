@@ -34,6 +34,7 @@ server {
   set $up_mail ${UPSTREAM_MAIL};
   set $up_grafana ${UPSTREAM_GRAFANA};
   set $up_s3 ${UPSTREAM_S3};
+  set $up_mfe_dev ${UPSTREAM_MFE_DEV};
 
   include /etc/nginx/conf.d/apps.routes;
 }
@@ -71,6 +72,8 @@ server {
   set $up_mail ${UPSTREAM_PODMAN_MAIL};
   set $up_grafana ${UPSTREAM_PODMAN_GRAFANA};
   set $up_s3 ${UPSTREAM_PODMAN_S3};
+  # The containers only: no module from the host.
+  set $up_mfe_dev 127.0.0.1:1;
 
   include /etc/nginx/conf.d/apps.routes;
 }

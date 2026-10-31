@@ -47,14 +47,15 @@ const contentSecurityPolicy = (importMap: string) =>
   ].join('; ');
 
 /**
- * Builds every shared package (`@d4/web-platform/shared`) as an entry and writes the page's import map, so
- * lifecycle modules import the shell's copies (P6 spike). Production builds only.
+ * Writes the page's import map, so lifecycle modules import the shell's copies of the shared
+ * packages (`@d4/web-platform/shared`). A build makes each shared package an entry of its own;
+ * the dev server maps each to a module that re-exports the shell's own pre-bundled copy (the same
+ * instance the shell uses), so built modules also run in `deploy/dev.sh web`.
  */
 function sharedImportMap(): Plugin {
   return {
     name: 'd4-shared-import-map',
-    apply: 'build',
-    config: () => ({
+    config: (_c, { command }) => command !== 'build' ? undefined : ({
       build: {
         rollupOptions: {
           input: { index: 'index.html', ...Object.fromEntries(SHARED.map((s) => [`shared/${s.replace(/^@/, '').replace(/\//g, '-')}`, SHARED_ID + s])) },
@@ -74,6 +75,10 @@ function sharedImportMap(): Plugin {
     transformIndexHtml: {
       order: 'post',
       handler(_html, ctx) {
+        if (ctx.server) {
+          const imports = Object.fromEntries(SHARED.map((s) => [s, `/@id/__x00__${SHARED_ID}${s}`]));
+          return [{ tag: 'script', attrs: { type: 'importmap' }, children: JSON.stringify({ imports }), injectTo: 'head-prepend' }];
+        }
         const imports: Record<string, string> = {};
         for (const chunk of Object.values(ctx.bundle ?? {}))
           if (chunk.type === 'chunk' && chunk.facadeModuleId?.startsWith(`\0${SHARED_ID}`)) imports[chunk.facadeModuleId.slice(SHARED_ID.length + 1)] = `/${chunk.fileName}`;

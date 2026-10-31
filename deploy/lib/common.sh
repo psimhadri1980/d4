@@ -56,6 +56,8 @@ node_env() {
 }
 # True when the pinned Node is usable here (test.sh then defaults to it).
 have_local_node() { (node_env check) >/dev/null 2>&1; }
+# Stops a process and everything it started (a pn subshell leaves npx, pnpm and vite below it).
+kill_tree() { local c; for c in $(pgrep -P "$1"); do kill_tree "$c"; done; kill "$1" 2>/dev/null || true; }
 pn() { (cd .. && NPM_CONFIG_UPDATE_NOTIFIER=false npx -y "pnpm@$PNPM_VERSION" "$@"); }
 ensure_deps() { [[ -d ../node_modules ]] || pn install --frozen-lockfile; }
 

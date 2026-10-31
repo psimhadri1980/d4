@@ -15,6 +15,7 @@ services:
       UPSTREAM_WEB_ADMIN: ${UPSTREAM_WEB_ADMIN:-web-admin:8080}
       UPSTREAM_MAIL: ${UPSTREAM_MAIL:-smtp:8025}
       UPSTREAM_GRAFANA: ${UPSTREAM_GRAFANA:-grafana:3000}
+      UPSTREAM_MFE_DEV: ${UPSTREAM_MFE_DEV:-127.0.0.1:1}
     mem_limit: 64m
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/healthz >/dev/null']

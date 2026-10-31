@@ -150,11 +150,12 @@ For quick changes, run an app on the host with hot reload, behind the same gatew
 
 | Command | What it does |
 |---|---|
-| `deploy/dev.sh web` | Installs dependencies if missing, builds the packages the web app imports, then runs Vite on `:5174` behind the gateway, with hot reload (HMR through the gateway's port); `/config.json` comes from the env files. |
+| `deploy/dev.sh web` | Installs dependencies if missing, builds the packages the web app imports, then runs Vite on `:5174` behind the gateway, with hot reload (HMR through the gateway's port); `/config.json` comes from the env files. The dev server writes an import map of the shared packages too, so the web modules (from the registry, releases or `dev.sh web-<name>`) load into it. |
+| `deploy/dev.sh web-<name>` | One web module (`explore`, `queries`, `plan`, `data`, `reporting`, `admin`) rebuilt on every change (`vite build --watch`) and served at `/mfe/_dev/<name>/` on `localhost` only; point the shell at it with `localStorage['d4:module:<name>'] = '/mfe/_dev/<name>/<name>.js'` and reload (about a second per change). Runs alongside `dev.sh web` and `api`: the running overrides are kept in `deploy/.dev-routes`. |
 | `deploy/dev.sh api` | API on local Node (tsx watch) on `:3100` (`host.env`), behind the gateway at `/api`. It uses the local queues, so run `dev.sh worker` and `dev.sh renderer` for background jobs. |
 | `deploy/dev.sh worker` | Job worker on local Node for the local API's queues (`d4-jobs-local`, `d4-render-local`). Scheduler, webhook sending and daily backups are off (`host.env`) unless set, e.g. `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker`, because they share the dev database with the container worker. |
 | `deploy/dev.sh renderer` | Builds the renderer image from the tree and runs it once on the local render queue; Chromium needs the Playwright image. |
-| `deploy/dev.sh restore` | Routes the gateway back to the containers and starts them (if a `dev.sh` run was killed). |
+| `deploy/dev.sh restore` | Routes the gateway back to the containers (if a `dev.sh` run was killed) and clears `deploy/.dev-routes`. |
 | `deploy/test.sh web --local` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
 | `deploy/dev-deploy.sh web` | After committing: rebuilds and starts the `web` container. |
 

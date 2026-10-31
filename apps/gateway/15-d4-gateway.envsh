@@ -7,12 +7,12 @@ export GATEWAY_PODMAN_HOST="${GATEWAY_PODMAN_HOST:-d4.localhost}" \
   UPSTREAM_PODMAN_API=api:3000 UPSTREAM_PODMAN_KEYCLOAK=keycloak:8080 UPSTREAM_PODMAN_WEB=web:8080 \
   UPSTREAM_PODMAN_WEB_ADMIN=web-admin:8080 UPSTREAM_PODMAN_MAIL=smtp:8025 UPSTREAM_PODMAN_GRAFANA=grafana:3000 \
   UPSTREAM_PODMAN_S3=s3:8333
-export UPSTREAM_S3="${UPSTREAM_S3:-s3:8333}" GATEWAY_MFE_BUCKET="${GATEWAY_MFE_BUCKET:-d4-web-modules}"
+export UPSTREAM_S3="${UPSTREAM_S3:-s3:8333}" UPSTREAM_MFE_DEV="${UPSTREAM_MFE_DEV:-127.0.0.1:1}" GATEWAY_MFE_BUCKET="${GATEWAY_MFE_BUCKET:-d4-web-modules}"
 # Resolving per request keeps the gateway up while an upstream is stopped or moved (502 instead).
 export GATEWAY_RESOLVER="${GATEWAY_RESOLVER:-$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf)}"
 # nginx's resolver asks DNS only, so names from /etc/hosts (host.containers.internal, which
 # deploy/dev.sh uses for apps on the host) become their address here.
-for v in UPSTREAM_API UPSTREAM_KEYCLOAK UPSTREAM_WEB UPSTREAM_WEB_ADMIN UPSTREAM_MAIL UPSTREAM_GRAFANA; do
+for v in UPSTREAM_API UPSTREAM_KEYCLOAK UPSTREAM_WEB UPSTREAM_WEB_ADMIN UPSTREAM_MAIL UPSTREAM_GRAFANA UPSTREAM_MFE_DEV; do
   eval "u=\${$v:-}"
   ip=$(awk -v h="${u%%:*}" '$1 !~ /^#/ { for (i = 2; i <= NF; i++) if ($i == h) { print $1; exit } }' /etc/hosts)
   [ -n "$ip" ] && export "$v=$ip:${u##*:}"
