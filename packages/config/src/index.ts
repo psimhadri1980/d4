@@ -67,6 +67,12 @@ export const publicUrl = {
 
 export const oidc = {
   OIDC_ISSUER: z.string().url(),
+  /** Further accepted issuers, comma-separated: the same realm reached through another gateway host. */
+  OIDC_EXTRA_ISSUERS: z
+    .string()
+    .default('')
+    .transform((v) => v.split(',').map((s) => s.trim()).filter(Boolean))
+    .pipe(z.array(z.string().url())),
   OIDC_AUDIENCE: z.string().default('d4-api'),
   /**
    * Where to fetch signing keys when it differs from the public issuer URL, e.g. inside the

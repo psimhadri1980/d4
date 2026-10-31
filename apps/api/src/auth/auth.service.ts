@@ -28,7 +28,7 @@ export class AuthService {
     let claims: JWTPayload;
     try {
       ({ payload: claims } = await jwtVerify(authorization.slice(7), this.jwks, {
-        issuer: this.config.OIDC_ISSUER,
+        issuer: [this.config.OIDC_ISSUER, ...this.config.OIDC_EXTRA_ISSUERS],
         audience: this.config.OIDC_AUDIENCE,
       }));
     } catch {

@@ -18,5 +18,7 @@ export async function loadRuntimeConfig(): Promise<void> {
   const loaded = (await res.json()) as Partial<RuntimeConfig>;
   const missing = (['apiUrl', 'oidcAuthority', 'oidcClientId'] as const).filter((k) => typeof loaded[k] !== 'string' || !loaded[k]);
   if (missing.length) throw new Error(`/config.json is missing ${missing.join(', ')}`);
-  Object.assign(config, loaded);
+  // Paths are resolved against this page's origin, so every gateway host uses its own API and issuer.
+  const absolute = (v: string) => new URL(v, location.origin).href.replace(/\/$/, '');
+  Object.assign(config, loaded, { apiUrl: absolute(loaded.apiUrl!), oidcAuthority: absolute(loaded.oidcAuthority!) });
 }

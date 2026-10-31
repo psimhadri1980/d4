@@ -1,0 +1,30 @@
+# The routes both hosts serve; each server sets the $up_* upstreams first.
+location = /healthz { access_log off; default_type text/plain; return 200 'ok'; }
+
+# The API keeps its own routes (/v1/..., /graphql, /healthz): /api is stripped.
+location /api/ {
+  set $u $up_api;
+  rewrite ^/api/(.*)$ /$1 break;
+  proxy_pass http://$u;
+  proxy_read_timeout 120s;
+}
+# Keycloak serves under /auth itself (KC_HTTP_RELATIVE_PATH).
+location /auth/ {
+  set $u $up_keycloak;
+  proxy_pass http://$u;
+  proxy_buffer_size 16k;
+  proxy_buffers 8 16k;
+}
+
+# Lifecycle web modules (P6 spike), one static server for now.
+location /mfe/ {
+  set $u $up_web_admin;
+  proxy_pass http://$u;
+}
+
+include /etc/nginx/conf.d/*.locations;
+
+location / {
+  set $u $up_web;
+  proxy_pass http://$u;
+}

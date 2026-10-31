@@ -54,7 +54,7 @@ deploy/dev-infra.sh status | logs <svc> | down | reset   # reset also deletes al
 | redis 7 | Queue / cache | 128 MB |
 | s3 (mocks/s3, file-backed) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
 | keycloak 25 | OIDC realm `d4`, roles, dev users (at `/auth`) | 768 MB |
-| gateway (nginx) | The one browser-facing origin, http://localhost:5173: web `/`, API `/api`, Keycloak `/auth`, inbox `/mail/` | 64 MB |
+| gateway (nginx) | The browser-facing port: http://localhost:5173 (containers or local `dev.sh` apps) and http://d4.localhost:5173 (containers only), each with web `/`, API `/api`, Keycloak `/auth`, inbox `/mail/` | 64 MB |
 | db-migrate, neo4j-schema | One-shot jobs (ops image): Postgres migrations + local seed, Neo4j schema | — |
 | api | D4 API at http://localhost:5173/api | 384 MB |
 | web | D4 Explorer on http://localhost:5173 (nginx, static build) | 64 MB |
@@ -146,7 +146,7 @@ Export formats: `yaml`, `json`, `elements-csv`, `relationships-csv`, `xlsx` (web
 
 ## Developing with Node locally (optional)
 
-For the web app, the quickest loop is `deploy/dev.sh web` (Vite with hot reload behind the gateway, still at http://localhost:5173), then `deploy/test.sh web --local` and `test.sh e2e`; after committing, `deploy/dev-deploy.sh web` updates the container. See the developer guide, §3.
+For the web app, the quickest loop is `deploy/dev.sh web` (Vite with hot reload behind the gateway, still at http://localhost:5173; the container build stays at http://d4.localhost:5173), then `deploy/test.sh web --local` and `test.sh e2e`; after committing, `deploy/dev-deploy.sh web` updates the container. See the developer guide, §3.
 
 For everything else: Node.js 24 and pnpm 9 (`corepack enable`). `deploy/dev.sh api|worker|renderer` run the services on local Node (the API behind the gateway) with the settings from `deploy/env/host.env`; `deploy/test.sh <suite> --local` runs tests there.
 

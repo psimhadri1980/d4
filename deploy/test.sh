@@ -9,8 +9,9 @@ usage: deploy/test.sh <suite> [--local] [args]
   unit [--filter pkg]   unit tests only (integration suites skip without their services)
   integration [--filter pkg]   all tests, with Postgres, Neo4j, Redis and S3
   web                   web unit tests, typecheck, lint and production build
-  e2e [playwright args] browser tests through the gateway, whatever mix of container and
-                        local (deploy/dev.sh) apps is behind it
+  e2e [--podman] [playwright args]  browser tests through the gateway: D4_PUBLIC_URL, whatever
+                        mix of container and local (deploy/dev.sh) apps is behind it, or with
+                        --podman D4_PODMAN_URL, the containers only
   smoke                 gateway and API health, login and /v1/me through the gateway
   all                   static, integration, e2e: the full run
 --local runs on host Node (Node 24); otherwise everything runs in the test image.
@@ -19,8 +20,10 @@ U
 }
 
 suite="${1:-}"; shift || true
-local_node=0; args=()
-for a in "$@"; do [[ "$a" == --local ]] && local_node=1 || args+=("$a"); done
+local_node=0; podman_host=0; args=()
+for a in "$@"; do
+  case "$a" in --local) local_node=1 ;; --podman) podman_host=1 ;; *) args+=("$a") ;; esac
+done
 filter() { [[ "${args[0]:-}" == --filter ]] && echo "--filter ${args[1]}"; }
 
 # Runs a pnpm command on host Node or in the test container (with or without services).
@@ -45,8 +48,9 @@ run() {
 
 e2e() {
   # The gateway serves the app, the API and Keycloak whether they run in containers or on the host.
-  curl -fsS -o /dev/null "$D4_PUBLIC_URL/healthz" || die "No gateway at $D4_PUBLIC_URL: run deploy/dev-infra.sh up and deploy/dev-deploy.sh"
-  compose --profile tools run --rm --build --no-deps e2e "${args[@]}"
+  local base="$D4_PUBLIC_URL"; [[ $podman_host == 1 ]] && base="$D4_PODMAN_URL"
+  curl -fsS -o /dev/null "$base/healthz" || die "No gateway at $base: run deploy/dev-infra.sh up and deploy/dev-deploy.sh"
+  compose --profile tools run --rm --build --no-deps -e E2E_BASE_URL="$base" e2e "${args[@]}"
 }
 
 case "$suite" in

@@ -19,7 +19,7 @@ function runtimeConfig(): Plugin {
     name: 'd4-runtime-config',
     configureServer(server) {
       server.middlewares.use('/config.json', (_req, res) => {
-        const body = JSON.stringify({ apiUrl: env('D4_PUBLIC_API_URL'), oidcAuthority: env('OIDC_ISSUER'), oidcClientId: env('OIDC_CLIENT_ID') });
+        const body = JSON.stringify({ apiUrl: new URL(env('D4_PUBLIC_API_URL')).pathname, oidcAuthority: new URL(env('OIDC_ISSUER')).pathname, oidcClientId: env('OIDC_CLIENT_ID') });
         res.setHeader('content-type', 'application/json');
         res.setHeader('cache-control', 'no-store');
         res.end(body);

@@ -114,15 +114,16 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?run through deploy/dev-infra.sh}
       KC_HEALTH_ENABLED: 'true'
-      # Served under /auth behind the gateway, with a fixed public issuer; containers may still
-      # call keycloak:8080/auth on the back channel.
+      # Served under /auth behind the gateway. No fixed hostname: the issuer follows the host a
+      # request came through (localhost or d4.localhost, from X-Forwarded-Host), so each gateway
+      # host signs in on its own origin; containers call keycloak:8080/auth on the back channel.
       KC_HTTP_RELATIVE_PATH: /auth
-      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:?run through deploy/dev-infra.sh}
-      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
+      KC_HOSTNAME_STRICT: 'false'
       KC_PROXY_HEADERS: xforwarded
       JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=60
       # Placeholders in the realm file (read on first import only).
       D4_PUBLIC_URL: ${D4_PUBLIC_URL:?run through deploy/dev-infra.sh}
+      D4_PODMAN_URL: ${D4_PODMAN_URL:?run through deploy/dev-infra.sh}
       DEV_USER_PASSWORD: ${DEV_USER_PASSWORD:?run through deploy/dev-infra.sh}
     volumes:
       - ../keycloak/d4-realm.json:/opt/keycloak/data/import/d4-realm.json:ro,Z

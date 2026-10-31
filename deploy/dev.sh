@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs D4 apps on local Node with hot reload, behind the gateway: the app's container stops, the
-# gateway's upstream for it points at the host process, and Ctrl-C switches back to the container.
-# The browser and the tests keep using D4_PUBLIC_URL either way. Needs Node 24 (.node-version).
+# Runs D4 apps on local Node with hot reload, behind the gateway: on D4_PUBLIC_URL (localhost) the
+# gateway's upstream for the app points at the host process, and Ctrl-C switches back to the
+# container. The container keeps running and stays reachable on D4_PODMAN_URL (d4.localhost). Needs Node 24 (.node-version).
 source "$(dirname "$0")/lib/common.sh"
 
 usage() {
@@ -25,13 +25,13 @@ HOST_FROM_CONTAINERS=host.containers.internal
 # Recreates the gateway with the given upstream overrides (UPSTREAM_API=..., UPSTREAM_WEB=...).
 route() { (if (( $# )); then export "$@"; fi; compose up -d --no-deps --force-recreate --wait gateway >/dev/null); }
 
-# Serves one app from the host until this script exits, then gives it back to its container.
+# Serves one app on D4_PUBLIC_URL from the host until this script exits, then gives it back to its
+# container (which D4_PODMAN_URL uses throughout).
 route_local() {
   local svc="$1" upstream="$2"
-  compose stop "$svc" >/dev/null 2>&1 || true
   route "$upstream"
-  trap 'say "Routing $svc back to its container"; compose start '"$svc"' >/dev/null 2>&1 || true; route' EXIT
-  say "Gateway: $D4_PUBLIC_URL → ${upstream#*=} for $svc"
+  trap "say 'Routing $svc back to its container'; route" EXIT
+  say "Gateway: $D4_PUBLIC_URL → ${upstream#*=} for $svc; $D4_PODMAN_URL stays on the containers"
 }
 
 case "${1:-}" in
@@ -68,7 +68,6 @@ case "${1:-}" in
       -e SMTP_URL=smtp://$HOST_FROM_CONTAINERS:1025 localhost/d4-renderer:local ;;
   restore)
     route
-    compose start web api >/dev/null 2>&1 || true
     say "Gateway routes to the containers." ;;
   cli)
     TOKEN=$(./dev-infra.sh token)
