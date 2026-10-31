@@ -63,6 +63,8 @@ export interface ManifestItem {
 export interface ModuleManifest {
   id: string;
   contract: typeof LIFECYCLE_CONTRACT;
+  /** Major versions of the shared packages the module was built against (`sharedMajors`); the shell refuses a mismatch. */
+  shared?: Record<string, string>;
   nav: { group: string; order: number; items: ManifestItem[] };
 }
 
@@ -80,14 +82,18 @@ const isLifecycle = (v: unknown) => typeof v === 'function' || (Array.isArray(v)
 
 /**
  * What is wrong with a module's exports, if anything: the contract a module must meet to load.
- * The shell checks every module it imports; each module's tests check their own exports.
+ * The shell checks every module it imports (with the shared majors it was built with); each
+ * module's tests check their own exports.
  */
-export function lifecycleProblems(mod: unknown, name: string): string[] {
+export function lifecycleProblems(mod: unknown, name: string, provided?: Record<string, string>): string[] {
   const m = (mod ?? {}) as Partial<LifecycleModule>;
   const out: string[] = [];
   if (m.manifest?.contract !== LIFECYCLE_CONTRACT) out.push(`uses contract ${String(m.manifest?.contract)}; this app understands ${LIFECYCLE_CONTRACT}`);
   else if (m.manifest.id !== name) out.push(`calls itself '${m.manifest.id}'`);
   for (const k of ['bootstrap', 'mount', 'unmount'] as const) if (!isLifecycle(m[k])) out.push(`does not export ${k} as a function or a list of functions`);
+  for (const [pkg, major] of Object.entries(m.manifest?.shared ?? {})) {
+    if (provided && provided[pkg] !== major) out.push(`was built against ${pkg} ${major}; this app shares ${provided[pkg] ?? 'none'}`);
+  }
   const nav = m.manifest?.nav;
   if (m.manifest && (!nav || typeof nav.group !== 'string' || typeof nav.order !== 'number' || !Array.isArray(nav.items))) out.push('has no menu (nav.group, nav.order, nav.items)');
   for (const item of nav?.items ?? []) {

@@ -1,8 +1,9 @@
+import { createHash } from 'node:crypto';
 import react from '@vitejs/plugin-react';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
-import { COMMONJS, SHARED } from '@d4/web-platform/shared';
+import { COMMONJS, SHARED, sharedMajors } from '@d4/web-platform/shared';
 
 // The icon package's entry also re-exports thousands of lazy `import()`s, which the dev server
 // turns into one chunk each. Its plain icon index has the same named exports without them.
@@ -30,6 +31,20 @@ function runtimeConfig(): Plugin {
 
 const require = createRequire(import.meta.url);
 const SHARED_ID = 'd4-shared:';
+
+/** The page's policy (production builds); styles allow inline `style` attributes, which React uses. */
+const contentSecurityPolicy = (importMap: string) =>
+  [
+    "default-src 'self'",
+    `script-src 'self' 'sha256-${createHash('sha256').update(importMap).digest('base64')}'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ');
 
 /**
  * Builds every shared package (`@d4/web-platform/shared`) as an entry and writes the page's import map, so
@@ -62,15 +77,23 @@ function sharedImportMap(): Plugin {
         const imports: Record<string, string> = {};
         for (const chunk of Object.values(ctx.bundle ?? {}))
           if (chunk.type === 'chunk' && chunk.facadeModuleId?.startsWith(`\0${SHARED_ID}`)) imports[chunk.facadeModuleId.slice(SHARED_ID.length + 1)] = `/${chunk.fileName}`;
-        return [{ tag: 'script', attrs: { type: 'importmap' }, children: JSON.stringify({ imports }), injectTo: 'head-prepend' }];
+        const importMap = JSON.stringify({ imports });
+        return [
+          // Scripts only from this origin, plus this one inline import map (by hash): a registered
+          // module can only run code the platform serves under /mfe/ (D70).
+          { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: contentSecurityPolicy(importMap) }, injectTo: 'head-prepend' },
+          { tag: 'script', attrs: { type: 'importmap' }, children: importMap, injectTo: 'head-prepend' },
+        ];
       },
     },
   };
 }
 
 export default defineConfig({
-  // P6 spike: lifecycle modules are imported at run time from /config.json and share packages through the import map.
+  // Lifecycle modules are imported at run time (the module registry) and share packages through the import map.
   plugins: [react(), runtimeConfig(), sharedImportMap()],
+  // __D4_SHARED__: the shared majors this shell provides; it refuses modules built against others.
+  define: { __D4_SHARED__: JSON.stringify(sharedMajors(__dirname)) },
   resolve: { alias: [{ find: /^@tabler\/icons-react$/, replacement: tablerIcons }] },
   // deploy/dev.sh web: behind the gateway, so the HMR socket goes to the gateway's port.
   server: { port: 5174, strictPort: true, hmr: { clientPort: Number(process.env.GATEWAY_PORT) || undefined } },

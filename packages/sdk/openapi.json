@@ -2772,6 +2772,117 @@
           "enabled",
           "updatedAt"
         ]
+      },
+      "WebModuleReleaseList": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string"
+            },
+            "active": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "active"
+          ]
+        }
+      },
+      "WebModuleReleased": {
+        "type": "object",
+        "properties": {
+          "entry": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "contract": {
+            "type": "number"
+          },
+          "framework": {
+            "type": "string",
+            "enum": [
+              "react",
+              "vanilla",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "entry",
+          "version",
+          "contract",
+          "framework"
+        ]
+      },
+      "WebModuleRelease": {
+        "type": "object",
+        "properties": {
+          "manifest": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string",
+                "description": "Semantic version; a released version never changes"
+              },
+              "contract": {
+                "type": "number"
+              },
+              "entry": {
+                "type": "string",
+                "description": "Path of the entry file within the release"
+              },
+              "framework": {
+                "type": "string",
+                "enum": [
+                  "react",
+                  "vanilla",
+                  "other"
+                ]
+              },
+              "shared": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Major versions of the shell's shared packages the module was built against"
+              },
+              "files": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "description": "SHA-256 of the file, hex"
+                }
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "contract",
+              "entry",
+              "framework",
+              "files"
+            ]
+          },
+          "files": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "description": "File content, base64"
+            }
+          }
+        },
+        "required": [
+          "manifest",
+          "files"
+        ]
       }
     },
     "parameters": {}
@@ -11982,6 +12093,245 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/admin/web-modules/{name}/releases": {
+      "get": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Web modules"
+        ],
+        "summary": "This tenant's uploaded releases of a module, oldest first (admin)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebModuleReleaseList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Web modules"
+        ],
+        "summary": "Upload a release: checked, stored immutably; activate it with PUT (admin)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebModuleRelease"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebModuleReleased"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version already released"
+          }
+        }
+      }
+    },
+    "/v1/admin/web-modules/{name}/releases/{version}": {
+      "delete": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Web modules"
+        ],
+        "summary": "Delete an uploaded release that is not active (admin)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "version",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Active version"
           }
         }
       }

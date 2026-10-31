@@ -1,3 +1,5 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import vite from './vite.config';
 
-export default defineConfig({ test: { environment: 'jsdom' } });
+// The module's build settings (its `define`s) plus a browser-like test environment.
+export default mergeConfig(vite, defineConfig({ test: { environment: 'jsdom' } }));

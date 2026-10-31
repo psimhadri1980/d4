@@ -1,13 +1,14 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import { SHARED } from '@d4/web-platform/shared';
+import { SHARED, sharedMajors } from '@d4/web-platform/shared';
 
 // The admin module as a lifecycle module (P6 spike): one ES module, /mfe/admin/admin.js, plus its
 // lazy pages and stylesheet. Shared packages stay external; the shell's import map provides them.
 export default defineConfig({
   base: '/mfe/admin/',
   plugins: [react()],
-  define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+  // __D4_SHARED__: the shared majors this module is built against (its manifest's `shared`).
+  define: { 'process.env.NODE_ENV': JSON.stringify('production'), __D4_SHARED__: JSON.stringify(sharedMajors(__dirname)) },
   build: {
     target: 'es2022',
     sourcemap: true,

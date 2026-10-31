@@ -86,7 +86,7 @@ async function load(platform: Platform, m: Listed): Promise<void> {
   const url = entryFor(name, `${m.entry}?v=${encodeURIComponent(m.version)}`);
   try {
     const mod = await withTimeout(import(/* @vite-ignore */ url) as Promise<LifecycleModule>, `Module '${name}'`);
-    const problems = lifecycleProblems(mod, name);
+    const problems = lifecycleProblems(mod, name, __D4_SHARED__);
     if (problems.length) throw new Error(problems.join('; '));
     if (registered.get(name) !== release(m)) return; // superseded while loading
     const prefix = new RegExp(`^/w/[^/]+/${name}(/|$)`);

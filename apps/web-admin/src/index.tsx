@@ -15,6 +15,7 @@ const AdminUsagePage = lazyPage(() => import('./Admin'), 'AdminUsagePage');
 export const manifest: ModuleManifest = {
   id: 'admin',
   contract: LIFECYCLE_CONTRACT,
+  shared: __D4_SHARED__,
   nav: {
     group: 'Administration',
     order: 50,

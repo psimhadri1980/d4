@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { BadRequestException, Controller, Delete, Get, Headers, HttpCode, Inject, NotFoundException, Param, Post, Put, Res } from '@nestjs/common';
+import { BadRequestException, ConflictException, Controller, Delete, Get, Headers, HttpCode, Inject, NotFoundException, Param, Post, Put, Res } from '@nestjs/common';
 import { WebModuleStore, type WebModuleRow } from '@d4/db';
 import type { Principal } from '../auth/identity';
 import { Roles } from '../auth/auth.guard';
@@ -7,7 +7,7 @@ import { CurrentPrincipal } from '../auth/principal.decorator';
 import { parse } from '../http/errors';
 import { z } from '../http/zod';
 import { ValidBody } from '../http/zod.pipe';
-import { CONTRACTS, ReleaseBody, releasePrefix, WebModuleReleases } from './releases';
+import { CONTRACTS, ReleaseBody, releasePrefix, Version, WebModuleReleases } from './releases';
 
 /** The part of Fastify's reply this controller uses. */
 interface Reply {
@@ -101,6 +101,24 @@ export class AdminWebModulesController {
    * Uploads a release (manifest plus files) to the module store. It does not activate it: register
    * the returned entry and version with PUT, per tenant, which is also how a rollback works.
    */
+  @Get('web-modules/:name/releases')
+  async releaseVersions(@CurrentPrincipal() p: Principal, @Param('name') name: string) {
+    parse(ModuleName, name);
+    const active = (await this.store.get(p.tenantId, name))?.version;
+    return (await this.releases.versions(p.tenantId, name)).map((version) => ({ version, active: version === active }));
+  }
+
+  /** Deletes an uploaded version that is not the active one (cleanup). */
+  @Delete('web-modules/:name/releases/:version')
+  @HttpCode(204)
+  async removeRelease(@CurrentPrincipal() p: Principal, @Param('name') name: string, @Param('version') version: string) {
+    parse(ModuleName, name);
+    parse(Version, version);
+    const m = await this.store.get(p.tenantId, name);
+    if (m && m.version === version && m.entry.startsWith(releasePrefix(p.tenantId, name))) throw new ConflictException(`${name} ${version} is active; activate another version first`);
+    await this.releases.remove(p.tenantId, name, version);
+  }
+
   @Post('web-modules/:name/releases')
   async release(@CurrentPrincipal() p: Principal, @Param('name') name: string, @ValidBody(ReleaseBody) b: z.output<typeof ReleaseBody>) {
     parse(ModuleName, name);

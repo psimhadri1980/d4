@@ -1,4 +1,4 @@
-import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 /** Where job inputs (uploads) and outputs (export files) are kept. */
 export interface ArtifactStore {
@@ -49,6 +49,29 @@ export class S3ArtifactStore implements ArtifactStore {
       () => true,
       (e: { name?: string }) => (e.name === 'NotFound' || e.name === 'NoSuchKey' ? false : Promise.reject(e)),
     );
+  }
+
+  /** The "folders" directly under a prefix (common prefixes, `/`-delimited), without the prefix. */
+  async folders(prefix: string): Promise<string[]> {
+    await this.ensureBucket();
+    const out: string[] = [];
+    let token: string | undefined;
+    do {
+      const res = await this.s3.send(new ListObjectsV2Command({ Bucket: this.config.bucket, Prefix: prefix, Delimiter: '/', ContinuationToken: token }));
+      for (const p of res.CommonPrefixes ?? []) if (p.Prefix) out.push(p.Prefix.slice(prefix.length, -1));
+      token = res.NextContinuationToken;
+    } while (token);
+    return out;
+  }
+
+  /** Removes every object under a prefix. */
+  async deletePrefix(prefix: string): Promise<void> {
+    let token: string | undefined;
+    do {
+      const res = await this.s3.send(new ListObjectsV2Command({ Bucket: this.config.bucket, Prefix: prefix, ContinuationToken: token }));
+      for (const o of res.Contents ?? []) if (o.Key) await this.delete(o.Key);
+      token = res.NextContinuationToken;
+    } while (token);
   }
 
   async delete(key: string): Promise<void> {

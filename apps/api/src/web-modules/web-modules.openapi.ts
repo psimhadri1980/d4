@@ -17,5 +17,25 @@ export function registerWebModuleRoutes(route: ApiRoute) {
   });
   route({ method: 'get', path: '/v1/admin/web-modules', tags: ['Web modules'], summary: 'Every registered web module (admin)', responses: { 200: json(z.array(WebModule), 'Modules'), ...errors } });
   route({ method: 'put', path: '/v1/admin/web-modules/{name}', tags: ['Web modules'], summary: 'Register a web module or record a new release (admin)', request: { params: z.object({ name }), body: { content: { 'application/json': { schema: Body } } } }, responses: { 200: json(WebModule, 'Registered'), ...errors } });
+  const version = z.string().openapi({ param: { name: 'version', in: 'path' } });
+  const sha256 = z.string().describe('SHA-256 of the file, hex');
+  const Release = z
+    .object({
+      manifest: z.object({
+        name: z.string(),
+        version: z.string().describe('Semantic version; a released version never changes'),
+        contract: z.number(),
+        entry: z.string().describe('Path of the entry file within the release'),
+        framework: z.enum(['react', 'vanilla', 'other']),
+        shared: z.record(z.string(), z.string()).optional().describe("Major versions of the shell's shared packages the module was built against"),
+        files: z.record(z.string(), sha256),
+      }),
+      files: z.record(z.string(), z.string().describe('File content, base64')),
+    })
+    .openapi('WebModuleRelease');
+  const Published = z.object({ entry: z.string(), version: z.string(), contract: z.number(), framework: z.enum(['react', 'vanilla', 'other']) }).openapi('WebModuleReleased');
+  route({ method: 'get', path: '/v1/admin/web-modules/{name}/releases', tags: ['Web modules'], summary: "This tenant's uploaded releases of a module, oldest first (admin)", request: { params: z.object({ name }) }, responses: { 200: json(z.array(z.object({ version: z.string(), active: z.boolean() })).openapi('WebModuleReleaseList'), 'Versions'), ...errors } });
+  route({ method: 'post', path: '/v1/admin/web-modules/{name}/releases', tags: ['Web modules'], summary: 'Upload a release: checked, stored immutably; activate it with PUT (admin)', request: { params: z.object({ name }), body: { content: { 'application/json': { schema: Release } } } }, responses: { 201: json(Published, 'Stored'), 409: { description: 'Version already released' }, ...errors } });
+  route({ method: 'delete', path: '/v1/admin/web-modules/{name}/releases/{version}', tags: ['Web modules'], summary: 'Delete an uploaded release that is not active (admin)', request: { params: z.object({ name, version }) }, responses: { 204: { description: 'Deleted' }, 409: { description: 'Active version' }, ...errors } });
   route({ method: 'delete', path: '/v1/admin/web-modules/{name}', tags: ['Web modules'], summary: 'Remove a web module (admin)', request: { params: z.object({ name }) }, responses: { 204: { description: 'Removed' }, ...errors } });
 }

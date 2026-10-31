@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Uploads a web module build as an immutable release (D70) and, with --activate, points the
-# tenant's registry at it. Rolling back is --activate with an older, already uploaded version.
-#   deploy/mfe-publish.sh <name> <dist-dir> <version> [--activate] [--title T] [--framework react|vanilla|other] [--entry file.js]
+# tenant's registry at it. Rolling back is --activate with an older, already uploaded version
+# (pass - as the dist dir). --keep N then deletes inactive versions beyond the newest N.
+#   deploy/mfe-publish.sh <name> <dist-dir|-> <version> [--activate] [--keep N] [--title T] [--framework react|vanilla|other] [--entry file.js]
 source "$(dirname "$0")/lib/common.sh"
 
 name="${1:-}"; dist="${2:-}"; version="${3:-}"
 [[ -n "$name" && -n "$version" ]] || die "usage: deploy/mfe-publish.sh <name> <dist-dir> <version> [--activate] [--title T] [--framework F] [--entry file.js]" 2
 shift 3
-activate=0; title="$name"; framework=react; entry="$name.js"
+activate=0; keep=; title="$name"; framework=react; entry="$name.js"
 while (( $# )); do
   case "$1" in
-    --activate) activate=1 ;; --title) title="$2"; shift ;; --framework) framework="$2"; shift ;; --entry) entry="$2"; shift ;;
+    --activate) activate=1 ;; --keep) keep="$2"; shift ;; --title) title="$2"; shift ;; --framework) framework="$2"; shift ;; --entry) entry="$2"; shift ;;
     *) die "unknown option $1" 2 ;;
   esac
   shift
@@ -51,4 +52,13 @@ if (( activate )); then
   put=$(printf '{"title":"%s","entry":"/mfe/_r/%s/%s/%s/%s","version":"%s","contract":2,"framework":"%s"}' "$title" "$tenant" "$name" "$version" "$entry" "$version" "$framework")
   curl -fsS -X PUT "${auth[@]}" -d "$put" "$api" >/dev/null || die "Activation failed"
   say "Activated $name $version for tenant $tenant"
+fi
+
+if [[ -n "$keep" ]]; then
+  # Oldest first; never the active one; the newest $keep stay for rollback.
+  mapfile -t old < <(curl -fsS -H "Authorization: Bearer $token" "$api/releases" |
+    node -e 'const l=JSON.parse(require("fs").readFileSync(0));const k=+process.argv[1];l.slice(0,Math.max(0,l.length-k)).filter(r=>!r.active).forEach(r=>console.log(r.version))' "$keep")
+  for v in "${old[@]}"; do
+    curl -fsS -X DELETE -H "Authorization: Bearer $token" "$api/releases/$v" && say "Deleted $name $v"
+  done
 fi

@@ -130,7 +130,20 @@ Question: can web modules ship as uploads to a store, served by the gateway, ins
 
 Found: the shell's `?v=` query made S3 treat the request as signed; the gateway now drops it.
 
-Not covered: shared-version ranges in the manifest checked against the shell's import map,
-integrity hashes on load and a CSP, cleanup of unused versions, the shell itself as a release,
-an OpenAPI entry for the upload (the SDK does not have it yet), and uploads larger than the
-gateway's 25 MB body limit.
+Hardened afterwards:
+
+- **Shared versions:** a module's manifest records the major versions of the shared packages it was
+  built against (`shared`, from `sharedMajors()` in `@d4/web-platform/shared` at build time); the
+  shell, built with its own, refuses a mismatch through `lifecycleProblems()` and shows the module
+  as unavailable.
+- **Content security policy** (production shell, a `<meta>` tag): scripts only from this origin
+  plus the inline import map by hash; checked in the browser that an injected inline script and a
+  script from another origin are refused, and the full browser suite (72) passes under it.
+- **Cleanup:** `GET /v1/admin/web-modules/{name}/releases` lists a tenant's versions (with the
+  active one), `DELETE …/releases/{version}` deletes an inactive one (409 for the active one);
+  `mfe-publish.sh --keep N` keeps the newest N.
+- **OpenAPI and SDK** cover the release endpoints.
+
+Still open: the shell itself as a release, retiring the module image (admin and hello still also
+ship in it), integrity hashes on load (browsers cannot check them for `import()`; immutable
+same-origin paths plus the policy stand in), and uploads larger than the gateway's 25 MB limit.

@@ -55,28 +55,44 @@ describe.skipIf(!PG || !NEO)('Web module registry API', () => {
   });
 
   describe.skipIf(!S3)('releases', () => {
+    // The bucket outlives a run: a module name of its own keeps runs apart.
+    const mod = `rep-${Date.now().toString(36)}`;
     const sha = (s: string) => createHash('sha256').update(s).digest('hex');
     const js = 'export const manifest = {};';
     const css = '.x{}';
     const version = `1.0.${Date.now()}`;
     const release = (v = version, body = js) => ({
-      manifest: { name: 'reports', version: v, contract: 2, entry: 'reports.js', framework: 'vanilla', files: { 'reports.js': sha(body), 'reports.css': sha(css) } },
+      manifest: { name: mod, version: v, contract: 2, entry: 'reports.js', framework: 'vanilla', files: { 'reports.js': sha(body), 'reports.css': sha(css) } },
       files: { 'reports.js': Buffer.from(js).toString('base64'), 'reports.css': Buffer.from(css).toString('base64') },
     });
 
     it('stores a release once, checks its files, and registers it for this tenant only', async () => {
-      expect((await h.call('POST', '/v1/admin/web-modules/reports/releases', viewer, release())).status).toBe(403);
-      expect((await h.call('POST', '/v1/admin/web-modules/reports/releases', admin, release(version, 'tampered'))).status).toBe(400);
+      expect((await h.call('POST', `/v1/admin/web-modules/${mod}/releases`, viewer, release())).status).toBe(403);
+      expect((await h.call('POST', `/v1/admin/web-modules/${mod}/releases`, admin, release(version, 'tampered'))).status).toBe(400);
 
-      const up = await h.call('POST', '/v1/admin/web-modules/reports/releases', admin, release());
+      const up = await h.call('POST', `/v1/admin/web-modules/${mod}/releases`, admin, release());
       expect(up.status).toBe(201);
-      expect(up.body).toEqual({ entry: `/mfe/_r/t_local/reports/${version}/reports.js`, version, contract: 2, framework: 'vanilla' });
-      expect((await h.call('POST', '/v1/admin/web-modules/reports/releases', admin, release())).status).toBe(409);
+      expect(up.body).toEqual({ entry: `/mfe/_r/t_local/${mod}/${version}/reports.js`, version, contract: 2, framework: 'vanilla' });
+      expect((await h.call('POST', `/v1/admin/web-modules/${mod}/releases`, admin, release())).status).toBe(409);
 
-      const put = await h.call('PUT', '/v1/admin/web-modules/reports', admin, { title: 'Reports', ...up.body });
+      const put = await h.call('PUT', `/v1/admin/web-modules/${mod}`, admin, { title: 'Reports', ...up.body });
       expect(put.status).toBe(200);
-      const foreign = { title: 'Reports', ...up.body, entry: `/mfe/_r/t_other/reports/${version}/reports.js` };
-      expect((await h.call('PUT', '/v1/admin/web-modules/reports', admin, foreign)).status).toBe(400);
+      const foreign = { title: 'Reports', ...up.body, entry: `/mfe/_r/t_other/${mod}/${version}/reports.js` };
+      expect((await h.call('PUT', `/v1/admin/web-modules/${mod}`, admin, foreign)).status).toBe(400);
+    });
+
+    it('lists releases and deletes only inactive ones', async () => {
+      const older = `0.9.${Date.now()}`;
+      expect((await h.call('POST', `/v1/admin/web-modules/${mod}/releases`, admin, release(older))).status).toBe(201);
+      const list = await h.call('GET', `/v1/admin/web-modules/${mod}/releases`, admin);
+      expect(list.body).toEqual([{ version: older, active: false }, { version, active: true }]);
+
+      expect((await h.call('DELETE', `/v1/admin/web-modules/${mod}/releases/${version}`, admin)).status).toBe(409);
+      expect((await h.call('DELETE', `/v1/admin/web-modules/${mod}/releases/..%2F..`, admin)).status).toBe(400);
+      expect((await h.call('DELETE', `/v1/admin/web-modules/${mod}/releases/${older}`, viewer)).status).toBe(403);
+      expect((await h.call('DELETE', `/v1/admin/web-modules/${mod}/releases/${older}`, admin)).status).toBe(204);
+      expect((await h.call('DELETE', `/v1/admin/web-modules/${mod}/releases/${older}`, admin)).status).toBe(404);
+      expect((await h.call('GET', `/v1/admin/web-modules/${mod}/releases`, admin)).body).toEqual([{ version, active: true }]);
     });
   });
 });

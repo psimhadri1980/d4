@@ -135,6 +135,7 @@ Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/comm
 | `deploy/test.sh unit` / `integration [--filter pkg]` | Unit tests only, or all tests with Postgres, Neo4j, Redis and S3 (two suites at a time, 1.5 GB cap). |
 | `deploy/test.sh e2e [playwright args]` | Playwright suite through the gateway (container on the host network), e.g. `--grep catalog --retries=0`; it tests whatever mix of container and `dev.sh` apps is behind the gateway. |
 | `deploy/test.sh web` / `smoke` / `all` | Web checks and build / gateway and API health + login + `/api/v1/me` / static, integration and browser tests (full run; not required before each commit). Add `--local` to run on host Node. |
+| `deploy/mfe-publish.sh <name> <dist\|-> <version> [--activate] [--keep N]` | Upload a web module build as an immutable release, activate it for the local tenant (or roll back with `-` and an older version), and delete inactive versions beyond the newest N (D70). |
 | `deploy/dev.sh sample` / `cli <args>` | Import `samples/ubs-banking.yaml` (idempotent) / run the `d4` CLI in a container; paths are relative to the repo root. |
 
 **Bringing the stack up on a busy machine:** `dev-infra.sh up` first, then `dev-deploy.sh backend`, then `dev-deploy.sh web`, so image builds and JVM start-ups do not overlap. Neo4j, Keycloak, the API and the test container have CPU caps (2, 1.5, 1, 2).
