@@ -1,6 +1,6 @@
 # D4 refactor plan: production readiness
 
-**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 approach chosen 2026-10-31 (D64, single-spa; module registry D65); P6 onwards proposed. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
+**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 built 2026-10-31 (D64–D73: single-spa, module registry, releases, all six modules as lifecycle apps; repository structure in ADR 0008); P7 partly built (CI affected-only with Redis and S3, D71) and proposed for the rest. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
 
 Scope, as requested:
 1. Prune the code base: remove duplication, use well-defined patterns, delete dead code.
@@ -498,7 +498,7 @@ Other packages (`cytoscape`, `@d4/core`, `@d4/metamodel`, icons) are bundled per
 ## 6. Deleted at the end
 
 - **Container and compose files:**
-  - `Dockerfile` and `.dockerignore`;
+  - `Dockerfile` (`.dockerignore` stays, as a link to `.containerignore`: the compose provider reads only that name, D68);
   - `deploy/docker-compose.yml`;
   - `deploy/web/nginx.conf` (now `deploy/web-static/nginx.conf`);
   - `deploy/e2e/run.sh`.
@@ -591,3 +591,12 @@ Deviations from the P5 design:
 - Using the typed client showed where the OpenAPI document under-described the API (catalog versions, the execution log, `Job.scheduleId`, the `archived` and `status` filters); those are documented now. Responses are unchanged.
 - `AdminGate` and the admin workspace list moved down to `ui-kit` and the platform, since the data module's backups and connectors screens use them.
 - `test.sh static` now runs two turbo tasks at a time (it was killed for memory on a cold cache).
+
+**After P6 (runtime modules):** all six web modules are lifecycle apps (`apps/web-<name>`) loaded through the per-tenant registry; the shell has no screens. Each module builds, tests and releases alone (an upload checked by the API, activated or rolled back per tenant); the module image (`web-modules`) serves them before anything is published. `test.sh all` passes: static clean, 43 integration tasks (API 70, jobs 30), 75 browser tests. CI on `main` passes. The P6 acceptance items are covered by browser tests (`modules.spec.ts`): a module that fails to load shows as unavailable and the rest works; a deep link waits for its module; a release swaps in on an open page and rolls back without a reload.
+
+Deviations from the P6 design:
+- One module image serves every module instead of a Containerfile per module; releases uploaded to S3 (D70) are the per-module deploy, so a per-module image would add nothing.
+- Manifests may own several top-level paths and the workspace home, so no URL changed.
+- No repository split (D69 superseded by D74, ADR 0008): build and test segmentation comes from affected-only checks and pruned images.
+- Integrity hashes on load are not possible for `import()`; immutable same-origin release paths plus the content security policy stand in.
+
