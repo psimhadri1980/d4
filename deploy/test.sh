@@ -50,7 +50,7 @@ e2e() {
 }
 
 case "$suite" in
-  static)      run 0 turbo run typecheck lint && run 0 knip ;;
+  static)      run 0 turbo run typecheck lint --concurrency=2 && run 0 knip ;;
   unit)        run 0 turbo run test --concurrency=2 $(filter) ;;
   integration) run 1 turbo run test --concurrency=2 $(filter) ;;
   web)         run 0 turbo run build test typecheck lint --filter @d4/web ;;
