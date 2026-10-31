@@ -14,5 +14,9 @@ export interface DbHandle {
 
 export function createDb(connectionString: string, max = 10): DbHandle {
   const pool = new Pool({ connectionString, max });
+  // An idle connection the server ends (a restart, a terminated backend, a dropped database)
+  // emits 'error' on the pool; unheard, it would end the process. The pool discards that
+  // connection and opens a new one for the next query.
+  pool.on('error', (e) => console.warn(`Postgres closed an idle connection: ${e.message}`));
   return { db: drizzle(pool, { schema }), pool, close: () => pool.end() };
 }
