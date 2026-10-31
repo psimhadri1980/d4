@@ -11,7 +11,7 @@
     "lint": "eslint src test"
   },
   "devDependencies": {
-    "@types/nodemailer": "^6.4.16",
-    "nodemailer": "^6.9.15"
+    "@types/nodemailer": "catalog:",
+    "nodemailer": "catalog:"
   }
 }

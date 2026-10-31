@@ -24,11 +24,11 @@
     "@d4/infra": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "@d4/render": "workspace:*",
-    "neo4j-driver": "^5.24.0",
-    "zod": "^3.23.8"
+    "neo4j-driver": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "pg": "^8.12.0",
-    "@types/pg": "^8.11.6"
+    "pg": "catalog:",
+    "@types/pg": "catalog:"
   }
 }

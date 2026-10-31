@@ -10,6 +10,6 @@
   },
   "devDependencies": {
     "@playwright/test": "1.47.2",
-    "yaml": "^2.5.0"
+    "yaml": "catalog:"
   }
 }

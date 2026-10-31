@@ -20,7 +20,7 @@
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "exceljs": "^4.4.0",
-    "yaml": "^2.5.0",
-    "zod": "^3.23.8"
+    "yaml": "catalog:",
+    "zod": "catalog:"
   }
 }

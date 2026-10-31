@@ -30,20 +30,20 @@
     "graphql": "^16.9.0",
     "jose": "^5.8.0",
     "mercurius": "^14.1.0",
-    "neo4j-driver": "^5.24.0",
+    "neo4j-driver": "catalog:",
     "nestjs-pino": "^4.1.0",
     "pino-http": "^10.3.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "zod": "^3.23.8"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@d4/sdk": "workspace:*",
     "@nestjs/testing": "^10.4.1",
     "@swc/core": "^1.7.23",
-    "@types/pg": "^8.11.6",
-    "pg": "^8.12.0",
-    "tsx": "^4.19.0",
+    "@types/pg": "catalog:",
+    "pg": "catalog:",
+    "tsx": "catalog:",
     "unplugin-swc": "^1.5.1"
   }
 }

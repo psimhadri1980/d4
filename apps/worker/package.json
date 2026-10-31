@@ -16,9 +16,9 @@
     "@d4/infra": "workspace:*",
     "@d4/jobs": "workspace:*",
     "@d4/runtime": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "tsx": "^4.19.0"
+    "tsx": "catalog:"
   }
 }

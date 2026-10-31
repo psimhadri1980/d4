@@ -17,6 +17,6 @@
   "dependencies": {
     "@d4/codecs": "workspace:*",
     "@d4/core": "workspace:*",
-    "zod": "^3.23.8"
+    "zod": "catalog:"
   }
 }

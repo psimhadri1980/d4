@@ -16,12 +16,12 @@
     "@d4/infra": "workspace:*",
     "@d4/jobs": "workspace:*",
     "@d4/runtime": "workspace:*",
-    "@fontsource/source-sans-3": "^5.1.0",
+    "@fontsource/source-sans-3": "catalog:",
     "playwright-core": "1.47.2",
-    "zod": "^3.23.8"
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "tsx": "^4.19.0",
+    "tsx": "catalog:",
     "@d4/render": "workspace:*"
   }
 }
