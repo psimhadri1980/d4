@@ -1,6 +1,6 @@
 # D4 refactor plan: production readiness
 
-**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 built 2026-10-31 (D64–D73: single-spa, module registry, releases, all six modules as lifecycle apps; repository structure in ADR 0008); P7 partly built (CI affected-only with Redis and S3, D71) and proposed for the rest. See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
+**Status:** P0 and P1 built 2026-10-25 (D57, D58), plus in-repo S3 and SMTP mocks replacing SeaweedFS, aws-cli and Mailpit (D59); P2 built 2026-10-25 (D60); P3 built 2026-10-25 (D61); P4 built 2026-10-31 (D62); P5 built 2026-10-31 (D63); P6 built 2026-10-31 (D64–D73: single-spa, module registry, releases, all six modules as lifecycle apps; repository structure in ADR 0008); P7 built 2026-10-31 (D71, D75: affected-only CI with Redis and S3; the browser suite on rootless Podman in CI; digest-pinned base images, Dependabot, image scans and SBOMs). See section 10. When a phase is accepted, record its decisions in the [PLAN.md](PLAN.md) decision log (D31 onwards) and the structural ones in ADR 0008 (section 9).
 
 Scope, as requested:
 1. Prune the code base: remove duplication, use well-defined patterns, delete dead code.
@@ -535,8 +535,8 @@ Other packages (`cytoscape`, `@d4/core`, `@d4/metamodel`, icons) are bundled per
 - [ ] Structured JSON logs with request id, tenant and user; OTel traces from api, worker and renderer.
 - [ ] Gateway: security headers, body limit, timeouts, TLS option; only the gateway is browser-facing.
 - [ ] Data-store ports bound to `127.0.0.1` in dev and not published in production.
-- [ ] Reproducible images: frozen lockfile, pinned base images (digests for releases), scan and SBOM in CI.
-- [ ] Browser tests in CI against the composed stack.
+- [x] Reproducible images: frozen lockfile, base images pinned by digest (Dependabot keeps them current), scan and SBOM in CI (report only until a baseline is agreed).
+- [x] Browser tests in CI against the composed stack (rootless Podman, D75).
 
 ---
 

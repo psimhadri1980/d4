@@ -47,6 +47,7 @@ This manual is for **people who use D4**, not for people who change its code (se
 - [People and roles](06-administration/people-and-roles.md)
 - [Webhooks](06-administration/webhooks.md)
 - [Usage and limits](06-administration/usage-and-limits.md)
+- [Modules](06-administration/modules.md)
 
 ### 7. User journeys (end-to-end stories)
 1. [Find out where a data product lives](07-user-journeys/01-find-where-data-lives.md) — viewer

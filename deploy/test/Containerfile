@@ -1,6 +1,6 @@
 # Test runner: the whole workspace installed and built (deploy/test.sh --container). git: the
 # Git connector tests clone repositories.
-ARG NODE_IMAGE=docker.io/library/node:24-alpine
+ARG NODE_IMAGE=docker.io/library/node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
 
 FROM ${NODE_IMAGE} AS build
 RUN apk add --no-cache git && corepack enable && corepack prepare pnpm@9.12.0 --activate

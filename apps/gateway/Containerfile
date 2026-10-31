@@ -1,7 +1,7 @@
 # Gateway: the one browser-facing origin (D4_PUBLIC_URL). Routes /api to the API, /auth to
 # Keycloak and everything else to the web app; upstreams come from the environment, so the same
 # image fronts containers or apps running on the host (deploy/dev.sh).
-FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+FROM docker.io/nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
 COPY apps/gateway/templates/ /etc/d4-gateway/
 COPY --chmod=755 apps/gateway/15-d4-gateway.envsh /docker-entrypoint.d/
 # The entrypoint renders templates from here (filled by 15-d4-gateway.envsh) into conf.d.

@@ -1,6 +1,6 @@
 # Operator commands (d4-ops): migrations, seed, Neo4j schema, tenants, quotas. Runs the init jobs
 # and `deploy/dev-infra.sh tenant|quota`. Build context: the repository root.
-ARG NODE_IMAGE=docker.io/library/node:24-alpine
+ARG NODE_IMAGE=docker.io/library/node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
 
 # Only this app's workspaces: files outside them (another app, docs) leave the layers below cached.
 FROM ${NODE_IMAGE} AS prune
