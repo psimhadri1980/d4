@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "files": ["dist", "styles.css", "README.md"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsup src/index.ts --format esm --sourcemap --no-config --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
@@ -27,6 +27,15 @@
     "cytoscape": "catalog:",
     "jsdom": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "tsup": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./styles.css"
   }
 }

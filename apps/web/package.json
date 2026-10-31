@@ -14,7 +14,6 @@
     "@d4/codecs": "workspace:*",
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
-    "@d4/render": "workspace:*",
     "@d4/ui-kit": "workspace:*",
     "@fontsource/ibm-plex-mono": "^5.1.0",
     "@fontsource/source-sans-3": "catalog:",

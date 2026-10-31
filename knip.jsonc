@@ -6,12 +6,10 @@
     ".": {},
     "apps/api": { "entry": ["src/scripts/*.ts"] },
     "apps/ops": { "entry": ["src/main.ts"] },
-    "apps/web": {
-      // Not imported directly, but Vite pre-bundles it (optimizeDeps), which needs it resolvable from here.
-      "ignoreDependencies": ["@d4/render"]
-    },
     "apps/e2e": { "entry": ["tests/**/*.ts", "screenshots/**/*.shots.ts", "*.config.ts"] },
     "packages/runtime": { "entry": ["src/index.ts", "src/telemetry.ts"] },
+    // The browser build's entry (the `browser` export condition).
+    "packages/metamodel": { "entry": ["src/index.ts", "src/browser.ts"] },
     "packages/cli": { "entry": ["src/index.ts", "src/main.ts"] },
     // The README example is compiled by the typecheck so the docs stay correct.
     "packages/sdk": { "entry": ["src/index.ts", "test/readme-example.ts"] },

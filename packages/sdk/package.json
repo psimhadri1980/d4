@@ -8,12 +8,20 @@
   "files": ["dist", "openapi.json", "README.md"],
   "scripts": {
     "generate": "node ../../apps/api/dist/scripts/openapi.js openapi.json && openapi-typescript openapi.json -o src/schema.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsup src/index.ts --format esm --sourcemap --no-config --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
   },
   "devDependencies": {
-    "openapi-typescript": "7.4.1"
+    "openapi-typescript": "7.4.1",
+    "tsup": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    }
   }
 }

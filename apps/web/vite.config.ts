@@ -27,16 +27,12 @@ function runtimeConfig(): Plugin {
   };
 }
 
-// The @d4 workspace packages are CommonJS; pre-bundle them for the browser.
 export default defineConfig({
   plugins: [react(), runtimeConfig()],
   resolve: { alias: [{ find: /^@tabler\/icons-react$/, replacement: tablerIcons }] },
   // deploy/dev.sh web: behind the gateway, so the HMR socket goes to the gateway's port.
   server: { port: 5174, strictPort: true, hmr: { clientPort: Number(process.env.GATEWAY_PORT) || undefined } },
-  optimizeDeps: { include: ['@d4/codecs/roadmap', '@d4/core', '@d4/metamodel', '@d4/render', '@d4/ui-kit'] },
-  build: {
-    commonjsOptions: { include: [/packages\/(codecs|core|metamodel|render|ui-kit)\//, /node_modules/] },
-    sourcemap: true,
-  },
+  // The @d4 packages the browser uses ship ESM under the `browser` export condition.
+  build: { sourcemap: true },
   test: { environment: 'jsdom' },
 });

@@ -10,7 +10,7 @@
     "packs"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsup src/browser.ts --format esm --sourcemap --no-config --silent",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "lint": "eslint src test"
@@ -18,5 +18,15 @@
   "dependencies": {
     "yaml": "catalog:",
     "zod": "catalog:"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/browser.mjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "tsup": "catalog:"
   }
 }

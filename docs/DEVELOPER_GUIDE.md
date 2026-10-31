@@ -78,8 +78,8 @@ metamodel ◄── core ◄── codecs ◄── cli
 web ──► core, metamodel (bundled for the browser)
 ```
 
-- **Module format:** all packages except `web` and `e2e` are **CommonJS** TypeScript (`tsconfig.base.json` uses `NodeNext`), and import each other through `dist/`. Turbo builds dependencies first (`dependsOn: ["^build"]`).
-- **Browser use of `@d4/metamodel`:** `web` imports it, so its `load.ts` must not touch `node:fs` at import time. File loading happens only inside `loadStarterMetamodel()`.
+- **Module format:** all packages except `web` and `e2e` are **CommonJS** TypeScript (`tsconfig.base.json` uses `NodeNext`), and import each other through `dist/`. Turbo builds dependencies first (`dependsOn: ["^build"]`). The packages the browser uses (`core`, `metamodel`, `render`, `ui-kit`, `sdk`, `codecs`) also build an ESM copy with tsup (`dist/*.mjs`), exported under the `browser` condition; Vite picks it, Node and vitest keep the CommonJS files.
+- **Browser use of `@d4/metamodel`:** its `browser` entry (`src/browser.ts`) leaves out the file loaders in `load.ts` and `packs.ts`. Importing one of them from web code builds a bundle that fails with "is not exported by \"__vite-browser-external\"".
 
 ### Key files by concern
 
@@ -469,7 +469,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `dev.sh web` runs Vite with `--force`; restart it after changing `packages/*` |
 | On Queries, a tall tab made the tab strip scroll instead of the page | The strip (`overflow-x: auto`) sat in a scrolling flex column, so its minimum height was 0 and it shrank | Only the active `.tab-panel` scrolls; the strip is `flex: none` |
 | Search for a hyphenated name (e.g. "cut-over") found nothing | The analyzer indexes "cut" and "over"; the escaped prefix query "cut\-over*" is not analyzed | `luceneQuery` splits on hyphens and slashes too |
-| The web app is blank after adding or renaming a workspace package, with "does not provide an export named …" | Vite started before the package existed and serves its CommonJS file unbundled | Add it to `optimizeDeps.include` and `build.commonjsOptions.include` in `apps/web/vite.config.ts`, then restart `dev.sh web` |
+| The web app is blank after adding or renaming a workspace package, with "does not provide an export named …" | The package has no ESM build, so Vite serves its CommonJS file | Give it a tsup ESM build and a `browser` entry in its `exports` map, like `@d4/render` |
 | A new tenant's requests fail with "No ready graph database" or a connection error from `dev.sh api` | Local processes reach tenant instances through `NEO4J_HOSTS`, computed when they start | Restart `dev.sh api` and `dev.sh worker` after `tenant-create` |
 | "The graph database registered for tenant … belongs to another tenant" | The tenant's registered bolt URI (or host mapping) points at a Neo4j already claimed by another tenant (`:D4Tenant` marker) | Fix the registry entry or `NEO4J_HOSTS`; never remove the marker to get past it |
 | Neo4j exits with 137 (`OOMKilled`), freezes (`stop-the-world pause` with `gcTime=0` in `debug.log`), or everything times out | The machine is over-committed: the stack, a Docker test build and local servers together exceed RAM, so the Docker VM swaps (seen on an 8 GB Mac with Docker at 6.2 GB: load average above 100) | Neo4j is sized to ~1.2 GB (APOC only, every JVM area capped). On 8 GB: do not run the local servers while `dev.sh test` builds and runs, run browser tests against one stack at a time, and give macOS room (Docker ≤ 5 GB). `docker compose -f deploy/docker-compose.yml up -d neo4j` restarts it |
