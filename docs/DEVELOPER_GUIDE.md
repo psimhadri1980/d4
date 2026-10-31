@@ -36,7 +36,11 @@ apps/
   api/        NestJS (Fastify) API: REST + read-only GraphQL, auth, catalog, jobs
   worker/     Background job worker (BullMQ consumer): exports and spreadsheet imports
   renderer/   Render queue consumer: PNG/PDF via headless Chromium (Playwright image)
-  web/        React + Vite SPA, served by nginx in a container: the shell (src/App.tsx, components/, nav.tsx) and six modules (src/modules/)
+  web/        React + Vite SPA shell, served by nginx: sign-in, layout, menu, search, module loader (src/lifecycle.ts); no screens
+  web-<name>/ the six web modules (explore, queries, plan, data, reporting, admin), each a lifecycle module of its own (ADR 0008)
+  web-hello/  a plain JavaScript lifecycle module (contract example)
+  gateway/    nginx: the browser-facing port (two hosts, D67), module releases under /mfe/_r/
+  ops/        migrations, seeds, Neo4j schema, tenants and quotas (init jobs)
   e2e/        Playwright browser tests (run in a container against the live stack)
 packages/
   metamodel/  Metamodel schema (zod), loader, registry; starter.yaml; industry packs in packs/
@@ -57,7 +61,9 @@ packages/
   connectors/ connector framework: record mapping, HTTP/JSON and Git sources, sync planning
   config/     environment settings for every service: zod fragments, NAME_FILE secrets, derived URLs
   ui-kit/     React components shared by the web app and embedders (Gantt, GraphCanvas, ResultTable, element list and details, forms, view bar), styles.css, base.css (tokens, element defaults) and app.css (controls, panes, lists, forms, shared component styles)
-  web-platform/ what every web module shares: sign-in, typed API client, query keys, current user and view, module contract
+  web-platform/ what every web module shares: sign-in, typed API client, query keys, current user and view, the lifecycle contract (`lifecycleProblems`), `ModuleRoot`, and `/shared` (the shared-package list for build configs)
+  infra/      tenant graphs, queue, S3 artefact store, mail, usage (api, worker, renderer, ops)
+  runtime/    process start-up for the backend apps: telemetry, queue service
 samples/      ubs-banking.yaml (illustrative sample model)
 deploy/       compose/ (split by concern), dev-infra.sh, dev-deploy.sh, dev.sh, test.sh, lib/, env/ (layered settings), Keycloak realm, OTel, nginx, e2e runner
 mocks/        development-only S3 (file-backed, S3 REST + SigV4) and SMTP (Mailpit-compatible inbox API)
@@ -75,8 +81,10 @@ metamodel ◄── core ◄── codecs ◄── cli
     │          ▲
     │        jobs ── db, codecs, core, metamodel (+ bullmq, S3 client, neo4j-driver)
     │          ▲
-    └──── api ─┴── worker (jobs, db)
-web ──► core, metamodel (bundled for the browser)
+    └──── api ─┴── worker, renderer (jobs, db, infra, runtime)
+sdk ◄── web-platform ◄── ui-kit ◄── web (shell), web-<module>
+web-<module> ──► core, metamodel, codecs (bundled into the module)
+web-platform, ui-kit, react, react-router-dom, react-query: shared from the shell's import map
 ```
 
 - **Module format:** all packages except `web` and `e2e` are **CommonJS** TypeScript (`tsconfig.base.json` uses `NodeNext`), and import each other through `dist/`. Turbo builds dependencies first (`dependsOn: ["^build"]`). The packages the browser uses (`core`, `metamodel`, `render`, `ui-kit`, `sdk`, `codecs`, `web-platform`) also build an ESM copy with tsup (`dist/*.mjs`), exported under the `browser` condition; Vite picks it, Node and vitest keep the CommonJS files.
@@ -106,8 +114,8 @@ web ──► core, metamodel (bundled for the browser)
 | Error → HTTP mapping | `apps/api/src/http/errors.ts` |
 | Request schemas + OpenAPI | `apps/api/src/model/model.schemas.ts`, `http/zod.ts` (z, ErrorSchema), `http/zod.pipe.ts` (`@ValidBody`, `@ValidQuery`); paths per feature in `<feature>/<feature>.openapi.ts`, assembled by `http/openapi.ts` |
 | Catalog API | `apps/api/src/catalog/*` |
-| Web modules and routes | `apps/web/src/modules/<explore\|queries\|plan\|data\|reporting\|admin>/module.tsx` (each module's routes and menu items, registered in `modules/index.ts`); the shell (`App.tsx`, `components/Layout.tsx`, `nav.tsx`) mounts them under `/w/:ws` |
-| Web API client | `packages/web-platform/src/api.ts` (shared calls over the typed `@d4/sdk` client), `apps/web/src/modules/<module>/api.ts` (a module's own calls) |
+| Web modules and routes | `apps/web-<name>/src/index.tsx` (manifest: menu, owned `paths`, `home`; routes under `/w/:ws`; lifecycles); the shell loads them from the registry (`apps/web/src/lifecycle.ts`), routes every workspace page through `components/ModuleOutlet.tsx` and builds the menu in `nav.tsx` (icon names in `ICONS`) |
+| Web API client | `packages/web-platform/src/api.ts` (shared calls over the typed `@d4/sdk` client), `apps/web-<name>/src/api.ts` (a module's own calls) |
 | Design tokens / themes | `packages/ui-kit/base.css` (tokens, element defaults) and `app.css` (controls and shared components), `apps/web/src/shell.css`, each module's `<module>.css`; `apps/web/src/theme.ts` |
 
 ---
@@ -398,8 +406,9 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 - **Give form fields unique ids with `useId()`.** Several query tabs can be mounted at once.
 - **List boxes (`select[size]`) need an explicit empty option**, or the browser shows the first option as selected while the value is `''`.
 - Graphs: `GraphCanvas` (layouts radial, force or hierarchy; `fitSignal`). It reads tokens at render time and listens for `THEME_EVENT`.
-- **Modules:** a screen belongs to one module (`apps/web/src/modules/<module>/`). Add its route to that module's `module.tsx` as a lazy page (`lazyPage(() => import('./Page'), 'Page')`). A module imports only `@d4/web-platform`, `@d4/ui-kit` and domain packages, never another module or the shell; code two modules need goes into one of those packages. Query screens are tabs inside `/w/:ws/queries`, with state in `?tabs=mode:id,…&active=…`.
-- **Navigation:** add the page to its module's `nav` (group and group `order`, icon from `@tabler/icons-react`, `match` prefixes, optional `sub` items, `visible` rule, and `order` when several modules share a group). `nav.tsx` builds the menu from every module; the sidebar, the breadcrumb and the Ctrl K search all read it. A sub-item that sets a query parameter (`matrices?kind=…`) is active when the URL has that parameter, so the page must read it.
+- **Modules:** a screen belongs to one module (`apps/web-<name>/`). Add its route under `/w/:ws` in that module's `src/index.tsx` as a lazy page (`lazyPage(() => import('./Page'), 'Page')`), and its first path segment to the manifest's `paths` if new. A module imports only `@d4/web-platform`, `@d4/ui-kit`, `@d4/sdk` and domain packages, never another module or the shell; code two modules need goes into one of those packages. Its contract test (`test/contract.test.ts`) runs `lifecycleProblems()`. Query screens are tabs inside `/w/:ws/queries`, with state in `?tabs=mode:id,…&active=…`.
+- **A new module:** copy `apps/web-reporting` (package, configs, contract test), register it (Admin › Modules, the local seed, or `deploy/mfe-publish.sh`); the module image builds every `@d4/web-*` app.
+- **Navigation:** add the page to its module manifest's `nav` (group and group `order`, an icon name the shell maps in `nav.tsx` `ICONS`, `match` prefixes, optional `sub` items, `requires` a role in `Access`, and `order` when several modules share a group). The sidebar, the breadcrumb and the Ctrl K search all read the menu. A sub-item that sets a query parameter (`matrices?kind=…`) is active when the URL has that parameter, so the page must read it.
 - **Admin-only pages** each have their own route and wrap their content in `AdminGate` from `@d4/ui-kit`.
 
 ### Add a browser test

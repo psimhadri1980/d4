@@ -1,5 +1,8 @@
 # Splitting D4 into three repositories (proposal, 2026-10-31)
 
+> **Superseded** by [ADR 0008](adr/0008-repository-structure.md): D4 stays one repository; web modules
+> became independently released plugins instead (D70–D73). Kept for the analysis.
+
 Goal: `d4-web`, `d4-api` and `d4-infra`, each building and testing on its own, so a one-line change
 builds and tests only the repository (and package) it touches. Working across them stays easy.
 
