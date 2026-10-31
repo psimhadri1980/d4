@@ -18,9 +18,9 @@ services:
       retries: 6
 
   # Lifecycle web modules (P6 spike), at /mfe/ behind the gateway.
-  web-admin:
-    build: { context: ../.., dockerfile: apps/web-admin/Containerfile }
-    image: localhost/d4-web-admin:local
+  web-modules:
+    build: { context: ../.., dockerfile: deploy/web-modules/Containerfile }
+    image: localhost/d4-web-modules:local
     mem_limit: 32m
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/mfe/admin/admin.js >/dev/null']

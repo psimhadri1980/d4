@@ -9,7 +9,7 @@ usage: deploy/dev-deploy.sh [app ...]        build and (re)start apps (default: 
        deploy/dev-deploy.sh build [app ...]  build images only
        deploy/dev-deploy.sh stop [app ...]   stop apps
        deploy/dev-deploy.sh status
-apps: api worker renderer web web-admin gateway, or the groups backend (api worker renderer) and all
+apps: api worker renderer web web-modules gateway, or the groups backend (api worker renderer) and all
 U
   exit 2
 }

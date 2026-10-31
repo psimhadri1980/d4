@@ -30,7 +30,7 @@ server {
   set $up_api ${UPSTREAM_API};
   set $up_keycloak ${UPSTREAM_KEYCLOAK};
   set $up_web ${UPSTREAM_WEB};
-  set $up_web_admin ${UPSTREAM_WEB_ADMIN};
+  set $up_web_modules ${UPSTREAM_WEB_MODULES};
   set $up_mail ${UPSTREAM_MAIL};
   set $up_grafana ${UPSTREAM_GRAFANA};
   set $up_s3 ${UPSTREAM_S3};
@@ -68,7 +68,7 @@ server {
   set $up_api ${UPSTREAM_PODMAN_API};
   set $up_keycloak ${UPSTREAM_PODMAN_KEYCLOAK};
   set $up_web ${UPSTREAM_PODMAN_WEB};
-  set $up_web_admin ${UPSTREAM_PODMAN_WEB_ADMIN};
+  set $up_web_modules ${UPSTREAM_PODMAN_WEB_MODULES};
   set $up_mail ${UPSTREAM_PODMAN_MAIL};
   set $up_grafana ${UPSTREAM_PODMAN_GRAFANA};
   set $up_s3 ${UPSTREAM_PODMAN_S3};
