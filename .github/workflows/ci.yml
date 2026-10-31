@@ -25,14 +25,28 @@ jobs:
       D4_TEST_POSTGRES_URL: postgres://d4:d4-local-dev@localhost:5432/postgres
       D4_TEST_NEO4J_URL: bolt://localhost:7687
       D4_TEST_NEO4J_PASSWORD: d4-local-dev
+      # Pull requests check only the packages they change and their dependents (turbo --affected
+      # compares with the base branch); pushes to main check everything. The turbo cache is kept
+      # between runs, keyed by the test settings above, so unchanged packages replay.
+      CHECK: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
+      - uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm typecheck
-      - run: pnpm lint
+      - run: pnpm turbo run build typecheck lint test $CHECK
+      # Unused files, exports and dependencies need the whole repository.
       - run: pnpm knip
-      - run: pnpm test
+      # The committed SDK must match the API: regenerate it and fail on any difference.
+      - name: SDK matches the API
+        run: |
+          pnpm turbo run build --filter @d4/api
+          pnpm --filter @d4/sdk run generate
+          git diff --exit-code -- packages/sdk

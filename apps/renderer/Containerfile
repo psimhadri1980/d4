@@ -2,12 +2,22 @@
 # runtime image, which has the browser for playwright-core 1.47.2; Node 24 is copied in.
 ARG NODE_IMAGE=docker.io/library/node:24-bookworm-slim
 
+# Only this app's workspaces: files outside them (another app, docs) leave the layers below cached.
+FROM ${NODE_IMAGE} AS prune
+RUN npm install -g turbo@2.11.9
+WORKDIR /repo
+COPY . .
+RUN turbo prune @d4/renderer --docker
+
 FROM ${NODE_IMAGE} AS build
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --from=prune /repo/out/pnpm-lock.yaml /repo/out/pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
-COPY . .
+COPY --from=prune /repo/out/json/ ./
+COPY --from=prune /repo/out/full/ ./
+# Root config the pruned workspaces build with (turbo prune leaves it out).
+COPY tsconfig.base.json ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     --mount=type=cache,id=turbo,target=/repo/.turbo/cache \
     pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/renderer...' \
