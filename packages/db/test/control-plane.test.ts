@@ -14,7 +14,7 @@ import {
   WorkspaceStore,
   type Db,
 } from '../src';
-import { ADMIN_URL, freshDatabase } from './helpers';
+import { ADMIN_URL, freshDatabase, rejectsWith } from './helpers';
 
 describe.skipIf(!ADMIN_URL)('control plane (Postgres)', () => {
   let handle: Awaited<ReturnType<typeof freshDatabase>>;
@@ -43,9 +43,7 @@ describe.skipIf(!ADMIN_URL)('control plane (Postgres)', () => {
 
   it('refuses to reuse a metamodel version with different content', async () => {
     const changed = { ...loadStarterMetamodel(), description: 'edited' };
-    await expect(new MetamodelStore(db).register(LOCAL_TENANT, changed, 'test')).rejects.toThrow(
-      /different content/,
-    );
+    await rejectsWith(new MetamodelStore(db).register(LOCAL_TENANT, changed, 'test'), /different content/);
   });
 
   it('activating a new version retires the old one', async () => {
@@ -93,12 +91,13 @@ describe.skipIf(!ADMIN_URL)('control plane (Postgres)', () => {
   });
 
   it('rejects unknown roles at the database level', async () => {
-    await expect(
+    await rejectsWith(
       db.execute(
         sql`insert into role_bindings (id, tenant_id, principal_type, principal_id, role, created_by)
             values (${ulid()}, ${LOCAL_TENANT}, 'user', 'x', 'superuser', 'test')`,
       ),
-    ).rejects.toThrow(/role_bindings_role_check/);
+      /role_bindings_role_check/,
+    );
   });
 
   it('lists workspaces per tenant', async () => {
@@ -134,13 +133,13 @@ describe.skipIf(!ADMIN_URL)('control plane (Postgres)', () => {
       expect(pending.length).toBeGreaterThan(0);
       await store.markPublished(pending.map((e) => e.seq));
       expect(await store.unpublished()).toEqual([]);
-      await expect(store.markPublished([pending[0]!.seq])).rejects.toThrow(/already set/);
+      await rejectsWith(store.markPublished([pending[0]!.seq]), /already set/);
     });
 
     it('is append-only', async () => {
-      await expect(db.execute(sql`update events set actor = 'mallory'`)).rejects.toThrow(/immutable/);
-      await expect(db.execute(sql`delete from events`)).rejects.toThrow(/append-only/);
-      await expect(db.execute(sql`truncate events`)).rejects.toThrow(/append-only/);
+      await rejectsWith(db.execute(sql`update events set actor = 'mallory'`), /immutable/);
+      await rejectsWith(db.execute(sql`delete from events`), /append-only/);
+      await rejectsWith(db.execute(sql`truncate events`), /append-only/);
     });
   });
 });

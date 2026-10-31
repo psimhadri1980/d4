@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { ulid } from '@d4/core';
 import { CatalogError, LOCAL_TENANT, QueryCatalogStore, schema, seedLocal, type Db } from '../src';
-import { ADMIN_URL, freshDatabase } from './helpers';
+import { ADMIN_URL, freshDatabase, rejectsWith } from './helpers';
 
 describe.skipIf(!ADMIN_URL)('query catalog store (Postgres)', () => {
   let handle: Awaited<ReturnType<typeof freshDatabase>>;
@@ -41,16 +41,14 @@ describe.skipIf(!ADMIN_URL)('query catalog store (Postgres)', () => {
     await expect(store.saveDraft(q.id, draft('X'), 'author-1')).rejects.toThrow(CatalogError);
 
     // Content is immutable once out of draft.
-    await expect(
-      db.execute(sql`update query_versions set cypher = 'MATCH (n) DETACH DELETE n' where id = ${open.id}`),
-    ).rejects.toThrow(/immutable/);
+    await rejectsWith(db.execute(sql`update query_versions set cypher = 'MATCH (n) DETACH DELETE n' where id = ${open.id}`), /immutable/);
 
     const published = await store.setStatus(open.id, 'published', 'steward-1', 'looks good');
     expect(published).toMatchObject({ status: 'published', reviewedBy: 'steward-1', reviewNote: 'looks good' });
     expect((await store.latestPublished(q.id))?.version).toBe(1);
 
     // Skipping states is refused by the database.
-    await expect(store.setStatus(open.id, 'retired', 'steward-1')).rejects.toThrow(/cannot move from published to retired/);
+    await rejectsWith(store.setStatus(open.id, 'retired', 'steward-1'), /cannot move from published to retired/);
 
     // A new draft becomes version 2; v1 stays published meanwhile.
     const v2 = await store.saveDraft(q.id, draft('MATCH (n:Platform) RETURN n LIMIT 5'), 'author-1');
@@ -118,7 +116,7 @@ describe.skipIf(!ADMIN_URL)('query catalog store (Postgres)', () => {
 
     const impact = (await store.bySlug(LOCAL_TENANT, 'impact'))!;
     expect(await store.everPublished(impact.id)).toBe(true);
-    await expect(store.deleteUnpublished(LOCAL_TENANT, impact.id)).rejects.toThrow(/archive it instead/);
+    await rejectsWith(store.deleteUnpublished(LOCAL_TENANT, impact.id), /archive it instead/);
     await store.archive(LOCAL_TENANT, impact.id);
     expect((await store.search(LOCAL_TENANT)).map((q) => q.slug)).not.toContain('impact');
     // History is kept.
@@ -127,7 +125,7 @@ describe.skipIf(!ADMIN_URL)('query catalog store (Postgres)', () => {
   });
 
   it('rejects invalid statuses at the database level', async () => {
-    await expect(
+    await rejectsWith(
       db.insert(schema.queryVersions).values({
         id: ulid(),
         queryId: (await store.bySlug(LOCAL_TENANT, 'orphans'))!.id,
@@ -139,6 +137,7 @@ describe.skipIf(!ADMIN_URL)('query catalog store (Postgres)', () => {
         status: 'bogus' as never,
         createdBy: 'x',
       }),
-    ).rejects.toThrow(/query_versions_status_check/);
+      /query_versions_status_check/,
+    );
   });
 });

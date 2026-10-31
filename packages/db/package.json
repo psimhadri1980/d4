@@ -19,11 +19,11 @@
   "dependencies": {
     "@d4/core": "workspace:*",
     "@d4/metamodel": "workspace:*",
-    "drizzle-orm": "^0.33.0",
+    "drizzle-orm": "^0.45.4",
     "pg": "catalog:"
   },
   "devDependencies": {
     "@types/pg": "catalog:",
-    "drizzle-kit": "^0.24.2"
+    "drizzle-kit": "^0.31.11"
   }
 }
