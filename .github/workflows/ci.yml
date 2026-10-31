@@ -103,20 +103,36 @@ jobs:
       - name: Image scan and SBOM
         if: success() || failure()
         run: |
-          mkdir -p sbom
-          echo '## Image vulnerabilities (HIGH, CRITICAL)' >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p sbom scan
           for img in $(podman images --format '{{.Repository}}' | grep '^localhost/d4-' | sort -u); do
             name=${img#localhost/}
             podman save -o "/tmp/$name.tar" "$img:local"
             trivy image --quiet --input "/tmp/$name.tar" --format cyclonedx --output "sbom/$name.cdx.json"
-            { echo "### $name"; echo '```'; trivy image --quiet --input "/tmp/$name.tar" --severity HIGH,CRITICAL --format table 2>&1 | tail -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            trivy image --quiet --input "/tmp/$name.tar" --severity HIGH,CRITICAL --format json --output "scan/$name.json"
+            trivy convert --format table --output "scan/$name.txt" "scan/$name.json"
             rm -f "/tmp/$name.tar"
           done
+          {
+            echo '## Image vulnerabilities'
+            echo '| Image | Critical | High |'
+            echo '|---|---:|---:|'
+            for f in scan/*.json; do
+              name=$(basename "$f" .json)
+              c=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' "$f")
+              h=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' "$f")
+              echo "| $name | $c | $h |"
+            done
+            for f in scan/*.txt; do
+              echo "<details><summary>$(basename "$f" .txt)</summary>"; echo; echo '```'; cat "$f"; echo '```'; echo '</details>'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: sbom
-          path: sbom
+          name: sbom-and-scan
+          path: |
+            sbom
+            scan
           retention-days: 30
       - name: Service logs
         if: failure()
