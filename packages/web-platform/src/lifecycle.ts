@@ -65,6 +65,8 @@ export interface ModuleManifest {
   contract: typeof LIFECYCLE_CONTRACT;
   /** Top-level segments under the workspace the module owns, e.g. `['reports', 'jobs']`; default `[id]`. */
   paths?: string[];
+  /** Also owns the workspace home, `/w/:ws` itself (one module: the start page). */
+  home?: boolean;
   /** Major versions of the shared packages the module was built against (`sharedMajors`); the shell refuses a mismatch. */
   shared?: Record<string, string>;
   nav: { group: string; order: number; items: ManifestItem[] };
@@ -104,10 +106,10 @@ export function lifecycleProblems(mod: unknown, name: string, provided?: Record<
   const nav = m.manifest?.nav;
   if (m.manifest && (!nav || typeof nav.group !== 'string' || typeof nav.order !== 'number' || !Array.isArray(nav.items))) out.push('has no menu (nav.group, nav.order, nav.items)');
   for (const item of nav?.items ?? []) {
-    if (![item.id, item.label, item.icon, item.to].every((v) => typeof v === 'string' && v)) out.push(`menu item '${item.id}' lacks id, label, icon or to`);
+    if (![item.id, item.label, item.icon].every((v) => typeof v === 'string' && v) || typeof item.to !== 'string') out.push(`menu item '${item.id}' lacks id, label, icon or to`);
     // Paths are relative to the workspace and must stay within the module's own paths.
     for (const to of [item.to, ...(item.sub ?? []).map((s) => s.to)].map((t) => t?.split('?')[0]))
-      if (!paths.some((p) => to === p || to?.startsWith(`${p}/`))) out.push(`menu path '${to}' is outside ${paths.map((p) => `${p}/`).join(', ')}`);
+      if (!(to === '' && m.manifest?.home) && !paths.some((p) => to === p || to?.startsWith(`${p}/`))) out.push(`menu path '${to}' is outside ${paths.map((p) => `${p}/`).join(', ')}`);
   }
   return out;
 }

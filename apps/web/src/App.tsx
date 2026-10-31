@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ModuleOutlet } from './components/ModuleOutlet';
-import { MODULES } from './modules';
 import { api, keys, useAuth } from '@d4/web-platform';
 import { ErrorBanner } from '@d4/ui-kit';
 
@@ -15,8 +14,8 @@ export function App() {
       <Route path="/" element={<FirstWorkspace />} />
       <Route path="/callback" element={returnTo && returnTo !== '/' ? <Navigate to={returnTo} replace /> : <FirstWorkspace />} />
       <Route path="/w/:ws" element={<Layout />}>
-        {MODULES.flatMap((m) => m.routes).map((r, i) => (r.index ? <Route key={i} index element={r.element} /> : <Route key={i} path={r.path} element={r.element} />))}
-        {/* Anything else under the workspace may belong to a lifecycle module. */}
+        {/* Every page under the workspace, its home included, belongs to a lifecycle module. */}
+        <Route index element={<ModuleOutlet />} />
         <Route path="*" element={<ModuleOutlet />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

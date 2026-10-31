@@ -25,10 +25,6 @@ export default tseslint.config(
     rules: restrict(webSide),
   },
   {
-    files: ['apps/web/src/modules/*/**'],
-    rules: restrict(webSide, { group: ['../*', '../**'], message: 'A web module may not import another module or the shell; move shared code to @d4/web-platform or @d4/ui-kit.' }),
-  },
-  {
     // The platform sits below the UI kit and the modules.
     files: ['packages/web-platform/**'],
     rules: restrict(webSide, banned(['ui-kit'], '@d4/web-platform may not depend on @d4/ui-kit.')),

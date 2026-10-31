@@ -11,7 +11,6 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@d4/core": "workspace:*",
     "@d4/ui-kit": "workspace:*",
     "@d4/web-platform": "workspace:*",
     "@fontsource/ibm-plex-mono": "^5.1.0",

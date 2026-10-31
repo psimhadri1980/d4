@@ -17,7 +17,6 @@ import {
 } from '@tabler/icons-react';
 import type { Access, ManifestItem, NavContribution, NavGroup, NavItem, NavSub } from '@d4/web-platform';
 import { moduleStates } from './lifecycle';
-import { MODULES } from './modules';
 
 export type { NavGroup, NavItem };
 
@@ -60,10 +59,10 @@ const fromManifest = (i: ManifestItem): NavItem => ({
   sub: i.sub?.map((s) => ({ ...s, visible: s.requires && ((a) => a[s.requires!]) })),
 });
 
-/** The navigation as this user may see it: the built-in modules and every lifecycle module loaded so far. */
+/** The navigation as this user may see it: every lifecycle module loaded so far. */
 export function visibleNav(a: Access): NavGroup[] {
   const loaded = [...moduleStates().values()].flatMap((s) => (s.status === 'ready' ? [{ ...s.manifest.nav, items: s.manifest.nav.items.map(fromManifest) }] : []));
-  return buildNav([...MODULES.map((m) => m.nav), ...loaded]).map((g) => ({
+  return buildNav(loaded).map((g) => ({
     ...g,
     items: g.items.filter((i) => !i.visible || i.visible(a)).map((i) => ({ ...i, ...(i.sub && { sub: i.sub.filter((s) => !s.visible || s.visible(a)) }) })),
   })).filter((g) => g.items.length);

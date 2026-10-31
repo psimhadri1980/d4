@@ -27,7 +27,7 @@ export const moduleStates = (): ReadonlyMap<string, ModuleState> => states;
  * else one of that name (still loading or failed, its paths not known yet).
  */
 export function moduleFor(segment: string): ModuleState | undefined {
-  for (const s of states.values()) if (s.status === 'ready' && ownedPaths(s.manifest).includes(segment)) return s;
+  for (const s of states.values()) if (s.status === 'ready' && (segment === '' ? s.manifest.home : ownedPaths(s.manifest).includes(segment))) return s;
   return states.get(segment);
 }
 /** Whether any module is still loading, or failed: either may own a path nothing else claims. */
@@ -103,7 +103,8 @@ async function load(platform: Platform, m: Listed): Promise<void> {
     const problems = lifecycleProblems(mod, name, __D4_SHARED__);
     if (problems.length) throw new Error(problems.join('; '));
     if (registered.get(name) !== release(m)) return; // superseded while loading
-    const prefix = new RegExp(`^/w/[^/]+/(${ownedPaths(mod.manifest).join('|')})(/|$)`);
+    const owned = `/(${ownedPaths(mod.manifest).join('|')})(/|$)`;
+    const prefix = new RegExp(`^/w/[^/]+(${owned}${mod.manifest.home ? '|/?$' : ''})`);
     registerApplication({ name, app: mod, activeWhen: (l) => prefix.test(l.pathname), customProps: { platform, domElementGetter: () => slotFor(name) } });
     set(name, { status: 'ready', manifest: mod.manifest });
   } catch (e) {

@@ -3,8 +3,8 @@ import { Navigate, useParams } from 'react-router-dom';
 import { moduleFor, modulesVersion, pendingModules, registryState, subscribeModules } from '../lifecycle';
 
 /**
- * A path under the workspace that no built-in module claims: a lifecycle module's (rendered by
- * single-spa into the page slot), one still loading, one that failed, or none (back to the start).
+ * Any page under the workspace: a lifecycle module's (rendered by single-spa into the page slot),
+ * one still loading, one that failed, or none (back to the start).
  */
 export function ModuleOutlet() {
   useSyncExternalStore(subscribeModules, modulesVersion);

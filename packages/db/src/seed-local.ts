@@ -14,6 +14,7 @@ const LOCAL_WEB_MODULES = [
   { name: 'queries', title: 'Queries', description: 'Query catalog, query studio and stewardship', owner: 'platform', entry: '/mfe/queries/queries.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
   { name: 'data', title: 'Data management', description: 'Spreadsheet import, connectors and backups', owner: 'platform', entry: '/mfe/data/data.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
   { name: 'plan', title: 'Plan and govern', description: 'Roadmap, decision records and change proposals', owner: 'platform', entry: '/mfe/plan/plan.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
+  { name: 'explore', title: 'Explore', description: 'Explorer (the workspace home), element pages and editor, matrices, Compare', owner: 'platform', entry: '/mfe/explore/explore.js', version: '0.1.0', contract: 2, framework: 'react', enabled: true },
   { name: 'hello', title: 'Hello', description: 'A plain JavaScript module (contract example)', owner: 'platform', entry: '/mfe/hello/hello.js', version: '0.1.0', contract: 2, framework: 'vanilla', enabled: true },
 ];
 
