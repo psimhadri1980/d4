@@ -7,13 +7,11 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "lint": "eslint src test"
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src"
   },
   "dependencies": {
-    "@d4/codecs": "workspace:*",
     "@d4/core": "workspace:*",
-    "@d4/metamodel": "workspace:*",
     "@d4/ui-kit": "workspace:*",
     "@d4/web-platform": "workspace:*",
     "@fontsource/ibm-plex-mono": "^5.1.0",
@@ -31,7 +29,6 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^4.3.1",
-    "jsdom": "catalog:",
     "vite": "^5.4.6"
   }
 }

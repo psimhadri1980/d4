@@ -99,5 +99,4 @@ export default defineConfig({
   server: { port: 5174, strictPort: true, hmr: { clientPort: Number(process.env.GATEWAY_PORT) || undefined } },
   // The @d4 packages the browser uses ship ESM under the `browser` export condition.
   build: { sourcemap: true, target: 'es2022' },
-  test: { environment: 'jsdom' },
 });

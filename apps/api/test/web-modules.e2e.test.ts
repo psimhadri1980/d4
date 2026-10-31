@@ -19,7 +19,7 @@ describe.skipIf(!PG || !NEO)('Web module registry API', () => {
   it('lists the seeded modules to any member, with an ETag', async () => {
     const res = await enabled(viewer);
     expect(res.statusCode).toBe(200);
-    expect(res.json().modules.map((m: { name: string }) => m.name)).toEqual(['admin', 'data', 'hello', 'queries', 'reporting']);
+    expect(res.json().modules.map((m: { name: string }) => m.name)).toEqual(['admin', 'data', 'hello', 'plan', 'queries', 'reporting']);
     expect((await enabled(viewer, res.headers.etag as string)).statusCode).toBe(304);
   });
 
