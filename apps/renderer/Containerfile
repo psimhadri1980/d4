@@ -25,6 +25,10 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 RUN pnpm --filter @d4/renderer deploy --prod /app
 
 FROM mcr.microsoft.com/playwright:v1.47.2-jammy@sha256:eee5be766a342139241c9a51e6449cb8f6ff2847fbd0792f91793aaf0c7f4f46
+# Ubuntu fixes published after this digest; drop the base image's Node and npm (node-tar and
+# friends), which the renderer never uses: it runs the Node copied below.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/lib/node_modules /usr/bin/npm /usr/bin/npx /usr/bin/corepack /usr/bin/node
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 ENV NODE_ENV=production
 WORKDIR /app
