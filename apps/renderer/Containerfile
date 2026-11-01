@@ -1,5 +1,5 @@
 # Renderer: PNG/PDF with headless Chromium. Built on glibc (bookworm) like the Playwright
-# runtime image, which has the browser for playwright-core 1.47.2; Node 24 is copied in.
+# runtime image, which has the browser for playwright-core 1.64.1; Node 24 is copied in.
 ARG NODE_IMAGE
 ARG PLAYWRIGHT_IMAGE
 

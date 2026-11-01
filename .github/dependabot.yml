@@ -15,6 +15,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Playwright's npm packages must match the browsers in its image (apps/e2e, apps/renderer).
+    # Dependabot cannot group across ecosystems, so bump all of them together by hand.
+    ignore:
+      - dependency-name: '@playwright/test'
+      - dependency-name: playwright-core
 
   # Base images, pinned by digest in each Containerfile (tag kept for reading).
   - package-ecosystem: docker
@@ -31,5 +36,7 @@ updates:
       - /mocks/s3
       - /mocks/smtp
     schedule: { interval: weekly }
+    ignore:
+      - dependency-name: '*playwright'
     groups:
       base-images: { patterns: ['*'] }
