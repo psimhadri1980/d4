@@ -48,7 +48,7 @@ tenant_create() {
       -e NEO4J_db_transaction_timeout=30s -e NEO4J_server_memory_heap_initial__size=256m -e NEO4J_server_memory_heap_max__size=384m \
       -e NEO4J_server_memory_pagecache_size=64m -e NEO4J_db_memory_transaction_total_max=128m \
       -e NEO4J_server_jvm_additional='-XX:MaxDirectMemorySize=128m -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=64m -Xss512k' \
-      --memory 900m --cpus 1 docker.io/library/neo4j:5.26-community >/dev/null
+      --memory 900m --cpus 1 "$NEO4J_IMAGE" >/dev/null
     say "Started $c on 127.0.0.1:$port"
   fi
   ops tenant create "$id" --name "$name" --bolt "bolt://$c:7687" --secret "file:neo4j-$id"

@@ -13,11 +13,11 @@ export PODMAN_COMPOSE_WARNING_LOGS=false
 # Settings live in deploy/env (see common.env). Variables already set by the caller win, e.g.
 # `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker`; compose interpolates from this environment.
 CALLER_ENV=" $(compgen -e | tr '\n' ' ') "
-# Exports the env files in order, later files winning: common, the network view given as $1
+# Exports the env files in order, later files winning: common, images, the network view given as $1
 # (container or host), dev secrets, then your git-ignored local.env.
 load_env() {
   local f line key
-  for f in common.env ${1:+$1.env} dev-secrets.env local.env; do
+  for f in common.env images.env ${1:+$1.env} dev-secrets.env local.env; do
     [[ -f "env/$f" ]] || continue
     while IFS= read -r line || [[ -n "$line" ]]; do
       [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
@@ -27,6 +27,36 @@ load_env() {
   done
 }
 load_env
+# pnpm, npm and corepack on the host follow the same registry as the image builds.
+export npm_config_registry="${npm_config_registry:-${NPM_REGISTRY:-https://registry.npmjs.org}}"
+export COREPACK_NPM_REGISTRY="${COREPACK_NPM_REGISTRY:-$npm_config_registry}"
+
+# Trust files can live anywhere: ORG_CA_FILE, GATEWAY_TLS_CERT_FILE and GATEWAY_TLS_KEY_FILE (absolute,
+# ~/..., or relative to deploy/) are copied into deploy/certs (git-ignored, the image build context),
+# so builds, containers and host processes all read the same copy. Unset leaves deploy/certs as is.
+stage_cert() {
+  local src="${1/#\~/$HOME}" dst="$DEPLOY_DIR/certs/$2"
+  [[ -z "$1" ]] && return 0
+  [[ "$src" = /* ]] || src="$DEPLOY_DIR/$src"
+  [[ -s "$src" ]] || { echo "$3 points at $1, which is missing or empty" >&2; exit 1; }
+  cmp -s "$src" "$dst" 2>/dev/null || install -m 644 "$src" "$dst"
+}
+stage_cert "${ORG_CA_FILE:-}" org-ca.crt ORG_CA_FILE
+stage_cert "${GATEWAY_TLS_CERT_FILE:-}" gateway.crt GATEWAY_TLS_CERT_FILE
+stage_cert "${GATEWAY_TLS_KEY_FILE:-}" gateway.key GATEWAY_TLS_KEY_FILE
+
+# Organization CA (deploy/certs/README.md): same file for builds, containers and host processes.
+if [[ -s "$DEPLOY_DIR/certs/org-ca.crt" ]]; then
+  export D4_CA_BUILD=/etc/org-certs/org-ca.crt D4_CA_RUN=/run/d4-certs/org-ca.crt
+  export NODE_EXTRA_CA_CERTS="${NODE_EXTRA_CA_CERTS:-$DEPLOY_DIR/certs/org-ca.crt}"
+else
+  export D4_CA_BUILD= D4_CA_RUN=
+fi
+
+# Gateway HTTPS (deploy/certs/README.md): gateway.crt and gateway.key, mounted into the gateway.
+if [[ -s "$DEPLOY_DIR/certs/gateway.crt" && -s "$DEPLOY_DIR/certs/gateway.key" ]]; then
+  export GATEWAY_TLS_CERT="${GATEWAY_TLS_CERT:-/run/d4-certs/gateway.crt}" GATEWAY_TLS_KEY="${GATEWAY_TLS_KEY:-/run/d4-certs/gateway.key}"
+fi
 
 # Every compose file, always: depends_on crosses files, and profiles keep tools and
 # observability out of plain `up`.

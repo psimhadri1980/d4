@@ -2,7 +2,7 @@
 services:
   test:
     profiles: [tools]
-    build: { context: ../.., dockerfile: deploy/test/Containerfile }
+    build: { context: ../.., dockerfile: deploy/test/Containerfile, args: { NPM_REGISTRY: "${NPM_REGISTRY}", NODE_EXTRA_CA_CERTS: "${D4_CA_BUILD:-}", NODE_IMAGE: "${NODE_IMAGE}" } }
     image: localhost/d4-test:local
     # Capped, with at most two suites at a time, so tests don't starve Neo4j.
     mem_limit: 1536m
@@ -25,7 +25,7 @@ services:
   # Browser tests on the host network, through the gateway like a developer's browser.
   e2e:
     profiles: [tools]
-    build: { context: ../.., dockerfile: apps/e2e/Containerfile }
+    build: { context: ../.., dockerfile: apps/e2e/Containerfile, args: { NPM_REGISTRY: "${NPM_REGISTRY}", NODE_EXTRA_CA_CERTS: "${D4_CA_BUILD:-}", PLAYWRIGHT_IMAGE: "${PLAYWRIGHT_IMAGE}" } }
     image: localhost/d4-e2e:local
     network_mode: host
     environment:

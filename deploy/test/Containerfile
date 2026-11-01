@@ -1,8 +1,13 @@
 # Test runner: the whole workspace installed and built (deploy/test.sh --container). git: the
 # Git connector tests clone repositories.
-ARG NODE_IMAGE=docker.io/library/node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
+ARG NODE_IMAGE
 
 FROM ${NODE_IMAGE} AS build
+ARG NPM_REGISTRY
+ARG NODE_EXTRA_CA_CERTS
+COPY deploy/certs/ /etc/org-certs/
+RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
+ENV npm_config_registry=$NPM_REGISTRY COREPACK_NPM_REGISTRY=$NPM_REGISTRY
 RUN apk add --no-cache git && corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./

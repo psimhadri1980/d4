@@ -1,9 +1,13 @@
 # Gateway: the one browser-facing origin (D4_PUBLIC_URL). Routes /api to the API, /auth to
 # Keycloak and everything else to the web app; upstreams come from the environment, so the same
 # image fronts containers or apps running on the host (deploy/dev.sh).
-FROM docker.io/nginxinc/nginx-unprivileged:1.30-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+ARG NGINX_IMAGE
+FROM ${NGINX_IMAGE}
 # Alpine fixes published after this digest (brotli, curl, ...); the image runs as nginx (101).
 USER root
+# Organization CA (deploy/certs) for the apk mirror or proxy.
+COPY deploy/certs/ /etc/org-certs/
+RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
 RUN apk upgrade --no-cache
 # conf.d is rendered at start (15-d4-gateway.envsh); under /tmp it also works on a read-only root.
 RUN rm -rf /etc/nginx/conf.d && ln -s /tmp/nginx-conf.d /etc/nginx/conf.d

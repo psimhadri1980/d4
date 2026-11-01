@@ -1,7 +1,7 @@
 # Web app (static files). See infra.yaml for how the files combine.
 services:
   web:
-    build: { context: ../.., dockerfile: apps/web/Containerfile }
+    build: { context: ../.., dockerfile: apps/web/Containerfile, args: { NPM_REGISTRY: "${NPM_REGISTRY}", NODE_EXTRA_CA_CERTS: "${D4_CA_BUILD:-}", NODE_IMAGE: "${NODE_IMAGE}", NGINX_IMAGE: "${NGINX_IMAGE}" } }
     image: localhost/d4-web:local
     read_only: true
     tmpfs: ['/tmp']
@@ -21,7 +21,7 @@ services:
 
   # Lifecycle web modules (P6 spike), at /mfe/ behind the gateway.
   web-modules:
-    build: { context: ../.., dockerfile: deploy/web-modules/Containerfile }
+    build: { context: ../.., dockerfile: deploy/web-modules/Containerfile, args: { NPM_REGISTRY: "${NPM_REGISTRY}", NODE_EXTRA_CA_CERTS: "${D4_CA_BUILD:-}", NODE_IMAGE: "${NODE_IMAGE}", NGINX_IMAGE: "${NGINX_IMAGE}" } }
     image: localhost/d4-web-modules:local
     read_only: true
     tmpfs: ['/tmp']
