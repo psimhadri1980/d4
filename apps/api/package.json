@@ -24,7 +24,7 @@
     "@d4/jobs": "workspace:*",
     "@d4/metamodel": "workspace:*",
     "@d4/runtime": "workspace:*",
-    "@nestjs/common": "^11.1.0",
+    "@nestjs/common": "^12.3.2",
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-fastify": "^11.1.0",
     "graphql": "^16.9.0",
