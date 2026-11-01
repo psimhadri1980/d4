@@ -26,6 +26,7 @@ runMain(log, async () => {
     queue: config.JOB_QUEUE ?? JOB_QUEUE,
     concurrency: config.WORKER_CONCURRENCY,
     healthPort: config.WORKER_HEALTH_PORT,
+    ready: () => opened.ping(),
     handle: (msg, attempt) => processJob(msg, deps, attempt),
   });
 

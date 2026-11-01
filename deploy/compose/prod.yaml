@@ -1,0 +1,38 @@
+# Production overlay: applied last, on top of the other files in this directory, e.g.
+#   podman compose -p d4 -f compose/infra.yaml -f compose/apps.yaml -f compose/web.yaml \
+#     -f compose/gateway.yaml -f compose/prod.yaml up -d
+# Only the gateway publishes ports. The services run with D4_ENV=production, which refuses the
+# development secrets: provide real ones as files (NAME_FILE, see @d4/config) in ../secrets.
+# Keycloak, the S3 and SMTP mocks and the observability stack stay development stand-ins; point
+# the services at the real ones through deploy/env/local.env (or the environment).
+x-prod-env: &prod-env
+  env_file: !override
+    - ../env/common.env
+    - ../env/container.env
+    - { path: ../env/local.env, required: false }
+
+services:
+  neo4j: { ports: !reset [] }
+  postgres: { ports: !reset [] }
+  redis: { ports: !reset [] }
+  s3: { ports: !reset [] }
+  smtp: { ports: !reset [] }
+  otel-collector: { ports: !reset [] }
+  prometheus: { ports: !reset [] }
+
+  api:
+    <<: *prod-env
+    environment: { D4_ENV: production }
+  worker:
+    <<: *prod-env
+    environment: { D4_ENV: production }
+  renderer:
+    <<: *prod-env
+    environment: { D4_ENV: production }
+
+  gateway:
+    # HTTPS when GATEWAY_TLS_CERT and GATEWAY_TLS_KEY name mounted files (see apps/gateway).
+    ports: !override
+      - '${GATEWAY_PORT:-8080}:8080'
+      - '${GATEWAY_TLS_PORT:-8443}:8443'
+    environment: { D4_ENV: production }

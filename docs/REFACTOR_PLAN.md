@@ -529,14 +529,16 @@ Other packages (`cytoscape`, `@d4/core`, `@d4/metamodel`, icons) are bundled per
 
 ## 8. Production-readiness checklist (cross-cutting)
 
-- [ ] Non-root images and a read-only root filesystem where possible; no secrets in images or code defaults.
-- [ ] Secrets through `*_FILE`; the dev-secret guard refuses to start in production.
-- [ ] Separate liveness and readiness on every service: `/healthz` and `/readyz`. Worker and renderer get readiness too.
-- [ ] Structured JSON logs with request id, tenant and user; OTel traces from api, worker and renderer.
-- [ ] Gateway: security headers, body limit, timeouts, TLS option; only the gateway is browser-facing.
-- [ ] Data-store ports bound to `127.0.0.1` in dev and not published in production.
+- [x] Non-root images and a read-only root filesystem where possible; no secrets in images or code defaults.
+- [x] Secrets through `*_FILE`; the dev-secret guard refuses to start in production.
+- [x] Separate liveness and readiness on every service: `/healthz` and `/readyz`. Worker and renderer get readiness too.
+- [x] Structured JSON logs with request id, tenant and user; OTel traces from api, worker and renderer.
+- [x] Gateway: security headers, body limit, timeouts, TLS option; only the gateway is browser-facing.
+- [x] Data-store ports bound to `127.0.0.1` in dev and not published in production.
 - [x] Reproducible images: frozen lockfile, base images pinned by digest (Dependabot keeps them current), scan and SBOM in CI (report only until a baseline is agreed).
 - [x] Browser tests in CI against the composed stack (rootless Podman, D75).
+
+The first six were completed 2026-11-01 (D76): read-only root filesystems with a `/tmp` tmpfs for every app container, including the gateway, which renders `conf.d` under `/tmp`; `/readyz` on the worker and renderer (Redis and Postgres), while `/healthz` stays liveness only; a baseline CSP header and client and upstream timeouts at the gateway, plus HTTPS on 8443 when `GATEWAY_TLS_CERT` and `GATEWAY_TLS_KEY` are set; and `deploy/compose/prod.yaml`, which publishes only the gateway and runs the apps with `D4_ENV=production` and no development secrets. `*_FILE` secrets, the dev-secret guard and the log fields were already in place.
 
 ---
 

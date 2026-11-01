@@ -2,9 +2,24 @@
 resolver ${GATEWAY_RESOLVER} valid=10s ipv6=off;
 map $http_upgrade $connection_upgrade { default upgrade; '' close; }
 
+# A baseline policy on top of the shell's own (a meta tag with its script hashes, which cannot
+# set frame-ancestors). Keycloak and Grafana send theirs; an empty value sends no header.
+map $uri $d4_csp {
+  ~^/(auth|grafana)/ '';
+  default "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'";
+}
+
+# Slow or stalled clients and upstreams give up instead of holding connections.
+client_header_timeout 15s;
+client_body_timeout 60s;
+send_timeout 60s;
+proxy_connect_timeout 5s;
+
 # localhost (D4_PUBLIC_URL): containers, or apps on the host where deploy/dev.sh points an upstream.
 server {
   listen 8080 default_server;
+  # HTTPS on 8443 when GATEWAY_TLS_CERT and GATEWAY_TLS_KEY are set (15-d4-gateway.envsh).
+  include /etc/nginx/conf.d/*.tls;
   server_tokens off;
   # The API accepts 20 MB model imports.
   client_max_body_size 25m;
@@ -16,6 +31,7 @@ server {
   add_header X-Content-Type-Options nosniff always;
   add_header Referrer-Policy strict-origin-when-cross-origin always;
   add_header X-Frame-Options DENY always;
+  add_header Content-Security-Policy $d4_csp always;
 
   proxy_http_version 1.1;
   proxy_set_header Host $http_host;
@@ -54,6 +70,7 @@ server {
   add_header X-Content-Type-Options nosniff always;
   add_header Referrer-Policy strict-origin-when-cross-origin always;
   add_header X-Frame-Options DENY always;
+  add_header Content-Security-Policy $d4_csp always;
 
   proxy_http_version 1.1;
   proxy_set_header Host $http_host;

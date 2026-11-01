@@ -5,6 +5,9 @@ services:
   gateway:
     build: { context: ../.., dockerfile: apps/gateway/Containerfile }
     image: localhost/d4-gateway:local
+    # Everything written at start (rendered conf.d, pid, temp files) lives under /tmp.
+    read_only: true
+    tmpfs: ['/tmp']
     ports: ['127.0.0.1:${GATEWAY_PORT:-5173}:8080']
     environment:
       D4_ENV: ${D4_ENV:-production}

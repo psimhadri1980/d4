@@ -5,10 +5,12 @@ FROM docker.io/nginxinc/nginx-unprivileged:1.30-alpine@sha256:f5116ed4606f3eb015
 # Alpine fixes published after this digest (brotli, curl, ...); the image runs as nginx (101).
 USER root
 RUN apk upgrade --no-cache
+# conf.d is rendered at start (15-d4-gateway.envsh); under /tmp it also works on a read-only root.
+RUN rm -rf /etc/nginx/conf.d && ln -s /tmp/nginx-conf.d /etc/nginx/conf.d
 USER 101
 COPY apps/gateway/templates/ /etc/d4-gateway/
 COPY --chmod=755 apps/gateway/15-d4-gateway.envsh /docker-entrypoint.d/
 # The entrypoint renders templates from here (filled by 15-d4-gateway.envsh) into conf.d.
 ENV NGINX_ENVSUBST_TEMPLATE_DIR=/tmp/d4-gateway \
     NGINX_ENVSUBST_FILTER='^(GATEWAY_|UPSTREAM_)'
-EXPOSE 8080
+EXPOSE 8080 8443

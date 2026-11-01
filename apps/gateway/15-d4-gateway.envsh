@@ -17,11 +17,15 @@ for v in UPSTREAM_API UPSTREAM_KEYCLOAK UPSTREAM_WEB UPSTREAM_WEB_MODULES UPSTRE
   ip=$(awk -v h="${u%%:*}" '$1 !~ /^#/ { for (i = 2; i <= NF; i++) if ($i == h) { print $1; exit } }' /etc/hosts)
   [ -n "$ip" ] && export "$v=$ip:${u##*:}"
 done
-rm -rf /tmp/d4-gateway && mkdir -p /tmp/d4-gateway
+rm -rf /tmp/d4-gateway && mkdir -p /tmp/d4-gateway /tmp/nginx-conf.d
 cp /etc/d4-gateway/default.conf.template /etc/d4-gateway/apps.routes.template /tmp/d4-gateway/
+# HTTPS only with a certificate and key (mounted files); otherwise plain HTTP behind a TLS proxy.
+if [ -n "${GATEWAY_TLS_CERT:-}" ] && [ -n "${GATEWAY_TLS_KEY:-}" ]; then
+  cp /etc/d4-gateway/public.tls.template /tmp/d4-gateway/
+fi
 # Developer consoles (/mail, /grafana) only in development.
 if [ "${D4_ENV:-production}" = dev ]; then
   : "${UPSTREAM_MAIL:?}" "${UPSTREAM_GRAFANA:?}"
   cp /etc/d4-gateway/dev.locations.template /tmp/d4-gateway/
 fi
-rm -f /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/apps.routes /etc/nginx/conf.d/dev.locations
+rm -f /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/apps.routes /etc/nginx/conf.d/dev.locations /etc/nginx/conf.d/public.tls

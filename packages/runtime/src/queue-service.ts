@@ -7,8 +7,11 @@ export interface QueueServiceOptions {
   redisUrl: string;
   queue: string;
   concurrency: number;
-  /** `GET /healthz` answers 200 once the worker is connected and running. */
+  /** `GET /healthz` (liveness) answers 200 while the process serves; `GET /readyz` once the worker
+   *  is connected and running and `ready` resolves. */
   healthPort: number;
+  /** Readiness of the service's own dependencies (the database, say); rejects when one is down. */
+  ready?: () => Promise<unknown>;
   handle: (msg: JobMessage, attempt: { made: number; max: number }) => Promise<void>;
 }
 
@@ -46,9 +49,12 @@ export function startQueueService(o: QueueServiceOptions): QueueService {
     ready = true;
     log.info({ queue: o.queue, concurrency: o.concurrency }, 'ready');
   });
+  const isReady = async () => ready && worker.isRunning() && (await o.ready?.().then(() => true, () => false)) !== false;
   const health = createServer((req, res) => {
-    const ok = req.url === '/healthz' && ready && worker.isRunning();
-    res.writeHead(ok ? 200 : 503, { 'content-type': 'application/json' }).end(JSON.stringify({ status: ok ? 'ok' : 'starting' }));
+    const reply = (code: number, status: string) => res.writeHead(code, { 'content-type': 'application/json' }).end(JSON.stringify({ status }));
+    if (req.url === '/healthz') return reply(200, 'ok');
+    if (req.url !== '/readyz') return reply(404, 'not found');
+    void isReady().then((ok) => reply(ok ? 200 : 503, ok ? 'ok' : 'not ready'));
   }).listen(o.healthPort);
 
   const timers: NodeJS.Timeout[] = [];
