@@ -36,7 +36,5 @@ updates:
       - /mocks/s3
       - /mocks/smtp
     schedule: { interval: weekly }
-    ignore:
-      - dependency-name: '*playwright'
     groups:
       base-images: { patterns: ['*'] }
