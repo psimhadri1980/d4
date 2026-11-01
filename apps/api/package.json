@@ -28,7 +28,7 @@
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-fastify": "^11.1.0",
     "graphql": "^16.9.0",
-    "jose": "^5.8.0",
+    "jose": "^6.2.13",
     "mercurius": "^16.12.1",
     "neo4j-driver": "catalog:",
     "nestjs-pino": "^5.3.1",
