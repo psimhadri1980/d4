@@ -18,9 +18,9 @@
     "eslint": "^9.9.0",
     "knip": "^5.30.0",
     "prettier": "^3.3.3",
-    "turbo": "^2.1.0",
+    "turbo": "^2.11.10",
     "typescript": "^5.5.4",
-    "typescript-eslint": "^8.4.0",
+    "typescript-eslint": "^8.72.1",
     "vitest": "^2.0.5"
   },
   "pnpm": {

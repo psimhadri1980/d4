@@ -14,7 +14,7 @@
     "lint": "eslint src test"
   },
   "devDependencies": {
-    "openapi-typescript": "7.4.1",
+    "openapi-typescript": "7.13.0",
     "tsup": "catalog:"
   },
   "exports": {
