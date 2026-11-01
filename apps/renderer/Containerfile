@@ -24,7 +24,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
  && pnpm exec turbo run build --filter '@d4/renderer...'
 RUN pnpm --filter @d4/renderer deploy --prod /app
 
-FROM mcr.microsoft.com/playwright:v1.47.2-jammy@sha256:eee5be766a342139241c9a51e6449cb8f6ff2847fbd0792f91793aaf0c7f4f46
+FROM mcr.microsoft.com/playwright:v1.64.1-jammy@sha256:6075bd984554db82aee96bcdde53197f091dfe8c4b89322c61da77b86308b810
 # Ubuntu fixes published after this digest; drop the base image's Node and npm (node-tar and
 # friends), which the renderer never uses: it runs the Node copied below.
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \
