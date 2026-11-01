@@ -16,6 +16,10 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
  && for d in apps/web-*/dist; do n=${d#apps/web-}; cp -r "$d" "/mfe/${n%/dist}"; done
 
 FROM docker.io/nginxinc/nginx-unprivileged:1.30-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+# Alpine fixes published after this digest (brotli, curl, ...); the image runs as nginx (101).
+USER root
+RUN apk upgrade --no-cache
+USER 101
 COPY deploy/web-modules/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /mfe /usr/share/nginx/html/mfe
 COPY apps/web-hello/hello.js /usr/share/nginx/html/mfe/hello/hello.js
