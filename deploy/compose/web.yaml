@@ -3,6 +3,8 @@ services:
   web:
     build: { context: ../.., dockerfile: apps/web/Containerfile }
     image: localhost/d4-web:local
+    read_only: true
+    tmpfs: ['/tmp']
     # Behind the gateway (gateway.yaml), which owns the browser-facing port.
     # Written to /config.json at start (deploy/web/config.sh): public values only.
     environment:
@@ -21,6 +23,8 @@ services:
   web-modules:
     build: { context: ../.., dockerfile: deploy/web-modules/Containerfile }
     image: localhost/d4-web-modules:local
+    read_only: true
+    tmpfs: ['/tmp']
     mem_limit: 32m
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/mfe/admin/admin.js >/dev/null']

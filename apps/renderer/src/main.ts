@@ -25,6 +25,7 @@ runMain(log, async () => {
     queue: config.RENDER_QUEUE ?? RENDER_QUEUE,
     concurrency: config.RENDER_CONCURRENCY,
     healthPort: config.RENDER_HEALTH_PORT,
+    ready: () => opened.ping(),
     // Only renders (Chromium) run here; the worker runs every other kind.
     handle: (msg, attempt) => processJob(msg, opened.deps, attempt, { render: JOB_HANDLERS.render }),
   });

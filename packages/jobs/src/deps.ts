@@ -28,6 +28,8 @@ export function openJobDeps(env: JobDepsEnv, extra: Partial<JobDeps> = {}) {
     deps,
     graphs,
     artifacts,
+    /** Readiness: the control-plane database answers. */
+    ping: () => db.pool.query('select 1'),
     async close() {
       mailer?.close();
       await graphs.close();
