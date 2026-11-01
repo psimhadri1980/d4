@@ -42,6 +42,7 @@ services:
     volumes:
       - neo4j-data:/data
       - neo4j-plugins:/plugins
+      - neo4j-logs:/logs
     mem_limit: 1400m
     cpus: 2.0
     healthcheck:
@@ -160,6 +161,7 @@ services:
 volumes:
   neo4j-data:
   neo4j-plugins:
+  neo4j-logs:
   pg-data:
   redis-data:
   s3-mock-data:
