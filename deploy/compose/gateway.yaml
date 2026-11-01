@@ -3,14 +3,18 @@
 # deploy/dev.sh points one at an app on the host (host.containers.internal:<port>) and recreates it.
 services:
   gateway:
-    build: { context: ../.., dockerfile: apps/gateway/Containerfile }
+    build: { context: ../.., dockerfile: apps/gateway/Containerfile, args: { NGINX_IMAGE: "${NGINX_IMAGE}" } }
     image: localhost/d4-gateway:local
     # Everything written at start (rendered conf.d, pid, temp files) lives under /tmp.
     read_only: true
     tmpfs: ['/tmp']
-    ports: ['127.0.0.1:${GATEWAY_PORT:-5173}:8080']
+    ports: ['127.0.0.1:${GATEWAY_PORT:-5173}:8080', '127.0.0.1:${GATEWAY_TLS_PORT:-5443}:8443']
+    # Server certificate and key for HTTPS on 8443 (deploy/certs/gateway.crt and gateway.key).
+    volumes: ['../certs:/run/d4-certs:ro,z']
     environment:
       D4_ENV: ${D4_ENV:-production}
+      GATEWAY_TLS_CERT: ${GATEWAY_TLS_CERT:-}
+      GATEWAY_TLS_KEY: ${GATEWAY_TLS_KEY:-}
       GATEWAY_PODMAN_HOST: ${GATEWAY_PODMAN_HOST:-d4.localhost}
       UPSTREAM_API: ${UPSTREAM_API:-api:3000}
       UPSTREAM_KEYCLOAK: ${UPSTREAM_KEYCLOAK:-keycloak:8080}

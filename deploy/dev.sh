@@ -74,7 +74,7 @@ case "${1:-}" in
   renderer)
     compose build renderer
     "$ENGINE" run --rm --name d4-renderer-local \
-      --env-file env/common.env --env-file env/host.env --env-file env/dev-secrets.env $([[ -f env/local.env ]] && echo --env-file env/local.env) \
+      --env-file env/common.env --env-file env/images.env --env-file env/host.env --env-file env/dev-secrets.env $([[ -f env/local.env ]] && echo --env-file env/local.env) \
       -e POSTGRES_HOST=$HOST_FROM_CONTAINERS -e NEO4J_HOSTS="$(neo4j_hosts $HOST_FROM_CONTAINERS)" \
       -v "$PWD/secrets:/run/d4-secrets:ro,z" -e NEO4J_SECRETS_DIR=/run/d4-secrets \
       -e REDIS_URL=redis://$HOST_FROM_CONTAINERS:6379 -e S3_ENDPOINT=http://$HOST_FROM_CONTAINERS:8333 \

@@ -2,7 +2,7 @@
 services:
   otel-collector:
     profiles: [observability]
-    image: docker.io/otel/opentelemetry-collector-contrib:0.108.0
+    image: ${OTEL_COLLECTOR_IMAGE}
     ports: ['127.0.0.1:4317:4317', '127.0.0.1:4318:4318']
     volumes:
       - ../otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro,Z
@@ -10,7 +10,7 @@ services:
 
   tempo:
     profiles: [observability]
-    image: docker.io/grafana/tempo:2.5.0
+    image: ${TEMPO_IMAGE}
     command: ['-config.file=/etc/tempo.yaml']
     volumes:
       - ../otel/tempo.yaml:/etc/tempo.yaml:ro,Z
@@ -19,7 +19,7 @@ services:
 
   prometheus:
     profiles: [observability]
-    image: docker.io/prom/prometheus:v2.54.1
+    image: ${PROMETHEUS_IMAGE}
     ports: ['127.0.0.1:9090:9090']
     volumes:
       - ../otel/prometheus.yaml:/etc/prometheus/prometheus.yml:ro,Z
@@ -27,7 +27,7 @@ services:
 
   grafana:
     profiles: [observability]
-    image: docker.io/grafana/grafana:11.2.0
+    image: ${GRAFANA_IMAGE}
     environment:
       # Behind the gateway at <D4_PUBLIC_URL>/grafana/.
       GF_SERVER_ROOT_URL: ${D4_PUBLIC_URL}/grafana/

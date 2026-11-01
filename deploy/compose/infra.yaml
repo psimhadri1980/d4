@@ -18,7 +18,7 @@ x-app-env: &app-env
 
 services:
   neo4j:
-    image: docker.io/library/neo4j:5.26-community
+    image: ${NEO4J_IMAGE}
     ports: ['127.0.0.1:7474:7474', '127.0.0.1:7687:7687']
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?run through deploy/dev-infra.sh}
@@ -53,7 +53,7 @@ services:
       start_period: 30s
 
   postgres:
-    image: docker.io/library/postgres:16-alpine
+    image: ${POSTGRES_IMAGE}
     ports: ['127.0.0.1:5432:5432']
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?run through deploy/dev-infra.sh}
@@ -68,7 +68,7 @@ services:
       retries: 20
 
   redis:
-    image: docker.io/library/redis:7-alpine
+    image: ${REDIS_IMAGE}
     command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '96mb', '--maxmemory-policy', 'noeviction']
     ports: ['127.0.0.1:6379:6379']
     volumes:
@@ -82,7 +82,7 @@ services:
   # S3 for local development: the file-backed mock in mocks/s3 (S3 REST and SigV4, buckets
   # from S3_MOCK_BUCKETS created at start, so no bucket job is needed).
   s3:
-    build: { context: ../.., dockerfile: mocks/s3/Containerfile }
+    build: { context: ../.., dockerfile: mocks/s3/Containerfile, args: { NPM_REGISTRY: "${NPM_REGISTRY}", NODE_EXTRA_CA_CERTS: "${D4_CA_BUILD:-}", NODE_IMAGE: "${NODE_IMAGE}" } }
     image: localhost/d4-mock-s3:local
     ports: ['127.0.0.1:8333:8333']
     environment:
@@ -100,7 +100,7 @@ services:
 
   # Catches report emails locally (mocks/smtp); nothing leaves the machine. Inbox: <D4_PUBLIC_URL>/mail/
   smtp:
-    build: { context: ../.., dockerfile: mocks/smtp/Containerfile }
+    build: { context: ../.., dockerfile: mocks/smtp/Containerfile, args: { NPM_REGISTRY: "${NPM_REGISTRY}", NODE_EXTRA_CA_CERTS: "${D4_CA_BUILD:-}", NODE_IMAGE: "${NODE_IMAGE}" } }
     image: localhost/d4-mock-smtp:local
     ports: ['127.0.0.1:1025:1025']
     mem_limit: 64m
@@ -110,12 +110,14 @@ services:
       retries: 20
 
   keycloak:
-    image: quay.io/keycloak/keycloak:25.0
+    image: ${KEYCLOAK_IMAGE}
     command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?run through deploy/dev-infra.sh}
       KC_HEALTH_ENABLED: 'true'
+      # Organization CA (deploy/certs), when present.
+      KC_TRUSTSTORE_PATHS: ${D4_CA_RUN:-}
       # Served under /auth behind the gateway. No fixed hostname: the issuer follows the host a
       # request came through (localhost or d4.localhost, from X-Forwarded-Host), so each gateway
       # host signs in on its own origin; containers call keycloak:8080/auth on the back channel.
@@ -129,6 +131,7 @@ services:
       DEV_USER_PASSWORD: ${DEV_USER_PASSWORD:?run through deploy/dev-infra.sh}
     volumes:
       - ../keycloak/d4-realm.json:/opt/keycloak/data/import/d4-realm.json:ro,Z
+      - ../certs:/run/d4-certs:ro,z
     mem_limit: 768m
     cpus: 1.5
     healthcheck:
@@ -140,7 +143,7 @@ services:
   # ── One-shot init jobs (ops image: d4-ops) ───────────────────────────
   # Applies control-plane migrations, then seeds the local tenant, metamodel and workspace.
   db-migrate:
-    build: { context: ../.., dockerfile: apps/ops/Containerfile }
+    build: { context: ../.., dockerfile: apps/ops/Containerfile, args: { NPM_REGISTRY: "${NPM_REGISTRY}", NODE_EXTRA_CA_CERTS: "${D4_CA_BUILD:-}", NODE_IMAGE: "${NODE_IMAGE}" } }
     image: localhost/d4-ops:local
     volumes: ['../secrets:/run/d4-secrets:ro,z']
     depends_on:

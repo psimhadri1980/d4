@@ -8,3 +8,5 @@
 deploy/data
 deploy/env/local.env
 **/results
+# Private keys never go into an image build context.
+deploy/certs/*.key
