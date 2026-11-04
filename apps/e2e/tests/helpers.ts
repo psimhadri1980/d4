@@ -5,7 +5,7 @@ export const BASE = (process.env.E2E_BASE_URL ?? 'http://localhost:5173').replac
 export const KEYCLOAK = `${BASE}/auth`;
 export const API = `${BASE}/api`;
 
-/** Local dev users from deploy/keycloak/d4-realm.json (not real accounts). */
+/** Local dev users from infra/keycloak/d4-realm.json (not real accounts). */
 export const USERS = {
   admin: { username: 'dev-admin', password: 'd4-local-dev' },
   viewer: { username: 'dev-viewer', password: 'd4-local-dev' },
@@ -47,7 +47,7 @@ export async function api<T>(path: string, init: RequestInit & { as?: keyof type
 export async function defaultWorkspaceId(): Promise<string> {
   const list = await api<{ id: string; slug: string }[]>('/v1/workspaces');
   const ws = list.find((w) => w.slug === 'default');
-  if (!ws) throw new Error('default workspace missing; run deploy/dev.sh up');
+  if (!ws) throw new Error('default workspace missing; run run/run.sh podman:stack:deploy');
   return ws.id;
 }
 

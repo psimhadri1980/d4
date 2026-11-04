@@ -3,7 +3,7 @@ import { checkTenant, ManualInstanceDriver, provisionTenant, graphConfig } from 
 import { createDb, TenantStore } from '@d4/db';
 
 /**
- * `d4-ops tenant …` (`deploy/dev-infra.sh tenant` wraps it):
+ * `d4-ops tenant …` (`run/run.sh ops:exec -- tenant ...` wraps it):
  *
  *   create <tenant> --name "Acme" --bolt bolt://host:7687 --secret file:neo4j-t_acme [--slug acme]
  *   list | check <tenant> | suspend <tenant> | resume <tenant> | delete <tenant>

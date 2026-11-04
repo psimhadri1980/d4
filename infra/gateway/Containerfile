@@ -1,20 +1,20 @@
-# Gateway: the one browser-facing origin (D4_PUBLIC_URL). Routes /api to the API, /auth to
-# Keycloak and everything else to the web app; upstreams come from the environment, so the same
-# image fronts containers or apps running on the host (deploy/dev.sh).
+# Gateway: the one browser-facing origin (host.conf). Routes /api to the API, /auth to Keycloak,
+# /mfe/ to the web modules and everything else to the web app, each at 127.0.0.1:<port> on the
+# host network, so it fronts components in Podman and on local Node alike. Always runs in Podman.
+# Build context: run/run.sh stages component/ (this folder) and certs/ (run/certs).
 ARG NGINX_IMAGE
 FROM ${NGINX_IMAGE}
 # Alpine fixes published after this digest (brotli, curl, ...); the image runs as nginx (101).
 USER root
-# Organization CA (deploy/certs) for the apk mirror or proxy.
-COPY deploy/certs/ /etc/org-certs/
+# Organization CA (run/certs) for the apk mirror or proxy.
+COPY certs/ /etc/org-certs/
 RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
 RUN apk upgrade --no-cache
 # conf.d is rendered at start (15-d4-gateway.envsh); under /tmp it also works on a read-only root.
 RUN rm -rf /etc/nginx/conf.d && ln -s /tmp/nginx-conf.d /etc/nginx/conf.d
 USER 101
-COPY apps/gateway/templates/ /etc/d4-gateway/
-COPY --chmod=755 apps/gateway/15-d4-gateway.envsh /docker-entrypoint.d/
+COPY component/templates/ /etc/d4-gateway/
+COPY --chmod=755 component/15-d4-gateway.envsh /docker-entrypoint.d/
 # The entrypoint renders templates from here (filled by 15-d4-gateway.envsh) into conf.d.
 ENV NGINX_ENVSUBST_TEMPLATE_DIR=/tmp/d4-gateway \
     NGINX_ENVSUBST_FILTER='^(GATEWAY_|UPSTREAM_)'
-EXPOSE 8080 8443

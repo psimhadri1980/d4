@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: web
+category: ui
+description: Web shell (static files); on local Node, Vite with hot reload through the gateway
+source: '@d4/web'
+dependsOn: [api]
+ports: { http: 8081 }
+health: { http: /, timeout: 90 }
+route: /
+runtimes:
+  default: podman
+  # Re-bundles workspace packages on start (--force): restart after changing packages/*.
+  local: { command: 'pnpm --filter @d4/web exec vite --host 127.0.0.1 --port ${PORT_WEB} --strictPort --force' }
+  podman:
+    build: { artifact: static }
+    readOnly: true
+    tmpfs: [/tmp]
+    memory: 64m
+    restart: unless-stopped
+test:
+  e2e: [tests/auth.spec.ts, tests/navigation.spec.ts, tests/theme.spec.ts]

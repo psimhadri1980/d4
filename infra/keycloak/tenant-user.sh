@@ -2,14 +2,14 @@
 # Local Keycloak: makes the `tenant` token claim come from a per-user attribute (instead of the
 # hard-coded t_local), then creates or updates a dev user for a tenant. Safe to re-run.
 #   tenant-user.sh <tenant> <username> [realm-role ...]      (default role: admin; password $DEV_USER_PASSWORD)
-# Run through `deploy/dev-infra.sh tenant user`, which loads KEYCLOAK_ADMIN_PASSWORD and DEV_USER_PASSWORD from deploy/env.
+# Run through `run/run.sh keycloak:exec -- tenant-user`, which passes KEYCLOAK_ADMIN_PASSWORD and DEV_USER_PASSWORD from run/env.
 set -euo pipefail
-: "${KEYCLOAK_ADMIN_PASSWORD:?run through deploy/dev-infra.sh}" "${DEV_USER_PASSWORD:?run through deploy/dev-infra.sh}"
+: "${KEYCLOAK_ADMIN_PASSWORD:?run through run/run.sh keycloak:exec -- tenant-user}" "${DEV_USER_PASSWORD:?run through run/run.sh keycloak:exec -- tenant-user}"
 tenant="${1:?tenant}"; user="${2:?username}"; shift 2
 roles=("${@:-admin}")
 ENGINE="${D4_CONTAINER_ENGINE:-podman}"
-kc() { "$ENGINE" exec d4-keycloak-1 /opt/keycloak/bin/kcadm.sh "$@"; }
-kc config credentials --server http://localhost:8080/auth --realm master --user admin --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null
+kc() { "$ENGINE" exec d4-keycloak /opt/keycloak/bin/kcadm.sh "$@"; }
+kc config credentials --server "http://127.0.0.1:${KEYCLOAK_PORT:-8080}/auth" --realm master --user admin --password "$KEYCLOAK_ADMIN_PASSWORD" >/dev/null
 
 # 1. Declare `tenant` in the user profile: only admins can see or change it (users cannot move
 #    themselves to another tenant), and Keycloak 25 drops undeclared attributes.

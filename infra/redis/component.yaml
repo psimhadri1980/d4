@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: redis
+category: infra
+description: Job queues (BullMQ)
+ports: { redis: 6379 }
+health: { cmd: redis-cli -h 127.0.0.1 ping, timeout: 60 }
+provides:
+  common: { REDIS_URL: 'redis://127.0.0.1:6379' }
+runtimes:
+  default: podman
+  podman:
+    image: ${REDIS_IMAGE}
+    command: [redis-server, --bind, 127.0.0.1, --appendonly, 'yes', --maxmemory, 96mb, --maxmemory-policy, noeviction]
+    volumes: [{ name: d4_redis-data, dst: /data }]
+    memory: 128m
+    restart: unless-stopped

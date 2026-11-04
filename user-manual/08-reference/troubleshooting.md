@@ -16,7 +16,7 @@
 | The graph looks crowded | Lower depth, try **Hierarchy**, press **Fit**, or double-click only the nodes you need |
 | A file on Jobs says "File expired" | Files are kept 30 days. Run the export again |
 | Scheduled report is paused | Its owner lost access to the workspace; the reason is shown |
-| Page stuck on "Signing in…" | Reload; local installs use `http://localhost:5173` or `http://d4.localhost:5173` (each signs in separately) |
+| Page stuck on "Signing in…" | Reload; local installs use the address in `host.conf` (default `http://localhost:5173`) |
 | **This part of D4 is unavailable at the moment** | That module could not be loaded: it is turned off, its release is missing, or it does not match this version of D4. The rest of D4 keeps working; an admin can check [Modules](../06-administration/modules.md) |
 | Search finds nothing for a new element | Search indexes after a moment; retry, or check filters (layer/type, As of, Scenario) |
 

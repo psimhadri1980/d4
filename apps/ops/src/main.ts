@@ -3,7 +3,7 @@ import { schema } from './schema';
 import { tenant } from './tenant';
 
 /**
- * d4-ops: operator commands, in their own small image (init jobs, `deploy/dev-infra.sh`).
+ * d4-ops: operator commands, in their own small image (postStart hooks and `run/run.sh ops:exec`).
  * Settings come from the environment like every service (POSTGRES_URL or its parts, NEO4J_*).
  */
 const COMMANDS: Record<string, (args: string[]) => Promise<void>> = { migrate, seed, schema, tenant, quota };

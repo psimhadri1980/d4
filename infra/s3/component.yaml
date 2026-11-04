@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: s3
+category: infra
+description: S3 mock for local development (mocks/s3), buckets created at start
+source: '@d4/mock-s3'
+ports: { http: 8333 }
+health: { http: /_health, timeout: 60 }
+provides:
+  common: { S3_ENDPOINT: 'http://127.0.0.1:8333' }
+env:
+  common:
+    D4_LISTEN_HOST: 127.0.0.1
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set in run/env/dev-secrets.env}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?set in run/env/dev-secrets.env}
+    S3_MOCK_BUCKETS: ${S3_MOCK_BUCKETS:-d4-exports}
+    S3_MOCK_PUBLIC_BUCKETS: ${S3_MOCK_PUBLIC_BUCKETS}
+runtimes:
+  default: podman
+  podman:
+    build: { artifact: node }
+    volumes: [{ name: d4_s3-mock-data, dst: /data }]
+    memory: 128m
+    restart: unless-stopped

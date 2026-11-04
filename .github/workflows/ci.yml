@@ -62,6 +62,8 @@ jobs:
       - run: pnpm turbo run build typecheck lint test $CHECK
       # Unused files, exports and dependencies need the whole repository.
       - run: pnpm knip
+      # Every component.yaml against the contract, and the orchestrator's own types.
+      - run: run/run.sh ls >/dev/null && pnpm exec tsc -p run/orchestrator/tsconfig.json
       # The committed SDK must match the API: regenerate it and fail on any difference.
       - name: SDK matches the API
         run: |
@@ -69,32 +71,27 @@ jobs:
           pnpm --filter @d4/sdk run generate
           git diff --exit-code -- packages/sdk
 
-  # The browser suite against the composed stack (images built from this commit) on rootless
-  # Podman, as deploy/test.sh e2e runs it locally.
+  # The browser suite against the stack (images built from this commit) on rootless Podman, on
+  # the host network, as run/run.sh runs it locally.
   e2e:
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Podman (rootless, with the compose provider)
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Podman
         run: |
           podman version
-          # The compose provider talks to Podman's API socket; the runner has no user session to start it.
-          export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-          sudo mkdir -p "$XDG_RUNTIME_DIR" && sudo chown "$(id -u)" "$XDG_RUNTIME_DIR"
-          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> "$GITHUB_ENV"
-          systemctl --user start podman.socket 2>/dev/null || (podman system service --time=0 "unix://$XDG_RUNTIME_DIR/podman/podman.sock" &)
-          for i in $(seq 20); do [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ] && break; sleep 1; done
-          podman compose version
           # The stack sets memory and CPU limits; rootless Podman needs those cgroup controllers delegated.
           cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers 2>/dev/null || echo "no user cgroup delegation"
           podman info --format 'rootless={{.Host.Security.Rootless}} cgroup={{.Host.CgroupsVersion}} manager={{.Host.CgroupManager}}'
-      - name: Infrastructure (data stores, Keycloak, mocks, gateway; migrations and seed)
-        run: deploy/dev-infra.sh up
-      - name: Apps (api, worker, renderer, web, web modules)
-        run: deploy/dev-deploy.sh
+      - name: Doctor
+        run: run/run.sh doctor
+      - name: Stack (build, then start in dependency order; migrations and seed as hooks)
+        run: run/run.sh podman:stack:deploy
       - name: Browser tests
-        run: deploy/test.sh e2e --retries=1
+        run: run/run.sh stack:test e2e -- --retries=1
       # Supply chain: an SBOM and a vulnerability report for each image this commit built.
       # Report only for now (no baseline yet); findings go to the job summary.
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
@@ -104,9 +101,10 @@ jobs:
         if: success() || failure()
         run: |
           mkdir -p sbom scan
-          for img in $(podman images --format '{{.Repository}}' | grep '^localhost/d4-' | sort -u); do
-            name=${img#localhost/}
-            podman save -o "/tmp/$name.tar" "$img:local"
+          # One image per component, tagged with the hash of its inputs.
+          for img in $(podman images --format '{{.Repository}}:{{.Tag}}' | grep '^localhost/d4-' | sort -u); do
+            name=${img#localhost/}; name=${name%%:*}
+            podman save -o "/tmp/$name.tar" "$img"
             trivy image --quiet --input "/tmp/$name.tar" --format cyclonedx --output "sbom/$name.cdx.json"
             trivy image --quiet --input "/tmp/$name.tar" --severity HIGH,CRITICAL --format json --output "scan/$name.json"
             trivy convert --format table --output "scan/$name.txt" "scan/$name.json"
@@ -136,10 +134,14 @@ jobs:
           retention-days: 30
       - name: Service logs
         if: failure()
-        run: cd deploy && podman compose -p d4 -f compose/infra.yaml -f compose/apps.yaml -f compose/web.yaml -f compose/gateway.yaml logs --no-color --tail=200
+        run: |
+          run/run.sh status || true
+          run/run.sh stack:logs --no-follow -n 200 || true
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: e2e-results
-          path: apps/e2e/results
+          path: |
+            apps/e2e/results
+            run/.run/logs
           retention-days: 7

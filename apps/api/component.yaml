@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: api
+category: service
+description: NestJS API under /api (REST, GraphQL, jobs, admin)
+source: '@d4/api'
+dependsOn: [postgres, neo4j, redis, s3, keycloak]
+ports: { http: 3000 }
+health: { http: /readyz, timeout: 120 }
+route: /api
+env:
+  common:
+    API_PORT: '3000'
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
+runtimes:
+  default: podman
+  local: { command: pnpm --filter @d4/api run dev }
+  podman:
+    build: { artifact: node }
+    readOnly: true
+    tmpfs: [/tmp]
+    mounts: [{ src: run/secrets, dst: /run/d4-secrets, ro: true }]
+    memory: 384m
+    cpus: 1
+    restart: unless-stopped
+test:
+  integration: { needs: [postgres, neo4j, redis, s3] }
+  e2e: [tests/auth.spec.ts, tests/import.spec.ts, tests/jobs.spec.ts, tests/webhooks.spec.ts]

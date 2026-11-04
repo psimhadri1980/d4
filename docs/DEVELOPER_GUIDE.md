@@ -23,7 +23,7 @@ These are non-negotiable unless the decision log is changed first.
 | 5 | **Soft delete only** for model data (`deleted = true`); the event log is append-only (DB trigger). | migration 0001 |
 | 6 | **Published query versions are immutable** (DB trigger) and are verified by a canonical-JSON SHA-256 fingerprint before publishing and before every run. | migration 0003, `contentHash` |
 | 7 | **The metamodel is the source of truth** for types, attributes, allowed connections and rules, on both server and browser. Never hard-code type lists. | `packages/metamodel` |
-| 8 | **Containers (Podman) are the source of truth.** Everything builds and runs in containers via `deploy/dev-infra.sh`, `dev-deploy.sh` and `test.sh`; local Node (`deploy/dev.sh`) is optional, for fast iteration. | `apps/*/Containerfile`, `deploy/` |
+| 8 | **One entry point, two runtimes.** Everything is built, run and tested with `run/run.sh <runtime>:<component>:<command>`; each component's contract is its `component.yaml`. Podman runs the stack (the gateway always); local Node runs any app or module behind the same gateway for fast iteration. | `run/`, `*/component.yaml`, `run/schema/component.schema.json` |
 | 9 | Ids are **ULIDs** (26 chars, Crockford base32). | `packages/core/src/ids.ts` |
 | 10 | Cypher identifiers (labels, relationship types) are **never interpolated unchecked**; they pass `ident()` and come from the metamodel. | `packages/graph/src/mapping.ts` |
 
@@ -39,8 +39,8 @@ apps/
   web/        React + Vite SPA shell, served by nginx: sign-in, layout, menu, search, module loader (src/lifecycle.ts); no screens
   web-<name>/ the six web modules (explore, queries, plan, data, reporting, admin), each a lifecycle module of its own (ADR 0008)
   web-hello/  a plain JavaScript lifecycle module (contract example)
-  gateway/    nginx: the browser-facing port (two hosts, D67), module releases under /mfe/_r/
-  ops/        migrations, seeds, Neo4j schema, tenants and quotas (init jobs)
+  ui-modules/ the image serving the six web modules and web-hello under /mfe/<name>/
+  ops/        migrations, seeds, Neo4j schema, tenants and quotas (hooks and ops:exec)
   e2e/        Playwright browser tests (run in a container against the live stack)
 packages/
   metamodel/  Metamodel schema (zod), loader, registry; starter.yaml; industry packs in packs/
@@ -65,8 +65,12 @@ packages/
   infra/      tenant graphs, queue, S3 artefact store, mail, usage (api, worker, renderer, ops)
   runtime/    process start-up for the backend apps: telemetry, queue service
 samples/      ubs-banking.yaml (illustrative sample model)
-deploy/       compose/ (split by concern), dev-infra.sh, dev-deploy.sh, dev.sh, test.sh, lib/, env/ (layered settings), Keycloak realm, OTel, nginx, e2e runner
-mocks/        development-only S3 (file-backed, S3 REST + SigV4) and SMTP (Mailpit-compatible inbox API)
+infra/        one folder per infra component (component.yaml + its config): gateway (nginx, one origin),
+              postgres, neo4j, redis, s3, smtp, keycloak (realm), otel-collector, tempo, prometheus, grafana
+run/          run.sh and its orchestrator, the component.yaml schema, shared settings (env/),
+              certs/ and secrets/ (git-ignored), .run/ (state and logs, git-ignored)
+host.conf     the one browser-facing entry point (scheme, host, port, bind address)
+mocks/        sources of the development-only S3 (file-backed, S3 REST + SigV4) and SMTP (Mailpit-compatible inbox API)
 docs/         PLAN.md, ADRs, this guide
 ```
 
@@ -122,71 +126,100 @@ web-platform, ui-kit, react, react-router-dom, react-query: shared from the shel
 
 ## 3. Running locally
 
-**Prerequisite:** Podman 5 (rootless) with `podman compose` and `systemctl --user enable --now podman.socket`; `deploy/dev-infra.sh doctor` checks the setup. About 4 GB of free memory for the stack; Node 24 only for local runs.
+**Prerequisites:** Podman 4.4+ (rootless) and Node 24 (`.node-version`; `run.sh` picks it from nvm when the shell's node differs). About 4 GB of free memory for the stack. `run/run.sh doctor` checks the setup. No Podman networks, no compose and no host names inside the stack are needed.
 
-Four scripts, each for one job; all read `deploy/env` and share `deploy/lib/common.sh`. Compose files are split by concern in `deploy/compose/` (`infra`, `apps`, `web`, `gateway`, `observability`, `tools`); every app has its own `Containerfile`.
+Everything goes through one command (D78):
 
-**Gateway:** the gateway always runs in Podman, on the only browser-facing port (`GATEWAY_PORT`, 5173), with two hosts: `D4_PUBLIC_URL` (http://localhost:5173) serves the containers or the apps `dev.sh` runs on local Node, and `D4_PODMAN_URL` (http://d4.localhost:5173, `GATEWAY_PODMAN_HOST`) always serves the containers (`*.localhost` resolves to this machine without `/etc/hosts`). Each host is one origin with its own sign-in: Keycloak takes its issuer from the request's host, `/config.json` holds paths the page resolves against its origin, and the API accepts `OIDC_ISSUER` plus `OIDC_EXTRA_ISSUERS`. On each host: the web app at `/`, the API at `/api` (prefix stripped, so the API keeps `/v1/...`, `/graphql`, `/healthz`), Keycloak at `/auth` (`KC_HTTP_RELATIVE_PATH`), and in development the mail inbox at `/mail/` and Grafana at `/grafana/`. The gateway (`apps/gateway`, nginx) resolves upstreams per request, so a stopped app gives 502 rather than a dead gateway, and `deploy/dev.sh` can point one upstream at a process on the host. No CORS: everything is same-origin. It starts with the infrastructure. It adds a baseline CSP header (not under `/auth` or `/grafana`) and timeouts, and serves HTTPS on 8443 when `GATEWAY_TLS_CERT` and `GATEWAY_TLS_KEY` name mounted files. App containers and the gateway run with a read-only root filesystem: write only under `/tmp` (tmpfs). `deploy/compose/prod.yaml`, applied after the other compose files, publishes only the gateway and runs the apps with `D4_ENV=production` without the development secrets.
+```
+run/run.sh [<runtime>:]<component>:<command> [args] [--verbose] [--yes]
+run/run.sh ls | status | doctor | help [component]
+```
+
+- **runtime:** `local` (a process on local Node) or `podman` (a container). Optional: each component has a default (`ls` marks it). Infra and the gateway only run on `podman`; a selection that includes them uses Podman for those and says so.
+- **component:** a name (`api`, `web-plan`, `postgres`), a category (`ui`, `service`, `infra`, `tool`), a group (`observability`), `stack` (everything except tools and optional components) or a list (`api,worker`).
+- **command:** `build`, `deploy`, `start`, `stop`, `reset`, `status`, `logs`, `test`, `exec`, `shell`.
 
 | Command | What it does |
 |---|---|
-| `deploy/dev-infra.sh up [--obs]` | Start Postgres, Neo4j, Redis, Keycloak, the gateway and the S3/SMTP mocks (plus OTel, Tempo, Prometheus and Grafana with `--obs`), then run `db-migrate` (migrations + local seed) and `neo4j-schema`. |
-| `deploy/dev-infra.sh status` / `logs <svc>` / `down` / `reset [--yes]` | Status, logs, stop; `reset` also **deletes all volumes** (asks first). |
-| `deploy/dev-infra.sh migrate` / `schema` | Re-run Postgres migrations + seed, or Neo4j DDL. |
-| `deploy/dev-infra.sh tenant create t_acme "Acme Ltd"` | Operator: a new tenant with its own Neo4j container `d4-neo4j-t_acme` on 127.0.0.1:7701+ (password in `deploy/secrets/`, git-ignored), registered, claimed, schema applied, starter metamodel and `default` workspace seeded. Re-runnable; no service gets the container engine's socket. `D4_OPS=local` runs the control-plane step (`d4-ops`) on local Node. |
-| `deploy/dev-infra.sh tenant list` / `check` / `suspend` / `resume` / `delete` / `remove <id>` | Operator: tenant status and health; `remove` also stops its container (the volume stays). |
-| `deploy/dev-infra.sh tenant user t_acme acme-admin [role …]` | Local Keycloak user for a tenant (password `DEV_USER_PASSWORD`, default role admin); the first run switches the `tenant` claim to an admin-only user attribute. |
-| `deploy/dev-infra.sh quota <tenant> [metric=value …]` | Operator: show or change a tenant's limits. |
-| `deploy/dev-infra.sh token [user]` / `doctor` | An access token (default `dev-admin`) / environment checks. |
-| `deploy/dev-deploy.sh [api\|worker\|renderer\|web\|gateway\|backend\|all]` | Build and (re)start app containers, all by default; starts the infrastructure first if needed. Builds and restarts only the named apps (`--no-deps`): init jobs and mocks are left alone, so after a migration or seed change run `dev-infra.sh migrate`. Image builds reuse turbo's cache (a build-cache mount), so only changed packages rebuild, and the backend images (api, worker, renderer, ops) start from `turbo prune`, so a change outside an app's workspaces leaves its layers cached. `build` and `stop` take the same names; `status` lists images. Set `D4_OTEL_ENDPOINT=http://otel-collector:4318` to trace the API. |
-| `deploy/test.sh static` | Typecheck, lint and `knip` (unused files, exports, dependencies). `static`, `unit`, `integration` and `web` run on host Node 24 when it is installed (picked from nvm if needed; seconds, no image build); `--container` forces the test image, and `all` always uses containers. |
-| `deploy/test.sh unit` / `integration [--filter pkg]` | Unit tests only, or all tests with Postgres, Neo4j, Redis and S3 (two suites at a time, 1.5 GB cap). |
-| `deploy/test.sh e2e [playwright args]` | Playwright suite through the gateway (container on the host network), e.g. `--grep catalog --retries=0`; it tests whatever mix of container and `dev.sh` apps is behind the gateway. |
-| `deploy/test.sh web` / `smoke` / `all` | Web checks and build / gateway and API health + login + `/api/v1/me` / static, integration and browser tests (full run; not required before each commit). Add `--local` to run on host Node. |
-| `deploy/mfe-publish.sh <name> <dist\|-> <version> [--activate] [--keep N]` | Upload a web module build as an immutable release, activate it for the local tenant (or roll back with `-` and an older version), and delete inactive versions beyond the newest N (D70). |
-| `deploy/dev.sh sample` / `cli <args>` | Import `samples/ubs-banking.yaml` (idempotent) / run the `d4` CLI in a container; paths are relative to the repo root. |
+| `build` | Compiles the selected packages in one turbo run (shared cache: only changed packages rebuild), then for `podman` packages a thin image per component, tagged with a hash of its inputs. An unchanged component is not repackaged or rebuilt (a no-change build of the whole stack takes about 3 s). |
+| `deploy` | `build`, then for each component in dependency order: stop it on the other runtime if it runs there, start it here, wait until healthy, run its hooks. Dependencies and the gateway that are not running are started too (not rebuilt). A container is recreated only when its image or settings changed. |
+| `start` / `stop` | Start without building (only what was never built is built) / stop, in reverse dependency order, wherever it runs (or only on the runtime given). |
+| `reset` | Stop, then delete the container **and its volumes** (podman) or its `dist/` (local); asks first unless `--yes`. `stack:reset` also removes every `localhost/d4-*` image and `run/.run` state. |
+| `status` | One row per component: where it runs (`podman`, `local`, or a red `conflict` when both), state, live health, route, address, image hash (`stale` when the source changed since), uptime. Exits non-zero on a conflict, an `orphan` (pid file without a process) or an unhealthy component; `--json` for scripts. |
+| `logs` | Follows the output (`-n N`, `--no-follow`): `podman logs`, or `run/.run/logs/<name>.local.log`. |
+| `test` | `unit` (default), `integration`, `static`, `e2e` or `smoke`; see [Testing](#7-testing). |
+| `exec -- <cmd>` | Runs a command in the running component (its container, or on the host with its settings); for tools (`cli`, `ops`, `e2e`) runs the tool once. |
+| `shell` | A shell in the container, or on the host with the component's settings loaded. |
 
-**Bringing the stack up on a busy machine:** `dev-infra.sh up` first, then `dev-deploy.sh backend`, then `dev-deploy.sh web`, so image builds and JVM start-ups do not overlap. Neo4j, Keycloak, the API and the test container have CPU caps (2, 1.5, 1, 2).
+Common ones:
+
+| Command | |
+|---|---|
+| `run/run.sh podman:stack:deploy` | The whole stack in Podman (first run builds every image, a few minutes; afterwards only what changed). |
+| `run/run.sh local:api:deploy` | The API on local Node (tsx watch) behind the gateway; the API container is stopped first. `podman:api:deploy` moves it back. |
+| `run/run.sh local:web:deploy` | The shell with Vite hot reload behind the gateway (HMR through `D4_PORT`). |
+| `run/run.sh local:web-plan:deploy` | One web module rebuilt on every change and served under `/mfe/plan/` while it runs; the gateway falls back to the module image when it stops. No `localStorage` override is needed. |
+| `run/run.sh podman:observability:deploy` | OTel collector, Tempo, Prometheus and Grafana (`/grafana/`); set `D4_OTEL_ENDPOINT=http://127.0.0.1:4318` in `run/env/local.env` to trace the services. |
+| `run/run.sh keycloak:exec -- token [user]` | An access token (default `dev-admin`). |
+| `run/run.sh keycloak:exec -- tenant-user t_acme acme-admin [role …]` | Local Keycloak user for a tenant (password `DEV_USER_PASSWORD`, default role admin). |
+| `run/run.sh ops:exec -- tenant create t_acme "Acme Ltd"` | A tenant with its own Neo4j container `d4-neo4j-t_acme` on the host network (bolt 127.0.0.1:7701+, password in `run/secrets/`), registered, schema applied, seeded. `tenant remove t_acme` stops it (the volume stays). Other `d4-ops` commands pass through: `tenant list`, `quota <tenant> [metric=value …]`, `seed`, `schema <tenant>`. |
+| `run/run.sh cli:exec -- import samples/ubs-banking.yaml -w default` | The `d4` CLI, signed in as `dev-admin`; paths relative to the repository root. |
+| `run/run.sh web-<name>:exec -- publish <version> [--activate] [--keep N]` | Upload the module's `dist/` as an immutable release, activate it, delete inactive versions beyond the newest N (D70); `--dist -` with an older version rolls back. |
+
+**Output:** every step prints what it does and the command it runs, with a heartbeat every 10 s on long steps; image builds show their `STEP` lines, health waits their progress. A failure prints the failing command, its exit code, the last 40 lines of its output, the log file and a hint. Logs: `run/.run/logs/` (`run.log` for the session, one file per build, image and component). `--verbose` streams every subprocess's output.
+
+**Gateway:** always a Podman container, the only browser-facing port, one origin set in `host.conf` (`D4_SCHEME`, `D4_HOST`, `D4_PORT`, `D4_TLS_PORT`, `D4_BIND`); every URL is derived from it (`D4_PUBLIC_URL`, the API at `/api`, `OIDC_ISSUER`, Keycloak's redirect URIs, Grafana's root URL). The web app at `/`, the API at `/api` (prefix stripped, so the API keeps `/v1/...`, `/graphql`, `/healthz`), Keycloak at `/auth`, web modules at `/mfe/<name>/`, module releases at `/mfe/_r/`, and in development the mail inbox at `/mail/` and Grafana at `/grafana/`. No CORS. It adds a baseline CSP header (not under `/auth` or `/grafana`) and timeouts, and serves HTTPS on `D4_TLS_PORT` when `run/certs/gateway.crt` and `gateway.key` exist.
+
+**Host network:** every container runs with `--network host` and every component listens on `127.0.0.1:<port>` (its `ports` in `component.yaml`), the **same address on both runtimes**. So the gateway's upstreams never change: moving a component between runtimes is stop on one, start on the other. Nothing uses service names, `host.containers.internal` or Podman networks (some target environments allow none). Containers are named `d4-<name>` and labelled `d4.component`, `d4.hash`.
+
+**Health checks:** some Podman setups never run health checks on their own, so `run.sh` runs `podman healthcheck run d4-<name>` every 5 s after starting a container until it passes (local processes: an HTTP probe every 2 s), and starts dependents only then. A container that exits while starting fails the run at once with its last log lines. `status` runs the checks live (reusing a result under 30 s old).
+
+**Hooks:** `postgres` runs `ops seed` (migrations and the local seed) after it starts, `neo4j` runs `ops schema t_local`. They run again whenever their component restarts or the `ops` image changes, so a new migration is applied by the next deploy.
+
+**Moving from the old setup:** the first `podman:stack:deploy` removes the containers of the old compose project (`d4-<service>-1`) and the `d4` network; the named volumes (`d4_pg-data`, `d4_neo4j-data`, …) are reused, so data is kept. Tenant graphs created by the old scripts must be recreated with `ops:exec -- tenant create` (their volumes are kept).
+
+### Components (`component.yaml`)
+
+Each component carries its own contract next to its code: `apps/<name>/component.yaml` (ui, services, tools), `packages/cli/component.yaml`, `infra/<name>/component.yaml` (with its config files: Keycloak realm, gateway templates, OTel configs). The schema is `run/schema/component.schema.json` (editors validate against it through the `yaml-language-server` comment); `run/orchestrator/components.ts` enforces the same rules on every run and in CI. The main keys:
+
+| Key | Meaning |
+|---|---|
+| `name`, `category`, `description`, `group`, `optional` | Identity and how selectors pick it (`optional`: not in `stack`). |
+| `source` | The workspace package (`@d4/api`); turbo builds it and its dependencies. |
+| `dependsOn` | Started first; their `provides` flow into this component's settings. |
+| `ports` | `127.0.0.1` ports, the same on both runtimes; unique across components (checked). The first (or `health.port`) is its address, `PORT_<NAME>` in interpolation. |
+| `health` | `http` (path; probed locally, `wget` in the container), or `cmd` (a shell command in the container), `timeout` in seconds. |
+| `route` | Its path behind the gateway (shown by `status`). |
+| `provides` / `env` | `common`, `local`, `podman` maps; values interpolate `${VAR}`, `${VAR:-default}`, `${VAR:?message}`. |
+| `runtimes.local` | `command` (run from the repository root, detached) and `build: deps` (default: compile dependencies; the dev server compiles the package) or `full`. |
+| `runtimes.podman` | `image` (published, pinned in `images.env`), `build` (`containerfile`, `artifact`: `node` = `pnpm deploy --prod`, `static` = `dist/`, `modules`, `files`, `none`), or `via` (served by another component's container: the web modules by `ui-modules`); plus `command`, `readOnly`, `tmpfs`, `mounts`, `volumes`, `memory`, `cpus`, `shm`, `restart`. |
+| `hooks.postStart` | Tools run after it is healthy (`{ component: ops, args: [seed] }`). |
+| `test` | `integration.needs` (the services its integration tests need) and `e2e` (the browser specs covering it). |
+
+**Images are thin:** `run.sh` compiles on the host and stages a build context with `app/` (the artifact), `component/` (the component folder without sources) and `certs/` (the organization CA, never keys). The Containerfile only copies them onto the pinned base image, so rebuilding an image takes seconds and only happens when its input hash changes (the turbo hash of its packages, its folder, its build files, the CA and the base images).
 
 ### Settings
 
-All settings live in `deploy/env` and are loaded in order, later files winning: `common.env` (public URLs, ids, flags), `images.env` (every base and service image, pinned; compose passes them to the Containerfiles as build args), `container.env` or `host.env` (how a process reaches the services from inside the compose network or from the host), `dev-secrets.env` (local credentials only), then your git-ignored `local.env`. A variable set in your shell wins over the files, e.g. `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker`. Compose reads the same files (`env_file`, and `${...}` from the environment `dev.sh` exports), so call compose through `deploy/dev.sh` or export the files first. Services parse settings with `@d4/config`; `D4_ENV` defaults to `production`, which refuses the dev password. To add a setting: add it to a fragment in `packages/config` (or the app's `config.ts`), put the local value in the right env file (secrets in `dev-secrets.env`), and never default a secret in code.
-
-### Apps on local Node (optional)
-
-For quick changes, run an app on the host with hot reload, behind the same gateway: `dev.sh` points the gateway's `localhost` upstream for it at `host.containers.internal:<port>` (recreating the gateway takes about a second) and on Ctrl-C routes back. The container keeps running, so http://d4.localhost:5173 shows the deployed build next to the local one; `test.sh e2e` tests localhost, `test.sh e2e --podman` the containers. Needs Node ≥ 24 on PATH; pnpm runs at the version pinned in `package.json` via `npx`, so corepack is not needed. Host `node_modules` and `dist` are ignored by image builds (`.containerignore`). Local servers listen on all interfaces so the gateway container can reach them.
-
-| Command | What it does |
-|---|---|
-| `deploy/dev.sh web` | Installs dependencies if missing, builds the packages the web app imports, then runs Vite on `:5174` behind the gateway, with hot reload (HMR through the gateway's port); `/config.json` comes from the env files. The dev server writes an import map of the shared packages too, so the web modules (from the registry, releases or `dev.sh web-<name>`) load into it. |
-| `deploy/dev.sh web-<name>` | One web module (`explore`, `queries`, `plan`, `data`, `reporting`, `admin`) rebuilt on every change (`vite build --watch`) and served at `/mfe/_dev/<name>/` on `localhost` only; point the shell at it with `localStorage['d4:module:<name>'] = '/mfe/_dev/<name>/<name>.js'` and reload (about a second per change). Runs alongside `dev.sh web` and `api`: the running overrides are kept in `deploy/.dev-routes`. |
-| `deploy/dev.sh api` | API on local Node (tsx watch) on `:3100` (`host.env`), behind the gateway at `/api`. It uses the local queues, so run `dev.sh worker` and `dev.sh renderer` for background jobs. |
-| `deploy/dev.sh worker` | Job worker on local Node for the local API's queues (`d4-jobs-local`, `d4-render-local`). Scheduler, webhook sending and daily backups are off (`host.env`) unless set, e.g. `WEBHOOK_INTERVAL_MS=2000 deploy/dev.sh worker`, because they share the dev database with the container worker. |
-| `deploy/dev.sh renderer` | Builds the renderer image from the tree and runs it once on the local render queue; Chromium needs the Playwright image. |
-| `deploy/dev.sh restore` | Routes the gateway back to the containers (if a `dev.sh` run was killed) and clears `deploy/.dev-routes`. |
-| `deploy/test.sh web --local` | Web unit tests, typecheck, lint and production build on local Node (seconds, not minutes). |
-| `deploy/dev-deploy.sh web` | After committing: rebuilds and starts the `web` container. |
-
-Loop: `dev.sh web` (plus `dev.sh api` when the API changes) → edit (hot reload) → `test.sh web --local` and `test.sh e2e` → commit → ask before deploying → stop the local servers → `dev-deploy.sh web` (and `api`) → `test.sh e2e`.
-
-Hot reload covers `apps/web` only. After changing `packages/*`, restart `dev.sh web` (it rebuilds the packages and Vite's pre-bundle with `--force`) and `dev.sh api`; otherwise the page uses the old package and fails with errors such as an export being undefined.
-
-Vite serves the dev build, so React StrictMode runs effects twice. That surfaces bugs the production build hides, such as one-time OIDC callback codes being redeemed twice.
+Shared settings live in `run/env` and `host.conf`; everything specific to a component lives in its `component.yaml`. `run.sh` merges them into `run/.run/env/<runtime>/<component>.env`, the one file both `podman run --env-file` and local processes read, in this order (later wins): `run/env/common.env` (ids, flags), `images.env` (every base and service image, pinned), `host.conf` (and the URLs derived from it), what the component's dependencies `provide` (addresses such as `POSTGRES_HOST`, `REDIS_URL`, `NEO4J_HOSTS`), the component's own `env`, `dev-secrets.env` (local credentials only), then your git-ignored `run/env/local.env`. Infra components get only their own `env` (interpolated from all of the above). A variable set in your shell wins, e.g. `WEBHOOK_INTERVAL_MS=2000 run/run.sh local:worker:deploy`. `D4_PROFILE=prod` uses `run/env/prod.env` instead of the development secrets. Services parse settings with `@d4/config`; `D4_ENV` defaults to `production`, which refuses the dev password. To add a setting: add it to a fragment in `packages/config` (or the app's `config.ts`), put the shared value in `run/env/common.env` or the component's value in its `component.yaml` (secrets in `dev-secrets.env`), and never default a secret in code.
 
 ### Ports
 
-| Port | Service |
+All on `127.0.0.1` (host network), the same whether the component runs in Podman or on local Node; `run/run.sh ls` lists them.
+
+| Port | Component |
 |---|---|
-| 5173 | gateway, the only browser-facing port (`D4_PUBLIC_URL`; Keycloak redirect URIs follow it): web `/`, api `/api` (`/api/v1/openapi.json`, `/api/graphql`), keycloak `/auth`, inbox `/mail/`, grafana `/grafana/` |
-| 5174 | `dev.sh web` (Vite, behind the gateway) |
-| 7474 / 7687 | neo4j |
-| 5432 | postgres |
-| 6379 | redis |
-| 8333 | S3 (mocks/s3, data in the `s3-mock-data` volume) |
-| 1025 | SMTP (mocks/smtp; report emails stay local; inbox at `/mail/`) |
-| 3002 / 3003 | worker / renderer health (`/healthz` liveness, `/readyz` readiness: Redis and Postgres; inside the containers) |
-| 3100 / 3102 | `dev.sh api` (behind the gateway) / `dev.sh worker` health, on the host |
-| 7701+ | Bolt of tenant Neo4j containers from `tenant-create` (127.0.0.1 only) |
+| 5173 / 5443 | gateway (`D4_PORT` / `D4_TLS_PORT` in `host.conf`), the only browser-facing port |
+| 3000 | api |
+| 3002 / 3003 | worker / renderer health (`/healthz` liveness, `/readyz` readiness) |
+| 8081 / 8082 | web (nginx or Vite) / ui-modules |
+| 8091–8096 | web-explore, web-queries, web-plan, web-data, web-reporting, web-admin on local Node |
+| 5432 / 6379 / 8333 | postgres / redis / S3 mock |
+| 7687 / 7474 | neo4j bolt / http |
+| 7701+ (bolt), +100 (http) | tenant Neo4j containers from `ops:exec -- tenant create` |
+| 1025 / 8025 | SMTP mock / its inbox (`/mail/`) |
+| 8080 / 9000 | keycloak / its management (health) |
+| 4317, 4318, 8889 / 3200, 4417, 9095 / 9090 / 3001 | otel-collector / tempo / prometheus / grafana |
+| 3199 | the webhook receiver inside the browser tests |
 
 ### Local users
 
@@ -199,34 +232,22 @@ The password for all of them is `d4-local-dev`. They exist only in the local rea
 | `dev-author` | query-author, viewer |
 | `dev-steward` | query-steward, viewer |
 
+### Development loop
+
+1. `run/run.sh local:<app>:deploy` for what you change (`web`, `api`, `worker`, a `web-<name>`): hot reload behind the same gateway, everything else stays in Podman.
+2. Edit. Hot reload covers the package itself; after changing `packages/*`, run `local:<app>:deploy` again (it recompiles the changed packages, and Vite re-bundles with `--force`).
+3. `run/run.sh <app>:test` (unit tests of what changed, seconds), `<app>:test integration` when it touches stores or queues, `<app>:test e2e` (only the specs mapped to it).
+4. Commit, then `run/run.sh podman:<app>:deploy`: it stops the local process and starts the rebuilt container.
+
+Vite serves the dev build, so React StrictMode runs effects twice. That surfaces bugs the production build hides, such as one-time OIDC callback codes being redeemed twice.
+
 ### Browser preview in the Claude desktop app
 
-`.claude/launch.json` has three configurations:
-- `dev` attaches to whatever serves `http://localhost:5173` (the container or `dev.sh web`).
-- `dev.sh web` runs `deploy/dev.sh web`, and `stack` runs `deploy/dev-deploy.sh web`. The desktop app's preview runner may not be allowed into `~/Documents` (macOS privacy), in which case start `dev.sh web` from a terminal and use `dev`.
+`.claude/launch.json` has one configuration, `dev`, which attaches to `http://localhost:5173` (the gateway, whatever runs behind it). Start what you need with `run/run.sh` first. Do not let the preview move to another port: sign-in will fail there.
 
-Do not let the preview move to another port: sign-in will fail there.
+### Changing dependencies
 
-### Running a single package's checks
-
-```bash
-deploy/test.sh integration --filter @d4/<package>
-```
-
-Integration tests need `D4_TEST_POSTGRES_URL`, `D4_TEST_NEO4J_URL` and `D4_TEST_NEO4J_PASSWORD`. The `test` service sets them, turbo passes them through (`turbo.json`), and suites without them are skipped.
-
-### Changing dependencies (no local pnpm)
-
-Edit the `package.json`, then regenerate the lockfile in a container:
-
-```bash
-podman run --rm --userns=keep-id -e HOME=/tmp -v "$PWD":/repo:z -w /repo docker.io/library/node:24-alpine sh -c \
-  "COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm@9.12.0 install --lockfile-only"
-```
-
-With a local install (`node_modules` present), that container run stops at pnpm's "remove the modules directories?" prompt; answering yes would delete the host's `node_modules`. Use the local pnpm instead: `npx pnpm@9.12.0 install` (Node at `/opt/homebrew/bin`). The lockfile is platform-independent, so Docker builds accept it.
-
-Images install with `--frozen-lockfile`. A stale lockfile fails the build, not silently at run time.
+Edit the `package.json`, then update the lockfile on local Node: `npx pnpm@9.12.0 install` (the version pinned in `package.json`). The next `run.sh` command installs from it (`--frozen-lockfile`); a stale lockfile fails the install, not silently at run time.
 
 ---
 
@@ -353,8 +374,8 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
    - relationship types: `name` (UPPER_SNAKE), `from`/`to` (types or `*`) and `attributes`
    - enums go under `enums`
 2. **Bump `version`.** The local seed registers it and repoints the `default` workspace. Production needs a migration plan.
-3. Run `deploy/test.sh integration`. `@d4/metamodel` checks references and the reserved names.
-4. Run `deploy/dev-infra.sh schema`. New relationship types change the cross-type id index name; the schema step drops a stale one only when no workspace's metamodel still uses it (`applySchema` drops nothing unless given `keepRelationshipIndexes`).
+3. Run `run/run.sh stack:test integration`. `@d4/metamodel` checks references and the reserved names.
+4. Run `run/run.sh ops:exec -- schema t_local` (or redeploy `neo4j`: its hook applies the schema). New relationship types change the cross-type id index name; the schema step drops a stale one only when no workspace's metamodel still uses it (`applySchema` drops nothing unless given `keepRelationshipIndexes`).
 5. If you added a rule, add a `rules:` entry (`acyclic` or `uniqueValuePerTarget`). Both `assertRelationshipRules` and `validateModel` pick it up automatically.
 
 ### Add or change an industry metamodel pack
@@ -407,7 +428,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 - **List boxes (`select[size]`) need an explicit empty option**, or the browser shows the first option as selected while the value is `''`.
 - Graphs: `GraphCanvas` (layouts radial, force or hierarchy; `fitSignal`). It reads tokens at render time and listens for `THEME_EVENT`.
 - **Modules:** a screen belongs to one module (`apps/web-<name>/`). Add its route under `/w/:ws` in that module's `src/index.tsx` as a lazy page (`lazyPage(() => import('./Page'), 'Page')`), and its first path segment to the manifest's `paths` if new. A module imports only `@d4/web-platform`, `@d4/ui-kit`, `@d4/sdk` and domain packages, never another module or the shell; code two modules need goes into one of those packages. Its contract test (`test/contract.test.ts`) runs `lifecycleProblems()`. Query screens are tabs inside `/w/:ws/queries`, with state in `?tabs=mode:id,…&active=…`.
-- **A new module:** copy `apps/web-reporting` (package, configs, contract test), register it (Admin › Modules, the local seed, or `deploy/mfe-publish.sh`); the module image builds every `@d4/web-*` app.
+- **A new module:** copy `apps/web-reporting` (package, configs, contract test), register it (Admin › Modules, the local seed, or `run/run.sh web-<name>:exec -- publish`), and add its `component.yaml` (copy `apps/web-reporting/component.yaml`, a port of its own, `podman: { via: ui-modules }`); the `ui-modules` image packages every component served via it.
 - **Navigation:** add the page to its module manifest's `nav` (group and group `order`, an icon name the shell maps in `nav.tsx` `ICONS`, `match` prefixes, optional `sub` items, `requires` a role in `Access`, and `order` when several modules share a group). The sidebar, the breadcrumb and the Ctrl K search all read the menu. A sub-item that sets a query parameter (`matrices?kind=…`) is active when the URL has that parameter, so the page must read it.
 - **Admin-only pages** each have their own route and wrap their content in `AdminGate` from `@d4/ui-kit`.
 
@@ -422,7 +443,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 
 ### Change the Keycloak realm
 
-1. Edit `deploy/keycloak/d4-realm.json`. It's used only on first import into a fresh Keycloak.
+1. Edit `infra/keycloak/d4-realm.json`. It's used only on first import into a fresh Keycloak.
 2. Apply the same change to the running Keycloak:
    ```bash
    podman exec d4-keycloak-1 /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080/auth \
@@ -440,9 +461,12 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 | Unit | `packages/*/test`, `apps/web/test` | about 120 | in-memory |
 | Integration | `packages/db/test`, `packages/graph/test` | about 40 | Postgres (throwaway database per run), dev Neo4j (throwaway workspace per run) |
 | API end to end | `apps/api/test/*.e2e.test.ts`, `e2e.test.ts` | about 45 | real Nest app with harness |
-| Browser | `apps/e2e/tests` | 40 | live stack via `deploy/test.sh e2e` |
+| Browser | `apps/e2e/tests` | 40 | live stack via `run/run.sh <component>:test e2e` |
 
-- **Order:** before committing, first test the touched apps on local Node (`deploy/dev.sh <app>`, `deploy/test.sh <suite> --local`, the covering browser specs); this is strongly preferred because it takes seconds. Then build and redeploy only the touched apps, then run `deploy/test.sh integration --filter <pkg>` for the touched packages before the browser specs that cover the change (`deploy/test.sh e2e <spec>`). A full `test.sh all` is optional (for example before merging a branch). Type check and lint also run in CI (`.github/workflows/ci.yml`), which starts Postgres and Neo4j services. Browser tests are not in CI yet.
+- **`run/run.sh <component>:test [suite]`:** `unit` (default), `integration` (starts the services in `test.integration.needs` on Podman if they are not running, and sets `D4_TEST_*`), `static` (typecheck and lint; `stack:test static` adds knip), `e2e` (the specs in the component's `test.e2e`, through the gateway, `--retries=0` unless given) and `smoke` (gateway and API health, a sign-in, `/v1/me`). Arguments after `--` go to turbo or Playwright, e.g. `e2e:test e2e -- --grep catalog`.
+- **Changed only:** unit, integration and static run only the packages in the component's dependency closure that changed since `--base` (default `HEAD`: uncommitted and untracked work), or depend on one that did. A two-line change in `apps/api` tests `@d4/api` only. A change to root config (`package.json`, `pnpm-lock.yaml`, `tsconfig.base.json`, `turbo.json`, `eslint.config.mjs`) selects everything in scope. `--all` tests every package in scope; `stack:test` scopes to the whole repository.
+- **Where:** tests run on local Node by default (`local:` is implied); `podman:<component>:test` runs the same turbo command in the pinned Node image with the repository mounted. Browser tests always run in the Playwright image on the host network.
+- **Order:** before committing, test the touched apps on local Node (`local:<app>:deploy`, then `<app>:test`, `<app>:test integration` and `<app>:test e2e`); it takes seconds. Then redeploy only the touched apps on Podman (`podman:<app>:deploy`) and rerun their e2e specs. `stack:test e2e` (all 75 specs, about 4 minutes) and `stack:test integration --all` are optional before a commit (for example before merging a branch). CI runs build, typecheck, lint, tests and knip on affected packages, and the browser suite against the stack.
 - **Timeouts:** integration suites use generous timeouts (`vitest.config.ts` in `graph` and `api`), because they share Neo4j and run alongside other suites.
 - **Not yet covered:** the catalog runner has no dedicated tests. It's exercised through the API and browser suites (runs, test runs, node, relationship and path conversion), but not for timeouts or the row cap directly.
 
@@ -472,25 +496,25 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 
 | Symptom | Cause | Fix in place |
 |---|---|---|
-| `test.sh integration` passes instantly with suites skipped | turbo did not hash the `D4_TEST_*` settings, so it replayed an earlier run without the services | `turbo.json` hashes them (`env`) and lists root config as `globalDependencies` |
-| Every image build spends ~50 s before the first step, even when nothing changed | The compose provider (`docker-compose` plugin) reads `.dockerignore`, not `.containerignore`, so it uploaded the whole tree with `node_modules` (~900 MB) | `.dockerignore` is a symlink to `.containerignore`; edit `.containerignore` only |
+| Integration tests pass instantly with suites skipped | turbo did not hash the `D4_TEST_*` settings, so it replayed an earlier run without the services | `turbo.json` hashes them (`env`) and lists root config as `globalDependencies` |
+| Every image build spent ~50 s before the first step, even when nothing changed, and each image compiled the shared packages again | Each image's build context was the whole repository, and each Containerfile ran its own install and turbo build | Images are thin (D78): `run.sh` compiles once on the host with the shared turbo cache and stages a small context per image; an image is rebuilt only when its input hash changes |
 | Signed in but landed on the workspace home instead of the deep link (dev server only) | StrictMode ran the auth effect twice; the second `signinRedirectCallback` reused a spent code | One shared callback redemption per page load (`packages/web-platform/src/auth.tsx`) |
-| Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in compose; start in stages (see §3) |
+| Docker engine crashed during `up`; Docker Desktop came back empty | Parallel image builds plus Neo4j/Keycloak start-up exceeded the VM's CPUs | CPU caps in each `component.yaml`; `deploy` starts components one at a time, each after its dependencies are healthy |
 | Explorer tests opened "Client Master contract v2" | Fresh full-text index scored the longer name higher | Exact name matches rank first; tests pick by exact name |
 | Invalid render parameters answered 500 instead of 400 (tests only) | zod 3.25 ships CJS and ESM builds; under vitest, src (ESM) and `@d4/jobs` dist (CJS) saw different `ZodError` classes | The error mapper also recognises zod errors by name and `issues` |
 | Graph pictures: edges crossed labels; parallel relationships stacked their labels | Lines drawn after labels; one line per relationship | Labels drawn last with a white halo; one line per element pair with a combined label in time order |
-| A job endpoint answered 500 "relation \"jobs\" does not exist" | The dev database had not run migration 0005 | Run migrations after pulling (`deploy/dev-infra.sh migrate`, or `node packages/db/dist/migrate.js` with `POSTGRES_URL` on the host) |
-| Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `dev.sh web` runs Vite with `--force`; restart it after changing `packages/*` |
+| A job endpoint answered 500 "relation \"jobs\" does not exist" | The dev database had not run migration 0005 | Migrations run as the `postgres` hook whenever the ops image changes (`run/run.sh podman:stack:deploy`); by hand: `run/run.sh ops:exec -- seed` |
+| Page blank with "Cannot read properties of undefined" right after changing a package | Vite's pre-bundle of `@d4/core` was stale | `local:web:deploy` runs Vite with `--force`; run it again after changing `packages/*` |
 | On Queries, a tall tab made the tab strip scroll instead of the page | The strip (`overflow-x: auto`) sat in a scrolling flex column, so its minimum height was 0 and it shrank | Only the active `.tab-panel` scrolls; the strip is `flex: none` |
 | Search for a hyphenated name (e.g. "cut-over") found nothing | The analyzer indexes "cut" and "over"; the escaped prefix query "cut\-over*" is not analyzed | `luceneQuery` splits on hyphens and slashes too |
 | The web app is blank after adding or renaming a workspace package, with "does not provide an export named …" | The package has no ESM build, so Vite serves its CommonJS file | Give it a tsup ESM build and a `browser` entry in its `exports` map, like `@d4/render` |
-| A new tenant's requests fail with "No ready graph database" or a connection error from `dev.sh api` | Local processes reach tenant instances through `NEO4J_HOSTS`, computed when they start | Restart `dev.sh api` and `dev.sh worker` after `tenant-create` |
+| A new tenant's requests fail with "No ready graph database" or a connection error from a running api or worker | Every process reaches tenant graphs through `NEO4J_HOSTS`, computed when it starts | Restart them after `ops:exec -- tenant create` (`run/run.sh service:stop`, then `service:start`) |
 | "The graph database registered for tenant … belongs to another tenant" | The tenant's registered bolt URI (or host mapping) points at a Neo4j already claimed by another tenant (`:D4Tenant` marker) | Fix the registry entry or `NEO4J_HOSTS`; never remove the marker to get past it |
-| Neo4j exits with 137 (`OOMKilled`), freezes (`stop-the-world pause` with `gcTime=0` in `debug.log`), or everything times out | The machine is over-committed: the stack, a Docker test build and local servers together exceed RAM, so the Docker VM swaps (seen on an 8 GB Mac with Docker at 6.2 GB: load average above 100) | Neo4j is sized to ~1.2 GB (APOC only, every JVM area capped). On 8 GB: do not run the local servers while `dev.sh test` builds and runs, run browser tests against one stack at a time, and give macOS room (Docker ≤ 5 GB). `docker compose -f deploy/docker-compose.yml up -d neo4j` restarts it |
+| Neo4j exits with 137 (`OOMKilled`), freezes (`stop-the-world pause` with `gcTime=0` in `debug.log`), or everything times out | The machine is over-committed: the stack, a Docker test build and local servers together exceed RAM, so the Docker VM swaps (seen on an 8 GB Mac with Docker at 6.2 GB: load average above 100) | Neo4j is sized to ~1.2 GB (APOC only, every JVM area capped). On 8 GB: run browser tests against one stack at a time and give macOS room (the VM ≤ 5 GB). `run/run.sh neo4j:start` restarts it |
 | `@d4/jobs`, `@d4/infra`, `@d4/graph` or `@d4/db` integration tests time out | Several database-heavy files ran at once (Neo4j's 30 s transaction limit, or Postgres database creation) | These packages run their test files one at a time with longer limits (`vitest.config.ts`); keep it that way |
 | Sign-in hangs on "Signing in…"; Keycloak's discovery document names `localhost:8080` | A proxy sent `X-Forwarded-Port` with its own listen port, and Keycloak (`KC_PROXY_HEADERS=xforwarded`) used it | The gateway sends `X-Forwarded-Host` with the public port and no `X-Forwarded-Port` |
 | The gateway answers 502 for an app on the host (`could not be resolved` in its log) | nginx's resolver asks DNS only; `host.containers.internal` is in `/etc/hosts` | The gateway's start script replaces `/etc/hosts` names in `UPSTREAM_*` with their address; local servers must listen on all interfaces |
-| Background-job browser tests time out when run against `dev.sh api` | `dev.sh worker` / `dev.sh renderer` not running, so jobs on the local queues are never picked up | Start `dev.sh worker` and `dev.sh renderer` before `test.sh e2e` |
+| Background-job browser tests time out | The worker or renderer is not running on either runtime | `run/run.sh status`; start them (`service:start`). Both runtimes share the queues, since a component only ever runs once |
 | Names in a list squeezed to one letter | `.items` rows are a grid whose first column is the 10 px layer dot | Lists without a dot override `grid-template-columns` |
 | Catalog browser test counted 9 queries instead of 8 | A tenant query had been published in the dev workspace | The test counts what is listed and checks the 8 certified system queries |
 | Neo4j and API test suites time out on a brand-new Neo4j | `CALL db.awaitIndexes(120)` is one transaction, killed by the 30 s server timeout while ~100 indexes populate; concurrent appliers also collided | `awaitSchemaOnline` polls `SHOW INDEXES` in short queries; `applySchema` treats "already exists" from a concurrent applier as success and retries transient lock errors |
@@ -506,9 +530,12 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
 | Graph unreadable on dense neighbourhoods | Weak force layout, fit-to-screen shrinking | Radial default, stronger force, wide hierarchy, minimum readable zoom (0.7) |
 | Preview on port 5174 can't sign in | Keycloak only allows `localhost:5173` | `launch.json` attaches to 5173 (`autoPort: false` for `stack`) |
 | Nest provider undefined at run time | No decorator metadata under tsx/esbuild | Always `@Inject(Token)` explicitly |
-| `pnpm` / `node` not found | No local toolchain | Use `deploy/dev.sh` and the container commands above |
-| A container never turns healthy under Podman although its service runs | Podman's default OCI image format ignores `HEALTHCHECK` in a Containerfile | Health checks live in the compose files, not the Containerfiles |
-| A `node -e "…"` health check fails with a syntax error | Podman splits a health-check argument on spaces | Write such one-liners without spaces (see the renderer in `compose/apps.yaml`) |
+| `run.sh needs Node.js 24` | No Node 24 on PATH or in nvm | Install Node 24 (`nvm install 24`); `run.sh` installs pnpm and the workspace itself |
+| A container never turns healthy under Podman although its service runs | Podman's default OCI image format ignores `HEALTHCHECK` in a Containerfile | Health checks live in `component.yaml` (`health.cmd`), passed to `podman run --health-cmd`; `run.sh` runs them itself (`podman healthcheck run`) |
+| A `node -e "…"` health check fails with a syntax error | Podman splits a health-check argument on spaces | Write such one-liners without spaces (see the renderer in `apps/renderer/component.yaml`) |
+| A container stays `starting` for ever, or dependents never start | Some Podman setups never run health checks on their own | `run.sh` runs `podman healthcheck run` every 5 s after a start and decides from that, never from Podman's own status |
+| `getaddrinfo EAI_AGAIN neo4j` (or any service name) from a container | Nothing resolves service names on the host network | Everything dials `127.0.0.1:<port>`; a registered tenant URI (`bolt://neo4j:7687`) is mapped through `NEO4J_HOSTS` (`routeUri`) |
+| `exec: node: not found` in the renderer | A Node binary from the Alpine (musl) image copied into the glibc Playwright image | The renderer's Containerfile takes Node from `NODE_SLIM_IMAGE` |
 | Browser tests fail with `EACCES` under `apps/e2e/results` | The folder was created as root by earlier Docker runs; rootless Podman cannot write it | Give it back to your user once (`sudo chown -R "$USER" apps/e2e/results`) |
 | On a fresh database the admin test finds no "dev-viewer" to grant a role | People appear in D4 only after their first API call | Browser-test setup calls `/v1/me` as every dev user first |
 | MinIO image pull denied | MinIO stopped publishing images | In-repo S3 mock (`mocks/s3`) for local S3 (D59) |
@@ -529,7 +556,7 @@ REST and GraphQL use the same codes. REST returns them in the body as `error`; G
   - ends with the attribution trailer required by the repo's tooling
   - one logical change per commit
 - **Docs:**
-  - user-facing behaviour goes in the user manual (`user-manual/`); keep the README to setup and an overview; regenerate screenshots with `deploy/test.sh e2e -c screenshots.config.ts` when screens change
+  - user-facing behaviour goes in the user manual (`user-manual/`); keep the README to setup and an overview; regenerate screenshots with `run/run.sh e2e:test e2e -- -c screenshots.config.ts` when screens change
   - decisions go in the PLAN.md decision log (add the next `D<n>` row)
   - structural decisions get an ADR in `docs/adr/`
 

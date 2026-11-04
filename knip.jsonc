@@ -1,9 +1,10 @@
 {
-  // Unused files, exports and dependencies: `pnpm knip`, `deploy/dev.sh check` and CI.
+  // Unused files, exports and dependencies: `pnpm knip`, `run/run.sh stack:test static` and CI.
   // Mark an export that is deliberately kept with a `@public` JSDoc tag and say why.
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
-    ".": {},
+    // run/run.sh's orchestrator (run on Node directly, not a workspace).
+    ".": { "entry": ["run/orchestrator/main.ts"], "project": ["run/orchestrator/*.ts"] },
     "apps/api": { "entry": ["src/scripts/*.ts"] },
     "apps/ops": { "entry": ["src/main.ts"] },
     "apps/e2e": { "entry": ["tests/**/*.ts", "screenshots/**/*.shots.ts", "*.config.ts"] },
@@ -18,6 +19,5 @@
     "packages/*": { "entry": ["src/index.ts"] },
     "mocks/*": { "entry": ["src/main.ts"] }
   },
-  // apps/web-hello: a lifecycle module the shell imports by URL at run time (P6 spike).
-  "ignore": ["packages/sdk/src/schema.ts", "apps/web-hello/hello.js"]
+  "ignore": ["packages/sdk/src/schema.ts"]
 }

@@ -1,6 +1,6 @@
 /**
  * Public settings read at start-up from `/config.json`, which the web container writes from its
- * environment (deploy/web/config.sh) and Vite serves in development (apps/web/vite.config.ts), so one
+ * environment (apps/web/config.sh) and Vite serves in development (apps/web/vite.config.ts), so one
  * build runs in any environment.
  */
 export interface RuntimeConfig {

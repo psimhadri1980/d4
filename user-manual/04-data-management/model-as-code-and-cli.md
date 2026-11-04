@@ -20,7 +20,7 @@ relationships:
 
 ## Command line
 
-With the local stack, run via `deploy/dev.sh cli …` (paths relative to the repository root):
+With the local stack, run via `run/run.sh cli:exec -- …` (paths relative to the repository root):
 
 | Command | Purpose |
 |---|---|
@@ -32,10 +32,10 @@ With the local stack, run via `deploy/dev.sh cli …` (paths relative to the rep
 Export formats: `yaml`, `json`, `elements-csv`, `relationships-csv`, `xlsx` (web/API only), `mermaid`, `archimate`, `cypher`.
 
 ```bash
-deploy/dev.sh sample                                   # import the UBS sample into "default"
-deploy/dev.sh cli validate samples/ubs-banking.yaml
-deploy/dev.sh cli import my-model.yaml -w default --dry-run
-deploy/dev.sh cli export -w default --format mermaid --as-of 2027-08-01 -o exports/default.mmd
+run/run.sh cli:exec -- import samples/ubs-banking.yaml -w default   # the UBS sample into "default"
+run/run.sh cli:exec -- validate samples/ubs-banking.yaml
+run/run.sh cli:exec -- import my-model.yaml -w default --dry-run
+run/run.sh cli:exec -- export -w default --format mermaid --as-of 2027-08-01 -o exports/default.mmd
 ```
 
 For Git-hosted model files kept in sync automatically, use a Git [connector](connectors.md).

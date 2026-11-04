@@ -9,11 +9,11 @@ import { COMMONJS, SHARED, sharedMajors } from '@d4/web-platform/shared';
 // turns into one chunk each. Its plain icon index has the same named exports without them.
 const tablerIcons = join(dirname(createRequire(import.meta.url).resolve('@tabler/icons-react/package.json')), 'dist/esm/icons/index.mjs');
 
-/** Serves /config.json from the environment in development, as deploy/web/config.sh does in the container. */
+/** Serves /config.json from the environment on local Node, as config.sh does in the container. */
 function runtimeConfig(): Plugin {
   const env = (name: string) => {
     const v = process.env[name];
-    if (!v) throw new Error(`${name} is not set; start the dev server with deploy/dev.sh web`);
+    if (!v) throw new Error(`${name} is not set; start it with run/run.sh local:web:deploy`);
     return v;
   };
   return {
@@ -50,7 +50,7 @@ const contentSecurityPolicy = (importMap: string) =>
  * Writes the page's import map, so lifecycle modules import the shell's copies of the shared
  * packages (`@d4/web-platform/shared`). A build makes each shared package an entry of its own;
  * the dev server maps each to a module that re-exports the shell's own pre-bundled copy (the same
- * instance the shell uses), so built modules also run in `deploy/dev.sh web`.
+ * instance the shell uses), so built modules also run in `run.sh local:web:deploy`.
  */
 function sharedImportMap(): Plugin {
   return {
@@ -100,8 +100,8 @@ export default defineConfig({
   // __D4_SHARED__: the shared majors this shell provides; it refuses modules built against others.
   define: { __D4_SHARED__: JSON.stringify(sharedMajors(__dirname)) },
   resolve: { alias: [{ find: /^@tabler\/icons-react$/, replacement: tablerIcons }] },
-  // deploy/dev.sh web: behind the gateway, so the HMR socket goes to the gateway's port.
-  server: { port: 5174, strictPort: true, hmr: { clientPort: Number(process.env.GATEWAY_PORT) || undefined } },
+  // run.sh local:web:deploy: behind the gateway, so the HMR socket goes to its port (host.conf D4_PORT).
+  server: { port: 8081, strictPort: true, hmr: { clientPort: Number(process.env.D4_PORT) || undefined } },
   // The @d4 packages the browser uses ship ESM under the `browser` export condition.
   build: { sourcemap: true, target: 'es2022' },
 });
