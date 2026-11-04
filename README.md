@@ -28,34 +28,37 @@ packages/jobs         Job handlers shared by api, worker and renderer: exports, 
 packages/runtime      Process plumbing for every service: JSON logs (pino), tracing, the queue service loop
 packages/cli          `d4` command line: validate, import, export, workspaces
 samples/              Example models, e.g. ubs-banking.yaml (illustrative)
-deploy/               compose files, env files, dev-infra/dev-deploy/dev/test scripts, Keycloak realm
+infra/                One folder per infra component (component.yaml + config): gateway, postgres, neo4j, keycloak, mocks, observability
+run/                  run.sh (build, deploy, start, stop, reset, status, logs, test), shared settings, the component.yaml schema
+host.conf             The one browser-facing entry point
 docs/adr/             Architecture decision records
 ```
 
-## Local stack (Podman only, no Node needed)
+## Local stack
 
-Prerequisite: rootless Podman 5 with `podman compose`, and `systemctl --user enable --now podman.socket`. `deploy/dev-infra.sh doctor` checks the setup. Settings are in `deploy/env/`.
+Prerequisites: rootless Podman 4.4+ and Node 24. `run/run.sh doctor` checks the setup. Every component (app, web module, service, tool, infra) has a `component.yaml` next to it; shared settings are in `run/env/`, the entry point in `host.conf`.
 
 ```bash
-deploy/dev-infra.sh up            # data stores, Keycloak, gateway, S3/SMTP mocks; migrations and Neo4j schema
-deploy/dev-deploy.sh              # build and start api, worker, renderer, web (or name one: dev-deploy.sh api)
-deploy/test.sh smoke              # health checks + Keycloak login + /v1/me
-deploy/test.sh static             # typecheck, lint, knip
-deploy/test.sh integration        # unit + integration tests inside a container
-deploy/test.sh e2e                # Playwright browser tests against the running stack (report: apps/e2e/results/report)
-deploy/dev-infra.sh up --obs      # also start OTel collector, Tempo, Prometheus, Grafana
-deploy/dev-infra.sh status | logs <svc> | down | reset   # reset also deletes all volumes
+run/run.sh podman:stack:deploy        # build what changed, start everything in dependency order, wait until healthy
+run/run.sh status                     # where each component runs (podman or local), health, route, image
+run/run.sh local:api:deploy           # move one component to local Node (hot reload) behind the same gateway
+run/run.sh podman:api:deploy          # and back
+run/run.sh api:test                   # unit tests of what changed in the API's packages (integration, static, e2e, smoke)
+run/run.sh stack:test e2e             # Playwright browser tests through the gateway (report: apps/e2e/results/report)
+run/run.sh podman:observability:deploy   # OTel collector, Tempo, Prometheus, Grafana
+run/run.sh stack:stop | stack:reset   # reset also deletes all volumes
+run/run.sh help                       # the grammar: [<runtime>:]<component>:<command>
 ```
 
 | Component | Purpose | Memory cap |
 |---|---|---|
-| neo4j 5.26 Community + APOC + GDS | Tenant graph (`t_local`) | 1.8 GB |
+| neo4j 5.26 Community + APOC | Tenant graph (`t_local`) | 1.4 GB |
 | postgres 16 | Control plane (tenants, events) | 256 MB |
 | redis 7 | Queue / cache | 128 MB |
 | s3 (mocks/s3, file-backed) | S3 API on :8333, buckets `d4-exports`, `d4-attachments`, `d4-backups` | 256 MB |
 | keycloak 25 | OIDC realm `d4`, roles, dev users (at `/auth`) | 768 MB |
-| gateway (nginx) | The browser-facing port: http://localhost:5173 (containers or local `dev.sh` apps) and http://d4.localhost:5173 (containers only), each with web `/`, API `/api`, Keycloak `/auth`, inbox `/mail/` | 64 MB |
-| db-migrate, neo4j-schema | One-shot jobs (ops image): Postgres migrations + local seed, Neo4j schema | — |
+| gateway (nginx, always Podman) | The one browser-facing origin from `host.conf` (http://localhost:5173): web `/`, API `/api`, Keycloak `/auth`, modules `/mfe/`, inbox `/mail/`; every component behind it at 127.0.0.1:<port> on the host network, in Podman or on local Node | 64 MB |
+| ops (hooks) | After postgres and neo4j start: migrations + local seed, Neo4j schema | — |
 | api | D4 API at http://localhost:5173/api | 384 MB |
 | web | The D4 shell on http://localhost:5173 (nginx, static build): sign-in, layout, menu, module loader | 64 MB |
 | web-modules | The six web modules (explore, queries, plan, data, reporting, admin) under `/mfe/<name>/`; uploaded releases are served from S3 under `/mfe/_r/` | 64 MB |
@@ -72,7 +75,7 @@ Open http://localhost:5173 and sign in with one of the local dev users (password
 | `dev-author` | query-author, viewer | Write catalog queries in the Query Studio and submit them |
 | `dev-steward` | query-steward, viewer | Review, publish, grant and deprecate catalog queries |
 
-Run `deploy/dev.sh sample` first to get something to explore. Every screen, feature and end-to-end journey is described, with screenshots, in the **[User Manual](user-manual/README.md)**.
+Run `run/run.sh cli:exec -- import samples/ubs-banking.yaml -w default` first to get something to explore. Every screen, feature and end-to-end journey is described, with screenshots, in the **[User Manual](user-manual/README.md)**.
 
 ### Look and feel
 
@@ -82,7 +85,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 
 ### Browser tests
 
-`deploy/test.sh e2e` runs the Playwright suite in Chromium against the live stack:
+`run/run.sh stack:test e2e` runs the Playwright suite (`<component>:test e2e` only the specs covering that component) in Chromium against the live stack:
 - sign-in and sign-out through Keycloak
 - search, filters, graph depth, details and navigation (on the UBS sample)
 - metamodel-driven create and edit, lifecycle rules, validation, history, delete
@@ -100,7 +103,7 @@ Typography uses **Source Sans 3** (SIL Open Font License) as an open stand-in fo
 - the Roadmap Studio: scope, lanes, zoom, conflicts, item details, reload and Mermaid export
 - the Query Catalog end to end: viewer runs a system query; author drafts (checks shown), fixes and submits; steward publishes and grants; viewer runs the new query; steward deprecates and retires it
 
-Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `deploy/test.sh e2e --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
+Setup imports the sample if it's missing. Everything a run creates is prefixed `e2erun…` and deleted afterwards. Extra arguments go to Playwright, e.g. `run/run.sh stack:test e2e -- --grep relationships`. Failures keep a trace and screenshot in `apps/e2e/results/`.
 
 The stack needs about 3.3 GB, and the browser tests add about 1 GB. Rootless Podman runs containers directly on the host, so keep about 4–5 GB free.
 
@@ -111,7 +114,7 @@ The stack needs about 3.3 GB, and the browser tests add about 1 GB. Rootless Pod
 | REST | `/v1/...`, OpenAPI at http://localhost:5173/api/v1/openapi.json | Create, update and delete elements and relationships; list, search, neighbourhood, history; `GET /v1/workspaces/{ws}/roadmap?scope=<ids>&lanes=initiative|division|status|type|milestone|none` for a scheduled roadmap; `asOf` and `scenario` on reads; `GET /v1/workspaces/{ws}/diff?fromAsOf=&fromScenario=&toAsOf=&toScenario=`; `GET /v1/workspaces/{ws}/matrix/{crud|capability-application|data-store-roles|lifecycle}` and `/decisions` |
 | GraphQL | `POST /api/graphql` | Graph-shaped reads: workspace → elements → connections → … (read-only) |
 
-All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (see `deploy/test.sh smoke`). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
+All endpoints except `/healthz`, `/readyz` and `/v1/openapi.json` need a Keycloak bearer token (`run/run.sh keycloak:exec -- token` prints one; `run/run.sh stack:test smoke` uses it). Writes need the contributor, planner, architect or admin role, either from Keycloak or from a workspace role binding. Updates and deletes take `expectedVersion` (optimistic concurrency).
 
 ## Query Catalog
 
@@ -133,27 +136,21 @@ The system pack (`packages/cypher/packs/system`) is installed into each tenant o
 Models can be written as YAML (`apiVersion: d4/v1`, `kind: Model`) and imported. Elements get a `key` that relationships refer to. Imports are idempotent: items are matched by id, then `externalKey`, then type + name. The whole resulting model is validated before anything is written, and nothing is ever deleted by an import.
 
 ```bash
-deploy/dev.sh sample                                    # import samples/ubs-banking.yaml into "default"
-deploy/dev.sh cli validate samples/ubs-banking.yaml     # offline check against the starter metamodel
-deploy/dev.sh cli import my-model.yaml -w default --dry-run
-deploy/dev.sh cli export -w default -o exports/default.yaml
-deploy/dev.sh cli export -w default --format archimate -o exports/default.archimate.xml
-deploy/dev.sh cli export -w default --format mermaid --as-of 2027-08-01 -o exports/default.mmd
+run/run.sh cli:exec -- import samples/ubs-banking.yaml -w default   # the sample into "default"
+run/run.sh cli:exec -- validate samples/ubs-banking.yaml           # offline check against the starter metamodel
+run/run.sh cli:exec -- import my-model.yaml -w default --dry-run
+run/run.sh cli:exec -- export -w default -o exports/default.yaml
+run/run.sh cli:exec -- export -w default --format archimate -o exports/default.archimate.xml
+run/run.sh cli:exec -- export -w default --format mermaid --as-of 2027-08-01 -o exports/default.mmd
 ```
 
 Export formats: `yaml`, `json`, `elements-csv`, `relationships-csv`, `xlsx` (web/API only; binary), `mermaid`, `archimate` (Open Exchange 3.1, opens in Archi), `cypher` (a re-runnable `MERGE` script). `--as-of`, `--scenario` and `--scope <ids> --depth <n>` narrow what is exported.
 
 `samples/ubs-banking.yaml` is **illustrative**. Its legal entity and divisions follow UBS's public reporting structure, but all systems, data stores, processes, decisions and plans are invented.
 
-## Developing with Node locally (optional)
+## Developing with Node locally
 
-For the web app, the quickest loop is `deploy/dev.sh web` (Vite with hot reload behind the gateway, still at http://localhost:5173; the container build stays at http://d4.localhost:5173), then `deploy/test.sh web --local` and `test.sh e2e`; after committing, `deploy/dev-deploy.sh web` updates the container. See the developer guide, §3.
-
-For everything else: Node.js 24 and pnpm 9 (`corepack enable`). `deploy/dev.sh api|worker|renderer` run the services on local Node (the API behind the gateway) with the settings from `deploy/env/host.env`; `deploy/test.sh <suite> --local` runs tests there.
-
-```bash
-pnpm install && pnpm build && deploy/test.sh unit --local
-```
+Any app or web module can run on local Node behind the same gateway, at the same address as its container (`run/run.sh local:web:deploy`, `local:api:deploy`, `local:web-plan:deploy`); the container is stopped first, and `podman:<name>:deploy` moves it back. Tests run on local Node by default and only for what changed. See the developer guide, §3 and §7.
 
 Local consoles:
 
@@ -163,6 +160,6 @@ Local consoles:
 | Keycloak | http://localhost:5173/auth (admin / d4-local-dev) |
 | Mail inbox (mocks/smtp) | http://localhost:5173/mail/ |
 | S3 API (mocks/s3) | http://localhost:8333 (access key d4 / d4-local-dev) |
-| Grafana | http://localhost:5173/grafana/ (admin / d4-local-dev; `up --obs`) |
+| Grafana | http://localhost:5173/grafana/ (admin / d4-local-dev; `podman:observability:deploy`) |
 
 All of these are local development credentials only.

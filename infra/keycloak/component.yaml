@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: keycloak
+category: infra
+description: Identity (OIDC) under /auth; the d4 realm is imported at start (d4-realm.json)
+ports: { http: 8080, management: 9000 }
+health:
+  cmd: 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /auth/health/ready HTTP/1.0\r\n\r\n" >&3 && grep -q UP <&3' 
+  timeout: 240
+route: /auth
+provides:
+  common: { OIDC_JWKS_URI: 'http://127.0.0.1:8080/auth/realms/d4/protocol/openid-connect/certs' }
+env:
+  common:
+    KEYCLOAK_ADMIN: admin
+    KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set in run/env/dev-secrets.env}
+    KC_HEALTH_ENABLED: 'true'
+    KC_HTTP_HOST: 127.0.0.1
+    KC_HTTP_PORT: '8080'
+    # Organization CA (run/certs), when present.
+    KC_TRUSTSTORE_PATHS: ${D4_CA_RUN}
+    # Served under /auth behind the gateway; the issuer follows the public host (X-Forwarded-Host).
+    KC_HTTP_RELATIVE_PATH: /auth
+    KC_HOSTNAME_STRICT: 'false'
+    KC_PROXY_HEADERS: xforwarded
+    JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=60
+    # Placeholders in the realm file.
+    D4_PUBLIC_URL: ${D4_PUBLIC_URL}
+    DEV_USER_PASSWORD: ${DEV_USER_PASSWORD:?set in run/env/dev-secrets.env}
+runtimes:
+  default: podman
+  podman:
+    image: ${KEYCLOAK_IMAGE}
+    command: [start-dev, --import-realm]
+    mounts:
+      - { src: infra/keycloak/d4-realm.json, dst: /opt/keycloak/data/import/d4-realm.json, ro: true }
+      - { src: run/certs, dst: /run/d4-certs, ro: true }
+    memory: 768m
+    cpus: 1.5
+    restart: unless-stopped

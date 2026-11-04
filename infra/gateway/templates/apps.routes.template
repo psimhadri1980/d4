@@ -1,4 +1,4 @@
-# The routes both hosts serve; each server sets the $up_* upstreams first.
+# The routes the gateway serves; the server sets the $up_* upstreams first.
 location = /healthz { access_log off; default_type text/plain; return 200 'ok'; }
 
 # The API keeps its own routes (/v1/..., /graphql, /healthz): /api is stripped.
@@ -29,9 +29,10 @@ location /mfe/_r/ {
   proxy_pass http://$u;
 }
 
-# A web module rebuilt on the host by deploy/dev.sh web-<name> (502 when none runs).
-location /mfe/_dev/ {
-  set $u $up_mfe_dev;
+# Web modules on local Node (run.sh local:web-<name>:deploy), each falling back to the image.
+include /etc/nginx/conf.d/modules.mfe;
+location @web_modules {
+  set $u $up_web_modules;
   proxy_pass http://$u;
 }
 

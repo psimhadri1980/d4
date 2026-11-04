@@ -1,19 +1,20 @@
-# Browser tests: Playwright's image (browsers included). Runs on the host network against the
-# gateway (E2E_BASE_URL), like a developer's browser.
+# Browser tests (Playwright) through the gateway, on the host network like a developer's browser.
+# Build context: run/run.sh stages component/ (this folder: tests, config, package.json),
+# app/ (pnpm-lock.yaml, pnpm-workspace.yaml, the root package.json, samples/) and certs/.
 ARG PLAYWRIGHT_IMAGE
 FROM ${PLAYWRIGHT_IMAGE}
 ARG NPM_REGISTRY
 ARG NODE_EXTRA_CA_CERTS
-COPY deploy/certs/ /etc/org-certs/
+COPY certs/ /etc/org-certs/
 RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
-ENV npm_config_registry=$NPM_REGISTRY COREPACK_NPM_REGISTRY=$NPM_REGISTRY
+ENV npm_config_registry=$NPM_REGISTRY COREPACK_NPM_REGISTRY=$NPM_REGISTRY NODE_EXTRA_CA_CERTS=$NODE_EXTRA_CA_CERTS
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/e2e/package.json apps/e2e/
+COPY app/pnpm-lock.yaml app/pnpm-workspace.yaml app/package.json ./
+COPY component/package.json apps/e2e/
 RUN pnpm install --frozen-lockfile --filter @d4/e2e
-COPY apps/e2e apps/e2e
-COPY samples samples
+COPY component/ apps/e2e/
+COPY app/samples samples
 WORKDIR /repo/apps/e2e
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENTRYPOINT ["npx", "playwright", "test"]

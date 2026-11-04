@@ -24,12 +24,12 @@ updates:
       - /apps/renderer
       - /apps/ops
       - /apps/web
-      - /apps/gateway
+      - /infra/gateway
       - /apps/e2e
-      - /deploy/web-modules
-      - /deploy/test
-      - /mocks/s3
-      - /mocks/smtp
+      - /apps/ui-modules
+      - /packages/cli
+      - /infra/s3
+      - /infra/smtp
     schedule: { interval: weekly }
     groups:
       base-images: { patterns: ['*'] }

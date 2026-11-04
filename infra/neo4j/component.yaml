@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: neo4j
+category: infra
+description: The local tenant's graph (t_local); its schema is applied after it starts (ops schema)
+dependsOn: [postgres]
+ports: { bolt: 7687, http: 7474 }
+health:
+  cmd: 'cypher-shell -a bolt://127.0.0.1:7687 -u neo4j -p "${NEO4J_AUTH#neo4j/}" "RETURN 1" >/dev/null 2>&1'
+  port: 7687
+  timeout: 180
+# NEO4J_HOSTS (every tenant graph at 127.0.0.1:<port>) is computed by run.sh for its dependents.
+provides:
+  local: { NEO4J_SECRETS_DIR: '${D4_ROOT}/run/secrets' }
+  podman: { NEO4J_SECRETS_DIR: /run/d4-secrets }
+env:
+  common:
+    NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set in run/env/dev-secrets.env}
+    # APOC only: nothing uses Graph Data Science, and it costs several hundred MB of class metadata.
+    NEO4J_PLUGINS: '["apoc"]'
+    NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    NEO4J_dbms_security_procedures_allowlist: apoc.*
+    NEO4J_server_default__listen__address: 127.0.0.1
+    NEO4J_db_transaction_timeout: 30s
+    # Small transaction logs: after a crash Neo4j replays them, and 500 MB ran recovery out of memory.
+    NEO4J_db_tx__log_rotation_retention__policy: 100M size
+    # Sized for an 8 GB laptop running the whole stack: every JVM memory area is capped.
+    NEO4J_server_memory_heap_initial__size: 512m
+    NEO4J_server_memory_heap_max__size: 512m
+    NEO4J_server_memory_pagecache_size: 128m
+    NEO4J_db_memory_transaction_total_max: 128m
+    NEO4J_server_jvm_additional: -XX:MaxDirectMemorySize=128m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=64m -Xss512k
+runtimes:
+  default: podman
+  podman:
+    image: ${NEO4J_IMAGE}
+    volumes:
+      - { name: d4_neo4j-data, dst: /data }
+      - { name: d4_neo4j-plugins, dst: /plugins }
+      - { name: d4_neo4j-logs, dst: /logs }
+    memory: 1400m
+    cpus: 2
+    restart: unless-stopped
+hooks:
+  postStart: [{ component: ops, args: [schema, t_local] }]

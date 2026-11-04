@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: web-reporting
+category: ui
+description: "Lifecycle module: Reporting. In Podman it is served by ui-modules"
+source: '@d4/web-reporting'
+optional: true
+ports: { http: 8095 }
+health: { http: /mfe/reporting/reporting.js, timeout: 120 }
+route: /mfe/reporting/
+runtimes:
+  default: podman
+  # A watch build served under /mfe/reporting/; the gateway routes there while it runs, else to ui-modules.
+  local:
+    build: full
+    command: 'pnpm --filter @d4/web-reporting exec vite build --watch --emptyOutDir false --logLevel warn & pnpm --filter @d4/web-reporting exec vite preview --host 127.0.0.1 --port ${PORT_WEB_REPORTING} --strictPort --base /mfe/reporting/'
+  podman: { via: ui-modules }
+test:
+  e2e: [tests/reports.spec.ts, tests/render.spec.ts]

@@ -1,5 +1,5 @@
 # Rendered only when GATEWAY_TLS_CERT and GATEWAY_TLS_KEY are set: HTTPS for the public host.
-listen 8443 ssl;
+listen ${GATEWAY_BIND}:${GATEWAY_TLS_PORT} ssl;
 http2 on;
 ssl_certificate ${GATEWAY_TLS_CERT};
 ssl_certificate_key ${GATEWAY_TLS_KEY};

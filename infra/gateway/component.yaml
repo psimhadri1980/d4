@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: gateway
+category: infra
+description: The one browser-facing origin (host.conf); routes /api, /auth, /mfe and / to 127.0.0.1:<port>
+ports: { http: '${D4_PORT:-5173}', https: '${D4_TLS_PORT:-5443}' }
+health: { http: /healthz, timeout: 60 }
+route: /
+env:
+  common:
+    D4_ENV: ${D4_ENV}
+    GATEWAY_BIND: ${D4_BIND:-127.0.0.1}
+    GATEWAY_PORT: ${D4_PORT}
+    GATEWAY_TLS_PORT: ${D4_TLS_PORT:-5443}
+    GATEWAY_TLS_CERT: ${GATEWAY_TLS_CERT}
+    GATEWAY_TLS_KEY: ${GATEWAY_TLS_KEY}
+    GATEWAY_MODULES: ${D4_LOCAL_MODULES}
+    UPSTREAM_API: 127.0.0.1:${PORT_API}
+    UPSTREAM_KEYCLOAK: 127.0.0.1:${PORT_KEYCLOAK}
+    UPSTREAM_WEB: 127.0.0.1:${PORT_WEB}
+    UPSTREAM_WEB_MODULES: 127.0.0.1:${PORT_UI_MODULES}
+    UPSTREAM_S3: 127.0.0.1:${PORT_S3}
+    UPSTREAM_MAIL: 127.0.0.1:${PORT_SMTP_HTTP}
+    UPSTREAM_GRAFANA: 127.0.0.1:${PORT_GRAFANA}
+runtimes:
+  default: podman
+  podman:
+    build: { artifact: none }
+    readOnly: true
+    tmpfs: [/tmp]
+    mounts: [{ src: run/certs, dst: /run/d4-certs, ro: true }]
+    memory: 64m
+    restart: unless-stopped

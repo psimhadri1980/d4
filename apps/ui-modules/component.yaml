@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: ui-modules
+category: ui
+description: The six lifecycle web modules (and web-hello) in one image, under /mfe/<name>/
+ports: { http: 8082 }
+health: { http: /mfe/admin/admin.js, timeout: 60 }
+route: /mfe/
+runtimes:
+  default: podman
+  podman:
+    build:
+      artifact: modules
+      files: [{ from: apps/web-hello/hello.js, to: hello/hello.js }]
+    readOnly: true
+    tmpfs: [/tmp]
+    memory: 32m
+    restart: unless-stopped
+test:
+  e2e: [tests/modules.spec.ts]

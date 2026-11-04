@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: otel-collector
+category: infra
+group: observability
+optional: true
+description: OpenTelemetry collector (traces to Tempo, metrics for Prometheus); set D4_OTEL_ENDPOINT to use it
+dependsOn: [tempo]
+ports: { grpc: 4317, http: 4318, metrics: 8889 }
+runtimes:
+  default: podman
+  podman:
+    image: ${OTEL_COLLECTOR_IMAGE}
+    mounts: [{ src: infra/otel-collector/collector.yaml, dst: /etc/otelcol-contrib/config.yaml, ro: true }]
+    memory: 192m

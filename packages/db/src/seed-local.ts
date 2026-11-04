@@ -19,7 +19,7 @@ const LOCAL_WEB_MODULES = [
 ];
 
 /**
- * Idempotent local-development seed: tenant `t_local` pointing at the compose Neo4j, the starter
+ * Idempotent local-development seed: tenant `t_local` pointing at the local Neo4j (bolt://neo4j:7687, mapped by NEO4J_HOSTS), the starter
  * metamodel (active), a `default` workspace and the web modules the dev stack serves.
  */
 export async function seedLocal(db: Db): Promise<{ workspaceId: string; metamodelId: string }> {

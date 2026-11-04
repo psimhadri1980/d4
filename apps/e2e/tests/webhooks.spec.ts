@@ -7,7 +7,7 @@ import { openNav, RUN } from './helpers';
 
 /**
  * A receiver in the test process. The e2e container runs on the host network, so the worker
- * reaches it where E2E_HOOK_URL says (deploy/compose/tools.yaml); without it, at this machine's
+ * reaches it where E2E_HOOK_URL says (run/orchestrator/test.ts: 127.0.0.1 on the host network); without it, at this machine's
  * network address.
  */
 const received: { headers: IncomingHttpHeaders; body: string }[] = [];

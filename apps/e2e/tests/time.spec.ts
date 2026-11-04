@@ -6,7 +6,7 @@ interface El { id: string; version: number; attrs: Record<string, unknown> }
 async function find(ws: string, name: string): Promise<El> {
   const page = await api<{ items: El[] }>(`/v1/workspaces/${ws}/elements?q=${encodeURIComponent(name)}&first=20`);
   const hit = page.items.find((e) => e.attrs['name'] === name);
-  if (!hit) throw new Error(`${name} missing; run deploy/dev.sh sample`);
+  if (!hit) throw new Error(`${name} missing; run run/run.sh cli:exec -- import samples/ubs-banking.yaml -w default`);
   return hit;
 }
 

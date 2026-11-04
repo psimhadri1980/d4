@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/** Captures the screenshots used by user-manual/. Run: deploy/dev.sh e2e -c screenshots.config.ts */
+/** Captures the screenshots used by user-manual/. Run: run/run.sh e2e:test e2e -- -c screenshots.config.ts */
 export default defineConfig({
   testDir: './screenshots',
   testMatch: /.*\.shots\.ts/,

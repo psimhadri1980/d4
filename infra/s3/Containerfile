@@ -1,27 +1,22 @@
-# Development-only s3 mock: no runtime dependencies, so only its compiled files.
+# S3 mock for local development (mocks/s3).
+# Thin image: run/run.sh compiles on the host (turbo, shared cache) and stages the build context:
+# app/ (`pnpm deploy --prod` output with dist/), deps/ (its node_modules), component/ (this folder)
+# and certs/ (the organization CA).
 ARG NODE_IMAGE
-
-FROM ${NODE_IMAGE} AS build
-ARG NPM_REGISTRY
-ARG NODE_EXTRA_CA_CERTS
-COPY deploy/certs/ /etc/org-certs/
-RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
-ENV npm_config_registry=$NPM_REGISTRY COREPACK_NPM_REGISTRY=$NPM_REGISTRY
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-WORKDIR /repo
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
-COPY . .
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
-    --mount=type=cache,id=turbo,target=/repo/.turbo/cache \
-    pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/mock-s3...' \
- && pnpm exec turbo run build --filter '@d4/mock-s3...'
-
 FROM ${NODE_IMAGE}
+ARG NODE_EXTRA_CA_CERTS
+# Organization CA: system store for git and curl, NODE_EXTRA_CA_CERTS for Node.
+COPY certs/ /etc/org-certs/
+RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
+ENV NODE_EXTRA_CA_CERTS=$NODE_EXTRA_CA_CERTS
 # Only `node` runs here: drop the package managers the base image ships (npm, corepack, yarn).
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
+ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build /repo/mocks/s3/dist ./dist
-RUN mkdir /data && chown node:node /data
+# Dependencies first: a layer reused while they stay the same.
+COPY --chown=node:node deps/ .
+COPY --chown=node:node app/ .
+USER root
+RUN mkdir -p /data && chown node:node /data
 USER node
 CMD ["node", "dist/main.js"]

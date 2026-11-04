@@ -78,7 +78,7 @@ export const oidc = {
   OIDC_AUDIENCE: z.string().default('d4-api'),
   /**
    * Where to fetch signing keys when it differs from the public issuer URL, e.g. inside the
-   * compose network (`http://keycloak:8080/...`) while tokens say `http://localhost:8080/...`.
+   * straight from Keycloak (`http://127.0.0.1:8080/...`) while tokens name the public issuer.
    */
   OIDC_JWKS_URI: optional(z.string().url()),
 };
@@ -92,7 +92,7 @@ export const webhooks = {
   WEBHOOK_ALLOW_PRIVATE: flag,
 };
 
-/** The development credentials in deploy/env/dev-secrets.env; never accepted in production. */
+/** The development credentials in run/env/dev-secrets.env; never accepted in production. */
 const DEV_SECRET = 'd4-local-dev';
 
 /** Reads `NAME_FILE=/path` into `NAME` (as Podman, Docker and Kubernetes mount secrets). */

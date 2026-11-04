@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: renderer
+category: service
+description: Report renderer (Chromium, PDF and PNG); Podman only, it needs the Playwright image
+source: '@d4/renderer'
+dependsOn: [postgres, neo4j, redis, s3, smtp]
+ports: { health: 3003 }
+health:
+  # The Playwright image has neither wget nor curl.
+  cmd: node -e "fetch('http://127.0.0.1:3003/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+  http: /readyz
+  timeout: 120
+env:
+  common:
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
+runtimes:
+  default: podman
+  podman:
+    build: { artifact: node }
+    # Chromium writes its profile and crash data under /tmp and $HOME.
+    readOnly: true
+    tmpfs: [/tmp, /home/pwuser]
+    mounts: [{ src: run/secrets, dst: /run/d4-secrets, ro: true }]
+    # Memory for one render at a time (RENDER_CONCURRENCY=1).
+    memory: 768m
+    cpus: 1
+    shm: 256m
+    restart: unless-stopped
+test:
+  integration: { needs: [postgres, neo4j, redis, s3] }
+  e2e: [tests/render.spec.ts, tests/reports.spec.ts]

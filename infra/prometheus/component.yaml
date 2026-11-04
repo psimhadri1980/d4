@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: prometheus
+category: infra
+group: observability
+optional: true
+description: Metrics (scrapes the collector)
+ports: { http: 9090 }
+runtimes:
+  default: podman
+  podman:
+    image: ${PROMETHEUS_IMAGE}
+    command: [--config.file=/etc/prometheus/prometheus.yml, --web.listen-address=127.0.0.1:9090]
+    mounts: [{ src: infra/prometheus/prometheus.yaml, dst: /etc/prometheus/prometheus.yml, ro: true }]
+    memory: 256m

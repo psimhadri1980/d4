@@ -13,7 +13,7 @@ export interface InstanceLocation {
 
 /**
  * Starts and stops tenant graph instances. The manual driver is used locally: the operator starts
- * the container (`deploy/dev.sh tenant-create`), so no service needs access to the Docker daemon.
+ * the container (`run/run.sh ops:exec -- tenant create`), so no service needs access to the Docker daemon.
  * A Kubernetes driver (StatefulSet, volume and Secret per tenant) implements the same interface.
  */
 export interface InstanceDriver {

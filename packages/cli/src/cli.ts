@@ -42,7 +42,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
   const api = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
     const base = (io.env['D4_API_URL'] ?? 'http://localhost:5173/api').replace(/\/$/, '');
     const token = io.env['D4_TOKEN'];
-    if (!token) throw new ApiError('D4_TOKEN is not set (deploy/dev.sh token prints one for local dev)');
+    if (!token) throw new ApiError('D4_TOKEN is not set (run/run.sh keycloak:exec -- token prints one for local dev; run.sh cli:exec sets it)');
     const res = await io.fetch(`${base}${path}`, {
       ...init,
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...init.headers },
@@ -59,7 +59,7 @@ export async function runCli(argv: string[], io: CliIO): Promise<number> {
   const apiText = async (path: string): Promise<string> => {
     const base = (io.env['D4_API_URL'] ?? 'http://localhost:5173/api').replace(/\/$/, '');
     const token = io.env['D4_TOKEN'];
-    if (!token) throw new ApiError('D4_TOKEN is not set (deploy/dev.sh token prints one for local dev)');
+    if (!token) throw new ApiError('D4_TOKEN is not set (run/run.sh keycloak:exec -- token prints one for local dev; run.sh cli:exec sets it)');
     const res = await io.fetch(`${base}${path}`, { headers: { authorization: `Bearer ${token}` } });
     const text = await res.text();
     if (!res.ok) {
