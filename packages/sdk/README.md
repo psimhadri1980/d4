@@ -43,8 +43,8 @@ Errors are `D4ApiError` with `status`, `code` (`VALIDATION`, `NOT_FOUND`, `VERSI
 After changing an API route or schema (`apps/api/src/http/openapi.ts`):
 
 ```bash
-pnpm --filter @d4/api build && pnpm --filter @d4/sdk generate
+npx pnpm@9.12.0 --filter @d4/api build && npx pnpm@9.12.0 --filter @d4/sdk generate
 ```
 
-An API test fails when the shipped `openapi.json` differs from what the API serves, and another
+Then `run/run.sh api:test` checks it: an API test fails when the shipped `openapi.json` differs from what the API serves, and another
 when a route is missing from the document.

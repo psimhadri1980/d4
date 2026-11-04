@@ -8,35 +8,46 @@ For how to use the product see the **[User Manual](user-manual/README.md)**. For
 
 ## Layout
 
+Every component (app, web module, service, tool, infra) has a `component.yaml` beside it: how it builds, runs, is checked and tested (see [run/README.md](run/README.md)).
+
 ```
 apps/api              NestJS API: OIDC auth, workspace access, REST commands + GraphQL reads
-apps/worker           Background job worker: exports and spreadsheet imports from the Redis queue
+apps/worker           Background jobs from the Redis queue: exports, imports, schedules, syncs, webhooks, backups
 apps/renderer         Renders roadmaps and graphs to PNG/PDF with headless Chromium (render queue)
-apps/web              React app: explorer, queries, roadmap, compare, matrices, decisions, import, jobs
-apps/e2e              Playwright browser tests against the running stack
-apps/ops              d4-ops: migrations and seed, Neo4j schema, tenants, quotas (runs the init jobs)
-apps/gateway          nginx: the one browser-facing origin (web /, API /api, Keycloak /auth)
-packages/metamodel    Metamodel schema, validator, registry, starter.yaml (~125 node types)
+apps/web              The web shell: sign-in, layout, menu, search, the module loader
+apps/web-<name>       The six lifecycle web modules: explore, queries, plan, data, reporting, admin
+apps/web-hello        A plain JavaScript module (contract example)
+apps/ui-modules       The image that serves the web modules under /mfe/<name>/
+apps/ops              d4-ops: migrations and seed, Neo4j schema, tenants, quotas (run as hooks and ops:exec)
+apps/e2e              Playwright browser tests through the gateway
+packages/metamodel    Metamodel schema, validator, registry, starter.yaml, industry packs
 packages/core         Domain model: elements, relationships, lifecycle, rules, ModelService
-packages/cypher       Cypher utilities: schema DDL generated from the metamodel
+packages/cypher       Schema DDL from the metamodel, Query Catalog checks, system query packs
 packages/db           Postgres control plane: Drizzle schema, migrations, stores, local seed
-packages/graph        Neo4j adapter: ModelRepository and read queries (list/search, neighbourhood)
+packages/graph        Neo4j adapter: ModelRepository, read queries, catalog runner
 packages/codecs       Model-as-code documents, CSV/Excel import, export formats (CSV, Excel, Mermaid, ArchiMate, Cypher)
 packages/render       SVG pictures: roadmap Gantt and graph neighbourhood (shared with the web chart)
+packages/connectors   Connector framework: record mapping, HTTP/JSON and Git sources, sync planning
 packages/infra        Adapters: job queue, S3 artefacts, mailer, tenant graph routing and provisioning, usage and quotas
-packages/jobs         Job handlers shared by api, worker and renderer: exports, imports, renders, reports, backups, syncs, webhooks
+packages/jobs         Job handlers shared by api, worker and renderer
 packages/runtime      Process plumbing for every service: JSON logs (pino), tracing, the queue service loop
+packages/config       Settings for every service: zod fragments, NAME_FILE secrets, derived URLs
+packages/sdk          Typed REST client generated from the OpenAPI document (see its README)
+packages/web-platform What every web module shares: sign-in, API client, the module contract (see its README)
+packages/ui-kit       Shared React components and design tokens (see its README)
 packages/cli          `d4` command line: validate, import, export, workspaces
+mocks/                Sources of the development S3 and SMTP mocks (run as infra/s3, infra/smtp)
+infra/                One folder per infra component (see infra/README.md)
+run/                  run.sh, its orchestrator, shared settings, the component.yaml schema (see run/README.md)
+host.conf             The one browser-facing entry point (scheme, host, port, bind address)
 samples/              Example models, e.g. ubs-banking.yaml (illustrative)
-infra/                One folder per infra component (component.yaml + config): gateway, postgres, neo4j, keycloak, mocks, observability
-run/                  run.sh (build, deploy, start, stop, reset, status, logs, test), shared settings, the component.yaml schema
-host.conf             The one browser-facing entry point
-docs/adr/             Architecture decision records
+docs/                 PLAN.md (decision log), ADRs, the developer guide, the run.sh cheat sheet
+user-manual/          How to use D4, with screenshots
 ```
 
 ## Local stack
 
-Prerequisites: rootless Podman 4.4+ and Node 24. `run/run.sh doctor` checks the setup. Every component (app, web module, service, tool, infra) has a `component.yaml` next to it; shared settings are in `run/env/`, the entry point in `host.conf`.
+Prerequisites: rootless Podman 4.4+ and Node 24. `run/run.sh doctor` checks the setup; [docs/run-cheatsheet.pdf](docs/run-cheatsheet.pdf) lists every command on one page. Every component (app, web module, service, tool, infra) has a `component.yaml` next to it; shared settings are in `run/env/`, the entry point in `host.conf`.
 
 ```bash
 run/run.sh podman:stack:deploy        # build what changed, start everything in dependency order, wait until healthy
