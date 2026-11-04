@@ -8,6 +8,7 @@ import { createSmtpServer } from './smtp';
  *
  *   SMTP_MOCK_PORT          SMTP, default 1025
  *   SMTP_MOCK_HTTP_PORT     inbox API and page, default 8025
+ *   D4_LISTEN_HOST          default 0.0.0.0
  *   SMTP_MOCK_MAX_MESSAGES  oldest are dropped beyond this, default 1000
  */
 function main() {
@@ -18,8 +19,8 @@ function main() {
     const msg = inbox.add(raw, envelope);
     log('message received', { id: msg.id, to: envelope.to, subject: msg.mail.subject, bytes: raw.length });
     return msg.id;
-  }).listen(smtpPort, '0.0.0.0');
-  const http = createInboxServer(inbox).listen(httpPort, '0.0.0.0', () => log('mock SMTP ready', { smtpPort, httpPort }));
+  }).listen(smtpPort, process.env['D4_LISTEN_HOST'] || '0.0.0.0');
+  const http = createInboxServer(inbox).listen(httpPort, process.env['D4_LISTEN_HOST'] || '0.0.0.0', () => log('mock SMTP ready', { smtpPort, httpPort }));
   const stop = () => {
     smtp.close();
     http.close(() => process.exit(0));

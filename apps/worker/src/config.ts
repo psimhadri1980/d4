@@ -1,4 +1,4 @@
-import { loadConfig as load, mail, neo4j, postgres, publicUrl, queues, redis, s3, webhooks, type Config, type Env } from '@d4/config';
+import { loadConfig as load, mail, neo4j, optional, postgres, publicUrl, queues, redis, s3, webhooks, type Config, type Env } from '@d4/config';
 import { z } from 'zod';
 
 const WorkerEnv = {
@@ -21,6 +21,7 @@ const WorkerEnv = {
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
   /** Health endpoint for container checks. */
   WORKER_HEALTH_PORT: z.coerce.number().int().default(3002),
+  D4_LISTEN_HOST: optional(z.string()),
 };
 type WorkerConfig =Config<typeof WorkerEnv>;
 
