@@ -10,6 +10,8 @@ export interface QueueServiceOptions {
   /** `GET /healthz` (liveness) answers 200 while the process serves; `GET /readyz` once the worker
    *  is connected and running and `ready` resolves. */
   healthPort: number;
+  /** The address the health endpoint listens on (all interfaces when unset). */
+  healthHost?: string | undefined;
   /** Readiness of the service's own dependencies (the database, say); rejects when one is down. */
   ready?: () => Promise<unknown>;
   handle: (msg: JobMessage, attempt: { made: number; max: number }) => Promise<void>;
@@ -55,7 +57,7 @@ export function startQueueService(o: QueueServiceOptions): QueueService {
     if (req.url === '/healthz') return reply(200, 'ok');
     if (req.url !== '/readyz') return reply(404, 'not found');
     void isReady().then((ok) => reply(ok ? 200 : 503, ok ? 'ok' : 'not ready'));
-  }).listen(o.healthPort);
+  }).listen(o.healthPort, o.healthHost);
 
   const timers: NodeJS.Timeout[] = [];
   const closers: (() => unknown)[] = [];
