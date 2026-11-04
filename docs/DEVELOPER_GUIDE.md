@@ -128,7 +128,7 @@ web-platform, ui-kit, react, react-router-dom, react-query: shared from the shel
 
 **Prerequisites:** Podman 4.4+ (rootless) and Node 24 (`.node-version`; `run.sh` picks it from nvm when the shell's node differs). About 4 GB of free memory for the stack. `run/run.sh doctor` checks the setup. No Podman networks, no compose and no host names inside the stack are needed.
 
-Everything goes through one command (D78):
+Everything goes through one command (D78); [`docs/run-cheatsheet.pdf`](run-cheatsheet.pdf) (source `run-cheatsheet.html`) lists every combination on one page:
 
 ```
 run/run.sh [<runtime>:]<component>:<command> [args] [--verbose] [--yes]

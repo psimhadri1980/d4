@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>run.sh cheat sheet</title>
+<style>
+  @page { size: A4 landscape; margin: 6mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 6.4pt/1.25 "DejaVu Sans", Arial, sans-serif; color: #1b1f24; }
+  header { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid #1d4ed8; padding-bottom: 2px; margin-bottom: 4px; }
+  h1 { font-size: 13pt; margin: 0; color: #1d4ed8; }
+  .grammar { font: bold 8.5pt "DejaVu Sans Mono", monospace; }
+  .grammar .rt { color: #0e7490; } .grammar .cp { color: #7c3aed; } .grammar .cm { color: #b45309; }
+  .cols { column-count: 3; column-gap: 5mm; }
+  section { break-inside: avoid; margin: 0 0 4px; }
+  h2 { font-size: 8.2pt; margin: 0 0 1.5px; padding: 1px 4px; background: #1d4ed8; color: #fff; border-radius: 2px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 0.8px 3px; vertical-align: top; border-bottom: 0.5px solid #e3e6ea; text-align: left; }
+  th { background: #eef2ff; font-weight: bold; }
+  code, .c { font-family: "DejaVu Sans Mono", monospace; font-size: 5.8pt; }
+  td.c { white-space: normal; overflow-wrap: anywhere; width: 44%; }
+  section.narrow td.c, section.narrow th:first-child { width: 22%; }
+  .cols, section, table { max-width: 100%; }
+  table { table-layout: fixed; }
+  td.c { color: #111; }
+  .rt { color: #0e7490; } .cp { color: #7c3aed; } .cm { color: #b45309; }
+  .yes { color: #15803d; font-weight: bold; } .no { color: #9ca3af; }
+  .note { color: #4b5563; font-size: 5.6pt; margin: 1px 0 0; }
+  .tag { display: inline-block; padding: 0 3px; border-radius: 2px; background: #f1f5f9; font-family: "DejaVu Sans Mono", monospace; font-size: 7.0pt; }
+</style>
+</head>
+<body>
+<header>
+  <h1>D4 · run/run.sh cheat sheet</h1>
+  <span class="grammar">run/run.sh [<span class="rt">&lt;runtime&gt;</span>:]<span class="cp">&lt;component&gt;</span>:<span class="cm">&lt;command&gt;</span> [args] [-- passthrough] [--verbose|-v] [--yes|-y] [--json]</span>
+</header>
+
+<div class="cols">
+
+<section class="narrow">
+<h2>Runtimes</h2>
+<table>
+<tr><td class="c rt">local</td><td>a detached process on local Node 24 (pid + log in <code>run/.run</code>)</td></tr>
+<tr><td class="c rt">podman</td><td>container <code>d4-&lt;name&gt;</code> on the host network</td></tr>
+<tr><td class="c">(omitted)</td><td>the component's default (<code>ls</code> marks it <code>*</code>); <code>test</code> defaults to <span class="rt">local</span></td></tr>
+</table>
+<p class="note">Infra and the gateway run on podman only. A selection mixing them uses podman for those and says so; naming one alone with <code>local:</code> fails. Old <code>loc</code>/<code>con</code> are rejected with a hint.</p>
+</section>
+
+<section class="narrow">
+<h2>Components (selectors)</h2>
+<table>
+<tr><th>Selector</th><th>Selects</th></tr>
+<tr><td class="c cp">api</td><td>one component by name</td></tr>
+<tr><td class="c cp">api,worker</td><td>a list (any mix of names, categories, groups)</td></tr>
+<tr><td class="c cp">ui</td><td>web, ui-modules, web-explore · -queries · -plan · -data · -reporting · -admin</td></tr>
+<tr><td class="c cp">service</td><td>api, worker, renderer</td></tr>
+<tr><td class="c cp">infra</td><td>gateway, postgres, neo4j, redis, s3, smtp, keycloak (+ observability)</td></tr>
+<tr><td class="c cp">tool</td><td>cli, ops, e2e (run once; no process)</td></tr>
+<tr><td class="c cp">observability</td><td>group: otel-collector, tempo, prometheus, grafana</td></tr>
+<tr><td class="c cp">stack</td><td>everything except tools and <i>optional</i> ones (web-&lt;module&gt;, observability)</td></tr>
+</table>
+<p class="note">Always in dependency order (stop: reverse). <code>run/run.sh ls</code> lists all with category, runtimes and port.</p>
+</section>
+
+<section class="narrow">
+<h2>Commands × runtime</h2>
+<table>
+<tr><th>Command</th><th class="rt">local</th><th class="rt">podman</th></tr>
+<tr><td class="c cm">build</td><td>turbo build of deps (or package: <code>build: full</code>)</td><td>turbo build + thin image <code>localhost/d4-x:&lt;hash&gt;</code>, skipped if hash exists</td></tr>
+<tr><td class="c cm">deploy</td><td colspan="2">build → stop on the other runtime → start → wait healthy → hooks; starts missing deps + gateway</td></tr>
+<tr><td class="c cm">start</td><td colspan="2">like deploy without building (builds only what was never built)</td></tr>
+<tr><td class="c cm">stop</td><td colspan="2">wherever it runs, or only on the runtime given; reverse dependency order</td></tr>
+<tr><td class="c cm">reset</td><td>stop, delete <code>dist/</code> + local log</td><td>stop, remove container <b>and volumes</b>; asks unless <code>--yes</code></td></tr>
+<tr><td class="c cm">status</td><td colspan="2">table of where/state/health/route/endpoint/build/uptime</td></tr>
+<tr><td class="c cm">logs</td><td><code>tail -F</code> of <code>&lt;name&gt;.local.log</code></td><td><code>podman logs -f</code></td></tr>
+<tr><td class="c cm">test</td><td>turbo on the host</td><td>same in pinned Node image, repo mounted</td></tr>
+<tr><td class="c cm">exec</td><td>command with its env on host</td><td><code>podman exec</code>; tools: <code>podman run --rm</code></td></tr>
+<tr><td class="c cm">shell</td><td>$SHELL with its settings</td><td><code>podman exec -it … sh</code></td></tr>
+</table>
+<p class="note">Without a component: <code>ls</code> · <code>status</code> · <code>doctor</code> · <code>help [component]</code>. exec/shell take one component; test one component or <code>stack</code>.</p>
+</section>
+
+<section>
+<h2>Everyday</h2>
+<table>
+<tr><td class="c">podman:stack:deploy</td><td>whole stack; only changed parts rebuild (no-op ≈ 18 s)</td></tr>
+<tr><td class="c">status</td><td>where everything runs (≈ 2 s); <code>--json</code></td></tr>
+<tr><td class="c">local:api:deploy</td><td>API on Node (tsx watch); container stopped</td></tr>
+<tr><td class="c">podman:api:deploy</td><td>…and back (stops the local process)</td></tr>
+<tr><td class="c">local:web:deploy</td><td>shell on Vite, hot reload via the gateway</td></tr>
+<tr><td class="c">local:web-plan:deploy</td><td>one module under <code>/mfe/plan/</code>; falls back to ui-modules when stopped</td></tr>
+<tr><td class="c">local:service,ui:deploy</td><td>every app on Node (renderer, ui-modules stay podman)</td></tr>
+<tr><td class="c">podman:service:build</td><td>build service images only</td></tr>
+<tr><td class="c">api:logs</td><td>follow; <code>-n 50 --no-follow</code> for a tail</td></tr>
+<tr><td class="c">stack:stop</td><td>stop everything (data kept)</td></tr>
+<tr><td class="c">podman:smtp:reset -y</td><td>recreate one component from scratch</td></tr>
+<tr><td class="c">stack:reset --yes</td><td><b>deletes all volumes</b>, D4 images, run/.run state</td></tr>
+<tr><td class="c">podman:observability:deploy</td><td>OTel, Tempo, Prometheus, Grafana (<code>/grafana/</code>)</td></tr>
+</table>
+</section>
+
+<section>
+<h2>test</h2>
+<table>
+<tr><th>Form</th><th>Runs</th></tr>
+<tr><td class="c">api:test</td><td>unit tests of packages changed since HEAD in api's closure</td></tr>
+<tr><td class="c">api:test --all</td><td>every package api depends on</td></tr>
+<tr><td class="c">api:test --base main</td><td>changed since <code>main</code> (+ uncommitted)</td></tr>
+<tr><td class="c">worker:test integration</td><td>with Postgres, Neo4j, Redis, S3 (started if needed)</td></tr>
+<tr><td class="c">stack:test static</td><td>typecheck + lint (+ knip for stack)</td></tr>
+<tr><td class="c">web-plan:test e2e</td><td>browser specs mapped in its <code>test.e2e</code></td></tr>
+<tr><td class="c">stack:test e2e</td><td>all specs (≈ 4 min); <code>-- --grep catalog</code></td></tr>
+<tr><td class="c">stack:test smoke</td><td>health, sign-in, <code>/api/v1/me</code></td></tr>
+<tr><td class="c">podman:cli:test --all</td><td>unit tests inside the Node image</td></tr>
+<tr><td class="c">e2e:test e2e -- -c screenshots.config.ts</td><td>regenerate user-manual shots</td></tr>
+</table>
+<p class="note">Root config changes (package.json, lockfile, tsconfig.base, turbo, eslint) select everything in scope. e2e defaults to <code>--retries=0</code>.</p>
+</section>
+
+<section>
+<h2>exec: tools &amp; operator tasks</h2>
+<table>
+<tr><td class="c">cli:exec -- import samples/ubs-banking.yaml -w default</td><td>CLI as dev-admin</td></tr>
+<tr><td class="c">local:cli:exec -- export -w default -o x.yaml</td><td>CLI on Node</td></tr>
+<tr><td class="c">keycloak:exec -- token [user]</td><td>access token</td></tr>
+<tr><td class="c">keycloak:exec -- tenant-user t_x alice [role…]</td><td>Keycloak user</td></tr>
+<tr><td class="c">ops:exec -- tenant create t_x "Name"</td><td>tenant + its Neo4j (7701+)</td></tr>
+<tr><td class="c">ops:exec -- tenant remove t_x</td><td>deregister, stop (volume kept)</td></tr>
+<tr><td class="c">ops:exec -- tenant list · quota t_x k=v</td><td>passthrough to d4-ops</td></tr>
+<tr><td class="c">ops:exec -- seed · schema t_local</td><td>re-run the hooks by hand</td></tr>
+<tr><td class="c">web-plan:exec -- publish 1.2.0 --activate</td><td>module release (<code>--keep N</code>, <code>--dist -</code>)</td></tr>
+<tr><td class="c">podman:api:exec -- node -v</td><td>in the running container</td></tr>
+<tr><td class="c">postgres:shell</td><td>sh inside <code>d4-postgres</code></td></tr>
+</table>
+</section>
+
+<section class="narrow">
+<h2>status columns</h2>
+<table>
+<tr><td class="c">RUNTIME</td><td><span class="rt">podman</span> · <span class="rt">local</span> · <code>-</code> · red <code>podman+local</code> = conflict</td></tr>
+<tr><td class="c">STATE</td><td>running · stopped · exited · <b>conflict</b> · <b>orphan</b> (pid file, no process)</td></tr>
+<tr><td class="c">HEALTH</td><td>live check (≤ 30 s old reused): healthy · unhealthy</td></tr>
+<tr><td class="c">BUILD</td><td>image hash · <code>(stale)</code> = source changed · pinned · source (watch) · via ui-modules</td></tr>
+</table>
+<p class="note">Exit code ≠ 0 on conflict, orphan or unhealthy. Filter: <code>service:status</code>, <code>api,web:status</code>.</p>
+</section>
+
+<section class="narrow">
+<h2>Where things live</h2>
+<table>
+<tr><td class="c">host.conf</td><td>D4_SCHEME · D4_HOST · D4_PORT · D4_TLS_PORT · D4_BIND</td></tr>
+<tr><td class="c">component.yaml</td><td>beside each component: ports, health, env, provides, runtimes, hooks, test</td></tr>
+<tr><td class="c">run/env/*.env</td><td>common · images · dev-secrets · local.env (yours) · prod.env</td></tr>
+<tr><td class="c">run/.run/logs/</td><td>run.log, build.log, &lt;name&gt;.{image,package,podman,local,hooks}.log</td></tr>
+<tr><td class="c">run/.run/env/</td><td>merged env per runtime/component (what processes read)</td></tr>
+<tr><td class="c">run/schema/</td><td>component.schema.json (the contract)</td></tr>
+</table>
+<p class="note">Shell vars win: <code>WEBHOOK_INTERVAL_MS=2000 run/run.sh local:worker:deploy</code>. <code>D4_PROFILE=prod</code> = prod.env, no dev secrets.</p>
+</section>
+
+<section>
+<h2>Ports (127.0.0.1, same on both runtimes)</h2>
+<table>
+<tr><td>gateway <code>5173</code>/<code>5443</code></td><td>api <code>3000</code></td><td>worker <code>3002</code></td><td>renderer <code>3003</code></td></tr>
+<tr><td>web <code>8081</code></td><td>ui-modules <code>8082</code></td><td colspan="2">web-explore…admin <code>8091–8096</code></td></tr>
+<tr><td>postgres <code>5432</code></td><td>neo4j <code>7687</code>/<code>7474</code></td><td>redis <code>6379</code></td><td>s3 <code>8333</code></td></tr>
+<tr><td>smtp <code>1025</code>/<code>8025</code></td><td>keycloak <code>8080</code>/<code>9000</code></td><td>grafana <code>3001</code></td><td>tenants <code>7701+</code></td></tr>
+</table>
+<p class="note">Routes: <code>/</code> web · <code>/api</code> · <code>/auth</code> · <code>/mfe/&lt;name&gt;/</code> · <code>/mail/</code> · <code>/grafana/</code>. Users dev-admin/-viewer/-author/-steward, password d4-local-dev.</p>
+</section>
+
+<section class="narrow">
+<h2>When something fails</h2>
+<table>
+<tr><td class="c">status</td><td>first: where it runs, health, conflicts</td></tr>
+<tr><td class="c">doctor</td><td>Podman, Node 24, cgroups, ports, contract, old containers</td></tr>
+<tr><td class="c">… --verbose</td><td>stream every subprocess's output</td></tr>
+<tr><td class="c">&lt;name&gt;:logs</td><td>the component's own output</td></tr>
+</table>
+<p class="note">Every failure prints the command, exit code, last 40 lines, log file and a hint. Build errors stop the run before anything is stopped.</p>
+</section>
+
+</div>
+</body>
+</html>
