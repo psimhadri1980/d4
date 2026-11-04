@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: tempo
+category: infra
+group: observability
+optional: true
+description: Trace store (Grafana Tempo)
+ports: { http: 3200, otlp: 4417, grpc: 9095 }
+runtimes:
+  default: podman
+  podman:
+    image: ${TEMPO_IMAGE}
+    command: [-config.file=/etc/tempo.yaml]
+    mounts: [{ src: infra/tempo/tempo.yaml, dst: /etc/tempo.yaml, ro: true }]
+    volumes: [{ name: d4_tempo-data, dst: /var/tempo }]
+    memory: 256m

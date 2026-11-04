@@ -5,17 +5,16 @@ coverage/
 .env
 .env.*
 !.env.example
-deploy/data/
 .DS_Store
 .claude/settings.local.json
 apps/e2e/results/
 apps/e2e/.auth/
-deploy/secrets/*
-!deploy/secrets/.gitkeep
-deploy/env/local.env
-# deploy/dev.sh: the gateway overrides of the dev.sh processes running now.
-deploy/.dev-routes
+# run/run.sh state: logs, pids, merged env files, build contexts, the pinned pnpm.
+run/.run/
+run/secrets/*
+!run/secrets/.gitkeep
+run/env/local.env
 
-deploy/certs/*
-!deploy/certs/.gitkeep
-!deploy/certs/README.md
+run/certs/*
+!run/certs/.gitkeep
+!run/certs/README.md

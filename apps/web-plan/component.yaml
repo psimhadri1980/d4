@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: web-plan
+category: ui
+description: "Lifecycle module: Plan (roadmaps, proposals, time). In Podman it is served by ui-modules"
+source: '@d4/web-plan'
+optional: true
+ports: { http: 8093 }
+health: { http: /mfe/plan/plan.js, timeout: 120 }
+route: /mfe/plan/
+runtimes:
+  default: podman
+  # A watch build served under /mfe/plan/; the gateway routes there while it runs, else to ui-modules.
+  local:
+    build: full
+    command: 'pnpm --filter @d4/web-plan exec vite build --watch --emptyOutDir false --logLevel warn & pnpm --filter @d4/web-plan exec vite preview --host 127.0.0.1 --port ${PORT_WEB_PLAN} --strictPort --base /mfe/plan/'
+  podman: { via: ui-modules }
+test:
+  e2e: [tests/roadmap.spec.ts, tests/proposals.spec.ts, tests/time.spec.ts]

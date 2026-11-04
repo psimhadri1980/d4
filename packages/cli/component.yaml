@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: cli
+category: tool
+description: The d4 CLI against the API (token from Keycloak); paths are relative to the repository root
+source: '@d4/cli'
+env:
+  common: { D4_API_URL: 'http://127.0.0.1:${PORT_API}' }
+runtimes:
+  default: podman
+  local: { command: node packages/cli/dist/main.js, build: full }
+  podman:
+    build: { artifact: node }
+    mounts: [{ src: ., dst: /work }]

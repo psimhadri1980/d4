@@ -33,12 +33,10 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": [
-        "${D4_PUBLIC_URL}/*",
-        "${D4_PODMAN_URL}/*"
+        "${D4_PUBLIC_URL}/*"
       ],
       "webOrigins": [
-        "${D4_PUBLIC_URL}",
-        "${D4_PODMAN_URL}"
+        "${D4_PUBLIC_URL}"
       ],
       "protocolMappers": [
         {
@@ -63,7 +61,7 @@
         }
       ],
       "attributes": {
-        "post.logout.redirect.uris": "${D4_PUBLIC_URL}/*##${D4_PODMAN_URL}/*",
+        "post.logout.redirect.uris": "${D4_PUBLIC_URL}/*",
         "pkce.code.challenge.method": "S256"
       }
     }

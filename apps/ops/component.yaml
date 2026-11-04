@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: ops
+category: tool
+description: Operator commands (migrations and seed, graph schema, tenants, quotas), run by hooks and exec
+source: '@d4/ops'
+dependsOn: [postgres, neo4j]
+runtimes:
+  default: podman
+  local: { command: node apps/ops/dist/main.js, build: full }
+  podman:
+    build: { artifact: node }
+    mounts: [{ src: run/secrets, dst: /run/d4-secrets, ro: true }]

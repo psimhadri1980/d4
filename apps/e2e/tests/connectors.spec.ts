@@ -6,7 +6,7 @@ import { openNav, api, defaultWorkspaceId, RUN } from './helpers';
 
 /**
  * A fake CMDB in the test process. As for the webhook test, the worker reaches it where
- * E2E_HOOK_URL says (deploy/compose/tools.yaml: the host, from the worker container).
+ * E2E_HOOK_URL says (run/orchestrator/test.ts: 127.0.0.1, every container shares the host network).
  */
 let records: unknown[] = [];
 let server: Server;

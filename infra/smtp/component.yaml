@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: smtp
+category: infra
+description: SMTP mock (mocks/smtp) that catches report emails; inbox at /mail/
+source: '@d4/mock-smtp'
+ports: { http: 8025, smtp: 1025 }
+health: { http: /readyz, timeout: 60 }
+provides:
+  common: { SMTP_URL: 'smtp://127.0.0.1:1025' }
+env:
+  common: { D4_LISTEN_HOST: 127.0.0.1 }
+runtimes:
+  default: podman
+  podman:
+    build: { artifact: node }
+    memory: 64m
+    restart: unless-stopped

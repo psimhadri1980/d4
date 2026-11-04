@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: postgres
+category: infra
+description: Control-plane database; migrations and seed run after it starts (ops seed)
+ports: { postgres: 5432 }
+health: { cmd: 'pg_isready -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"', timeout: 90 }
+provides:
+  common: { POSTGRES_HOST: 127.0.0.1 }
+env:
+  common:
+    POSTGRES_USER: ${POSTGRES_USER:?set in run/env/common.env}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in run/env/dev-secrets.env}
+    POSTGRES_DB: ${POSTGRES_DB:?set in run/env/common.env}
+runtimes:
+  default: podman
+  podman:
+    image: ${POSTGRES_IMAGE}
+    command: [postgres, -c, listen_addresses=127.0.0.1]
+    volumes: [{ name: d4_pg-data, dst: /var/lib/postgresql/data }]
+    memory: 256m
+    restart: unless-stopped
+hooks:
+  postStart: [{ component: ops, args: [seed] }]

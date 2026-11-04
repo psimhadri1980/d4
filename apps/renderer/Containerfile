@@ -1,47 +1,15 @@
-# Renderer: PNG/PDF with headless Chromium. Built on glibc (bookworm) like the Playwright
-# runtime image, which has the browser for playwright-core 1.64.1; Node 24 is copied in.
-ARG NODE_IMAGE
+# Renderer: Chromium (Playwright image) turns reports into PDF/PNG. Thin image: run/run.sh stages
+# app/ (`pnpm deploy --prod` output with dist/), deps/ (its node_modules), component/ (this folder)
+# and certs/ (the organization CA).
+ARG NODE_SLIM_IMAGE
 ARG PLAYWRIGHT_IMAGE
-
-# Only this app's workspaces: files outside them (another app, docs) leave the layers below cached.
-FROM ${NODE_IMAGE} AS prune
-ARG NPM_REGISTRY
-ARG NODE_EXTRA_CA_CERTS
-COPY deploy/certs/ /etc/org-certs/
-RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
-ENV npm_config_registry=$NPM_REGISTRY COREPACK_NPM_REGISTRY=$NPM_REGISTRY
-RUN npm install -g turbo@2.11.9
-WORKDIR /repo
-COPY . .
-RUN turbo prune @d4/renderer --docker
-
-FROM ${NODE_IMAGE} AS build
-ARG NPM_REGISTRY
-ARG NODE_EXTRA_CA_CERTS
-COPY deploy/certs/ /etc/org-certs/
-RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
-ENV npm_config_registry=$NPM_REGISTRY COREPACK_NPM_REGISTRY=$NPM_REGISTRY
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-WORKDIR /repo
-COPY --from=prune /repo/out/pnpm-lock.yaml /repo/out/pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
-COPY --from=prune /repo/out/json/ ./
-COPY --from=prune /repo/out/full/ ./
-# Root config the pruned workspaces build with (turbo prune leaves it out).
-COPY tsconfig.base.json ./
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
-    --mount=type=cache,id=turbo,target=/repo/.turbo/cache \
-    pnpm install --offline --frozen-lockfile --filter d4 --filter '@d4/renderer...' \
- && pnpm exec turbo run build --filter '@d4/renderer...'
-RUN pnpm --filter @d4/renderer deploy --prod /app
+# The pinned Node 24 binary (glibc, like the Playwright image), in place of the one it ships.
+FROM ${NODE_SLIM_IMAGE} AS node
 
 FROM ${PLAYWRIGHT_IMAGE}
-# Organization CA (deploy/certs): system store, NODE_EXTRA_CA_CERTS for Node and Chromium's NSS
-# database (it ignores the system store), one entry per certificate in the bundle. The database is
-# built under /opt and copied to /tmp/pwhome/.pki/nssdb at start, which becomes HOME (the real HOME
-# is a root-owned tmpfs at run time).
 ARG NODE_EXTRA_CA_CERTS
-COPY deploy/certs/ /etc/org-certs/
+# Organization CA: system store, NODE_EXTRA_CA_CERTS for Node and Chromium's NSS database.
+COPY certs/ /etc/org-certs/
 RUN if [ -s /etc/org-certs/org-ca.crt ]; then \
       mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt \
    && apt-get update && apt-get install -y --no-install-recommends libnss3-tools && rm -rf /var/lib/apt/lists/* \
@@ -52,13 +20,14 @@ RUN if [ -s /etc/org-certs/org-ca.crt ]; then \
    && chown -R pwuser:pwuser /opt/org-nssdb && rm -rf /tmp/orgca; \
     fi
 ENV NODE_EXTRA_CA_CERTS=$NODE_EXTRA_CA_CERTS
-# Ubuntu fixes published after this digest; drop the base image's Node and npm (node-tar and
-# friends), which the renderer never uses: it runs the Node copied below.
 RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* \
  && rm -rf /usr/lib/node_modules /usr/bin/npm /usr/bin/npx /usr/bin/corepack /usr/bin/node
-COPY --from=build /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build --chown=pwuser:pwuser /app .
+# Dependencies first: a layer reused while they stay the same.
+COPY --chown=pwuser:pwuser deps/ .
+COPY --chown=pwuser:pwuser app/ .
 USER pwuser
+# Chromium reads the organization CA from $HOME/.pki/nssdb; HOME must be writable (tmpfs).
 CMD ["sh", "-c", "if [ -d /opt/org-nssdb ]; then mkdir -p /tmp/pwhome/.pki && cp -r /opt/org-nssdb /tmp/pwhome/.pki/nssdb && export HOME=/tmp/pwhome; fi; exec node --enable-source-maps dist/main.js"]

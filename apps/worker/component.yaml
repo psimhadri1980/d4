@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: worker
+category: service
+description: Job worker (imports, exports, connectors, schedules, webhooks, backups)
+source: '@d4/worker'
+dependsOn: [postgres, neo4j, redis, s3, smtp]
+ports: { health: 3002 }
+health: { http: /readyz, timeout: 120 }
+env:
+  common:
+    WORKER_CONCURRENCY: '2'
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${D4_OTEL_ENDPOINT:-}
+runtimes:
+  default: podman
+  local: { command: pnpm --filter @d4/worker run dev }
+  podman:
+    build: { artifact: node }
+    readOnly: true
+    tmpfs: [/tmp]
+    mounts: [{ src: run/secrets, dst: /run/d4-secrets, ro: true }]
+    memory: 384m
+    cpus: 1
+    restart: unless-stopped
+test:
+  integration: { needs: [postgres, neo4j, redis, s3] }
+  e2e: [tests/jobs.spec.ts, tests/webhooks.spec.ts, tests/connectors.spec.ts]

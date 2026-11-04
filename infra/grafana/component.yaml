@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: grafana
+category: infra
+group: observability
+optional: true
+description: Dashboards at /grafana/
+dependsOn: [prometheus, tempo]
+ports: { http: 3001 }
+route: /grafana/
+env:
+  common:
+    GF_SERVER_HTTP_ADDR: 127.0.0.1
+    GF_SERVER_HTTP_PORT: '3001'
+    GF_SERVER_ROOT_URL: ${D4_PUBLIC_URL}/grafana/
+    GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
+    GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in run/env/dev-secrets.env}
+    GF_AUTH_ANONYMOUS_ENABLED: 'true'
+    GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+runtimes:
+  default: podman
+  podman:
+    image: ${GRAFANA_IMAGE}
+    mounts: [{ src: infra/grafana/datasources.yaml, dst: /etc/grafana/provisioning/datasources/datasources.yaml, ro: true }]
+    memory: 256m

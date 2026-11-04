@@ -1,10 +1,16 @@
+# Host network: everything on 127.0.0.1; OTLP on 4417 (the collector holds 4317).
 server:
+  http_listen_address: 127.0.0.1
   http_listen_port: 3200
+  grpc_listen_address: 127.0.0.1
+  grpc_listen_port: 9095
+memberlist:
+  bind_addr: [127.0.0.1]
 distributor:
   receivers:
     otlp:
       protocols:
-        grpc: { endpoint: 0.0.0.0:4317 }
+        grpc: { endpoint: 127.0.0.1:4417 }
 storage:
   trace:
     backend: local

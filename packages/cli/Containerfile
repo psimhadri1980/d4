@@ -1,0 +1,21 @@
+# d4 CLI (run.sh podman:cli:exec -- <args>); the repository is mounted at /work.
+# Thin image: run/run.sh compiles on the host (turbo, shared cache) and stages the build context:
+# app/ (`pnpm deploy --prod` output with dist/), deps/ (its node_modules), component/ (this folder)
+# and certs/ (the organization CA).
+ARG NODE_IMAGE
+FROM ${NODE_IMAGE}
+ARG NODE_EXTRA_CA_CERTS
+# Organization CA: system store for git and curl, NODE_EXTRA_CA_CERTS for Node.
+COPY certs/ /etc/org-certs/
+RUN if [ -s /etc/org-certs/org-ca.crt ]; then mkdir -p /etc/ssl/certs && cat /etc/org-certs/org-ca.crt >> /etc/ssl/certs/ca-certificates.crt; fi
+ENV NODE_EXTRA_CA_CERTS=$NODE_EXTRA_CA_CERTS
+# Only `node` runs here: drop the package managers the base image ships (npm, corepack, yarn).
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
+ENV NODE_ENV=production
+WORKDIR /app
+# Dependencies first: a layer reused while they stay the same.
+COPY --chown=node:node deps/ .
+COPY --chown=node:node app/ .
+USER node
+WORKDIR /work
+ENTRYPOINT ["node", "/app/dist/main.js"]

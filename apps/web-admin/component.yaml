@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: web-admin
+category: ui
+description: "Lifecycle module: Administration. In Podman it is served by ui-modules"
+source: '@d4/web-admin'
+optional: true
+ports: { http: 8096 }
+health: { http: /mfe/admin/admin.js, timeout: 120 }
+route: /mfe/admin/
+runtimes:
+  default: podman
+  # A watch build served under /mfe/admin/; the gateway routes there while it runs, else to ui-modules.
+  local:
+    build: full
+    command: 'pnpm --filter @d4/web-admin exec vite build --watch --emptyOutDir false --logLevel warn & pnpm --filter @d4/web-admin exec vite preview --host 127.0.0.1 --port ${PORT_WEB_ADMIN} --strictPort --base /mfe/admin/'
+  podman: { via: ui-modules }
+test:
+  e2e: [tests/admin.spec.ts, tests/modules.spec.ts]

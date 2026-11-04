@@ -30,10 +30,9 @@ Older `/catalog`, `/studio` and `/stewardship` links still work and open the mat
 
 ## Local installation addresses
 
-A local installation answers on two addresses. Sign in separately on each:
+A local installation answers on one address, set in `host.conf` at the repository root:
 
 | Address | Serves |
 |---|---|
-| `http://localhost:5173` | The installed D4, or the parts a developer is running from source |
-| `http://d4.localhost:5173` | Always the installed D4 |
+| `http://localhost:5173` (default) | D4, whether its parts run in containers or from source |
 

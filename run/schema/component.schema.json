@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://d4.local/schema/component.schema.json",
+  "title": "D4 component (d4/v1)",
+  "description": "One component.yaml per component (apps/*, packages/*, infra/*), read by run/run.sh. run/orchestrator/components.ts enforces the same rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "name", "category", "runtimes"],
+  "$defs": {
+    "envMap": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
+    "envLayers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Values for every runtime (common) and per runtime (local, podman). ${VAR}, ${VAR:-default} and ${VAR:?message} interpolate from run/env, host.conf and derived values (D4_PUBLIC_URL, PORT_<NAME>, ...).",
+      "properties": { "common": { "$ref": "#/$defs/envMap" }, "local": { "$ref": "#/$defs/envMap" }, "podman": { "$ref": "#/$defs/envMap" } }
+    },
+    "names": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
+  },
+  "properties": {
+    "apiVersion": { "const": "d4/v1" },
+    "kind": { "const": "Component" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Unique; the container is d4-<name>." },
+    "category": { "enum": ["ui", "service", "infra", "tool"], "description": "Selectable as a group: run.sh <runtime>:<category>:<command>. tool: run once (exec, test), no long-running process." },
+    "description": { "type": "string" },
+    "group": { "type": "string", "description": "An extra selector (observability)." },
+    "optional": { "type": "boolean", "description": "Left out of `stack`; started only when named (or by category/group)." },
+    "dependsOn": { "$ref": "#/$defs/names", "description": "Started before this one; their `provides` flow into this one's settings." },
+    "source": { "type": "string", "description": "The workspace package built with turbo (@d4/api)." },
+    "ports": {
+      "type": "object",
+      "description": "Ports on 127.0.0.1 (host network), the same in every runtime. The first one (or health.port) is the component's address. A value may be ${KEY} from host.conf.",
+      "additionalProperties": { "type": ["integer", "string"] }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "http": { "type": "string", "description": "Path probed on the main port (local runtime, and in the container with wget unless cmd is set)." },
+        "port": { "type": "integer" },
+        "cmd": { "type": "string", "description": "Shell command run inside the container (podman healthcheck run, every 5 s while starting)." },
+        "timeout": { "type": "integer", "description": "Seconds to become healthy (default 120)." }
+      }
+    },
+    "route": { "type": "string", "description": "The path the gateway serves it at (shown by status)." },
+    "provides": { "$ref": "#/$defs/envLayers", "description": "Settings given to every component that depends on this one (addresses, secrets directories)." },
+    "env": { "$ref": "#/$defs/envLayers", "description": "This component's own settings." },
+    "sharedEnv": { "type": "boolean", "description": "Start from run/env/common.env and the secrets (default: true, false for infra)." },
+    "runtimes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": { "enum": ["local", "podman"] },
+        "local": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["command"],
+          "properties": {
+            "command": { "type": "string", "description": "Shell command run from the repository root, detached, with the merged settings." },
+            "build": { "enum": ["deps", "full"], "description": "deps (default): compile the workspace dependencies, the command builds the package itself (watch); full: compile the package too." }
+          }
+        },
+        "podman": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "via": { "type": "string", "description": "Served by another component's container (the web modules: ui-modules)." },
+            "image": { "type": "string", "description": "A published image, pinned in run/env/images.env (${POSTGRES_IMAGE})." },
+            "build": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["artifact"],
+              "properties": {
+                "containerfile": { "type": "string", "description": "In the component folder (default Containerfile)." },
+                "artifact": { "enum": ["node", "static", "modules", "files", "none"], "description": "What goes into app/ of the build context: node (pnpm deploy --prod), static (dist/), modules (dist/ of each component served via this one), files (only build.files), none." },
+                "files": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["from", "to"], "properties": { "from": { "type": "string" }, "to": { "type": "string" } } } },
+                "args": { "$ref": "#/$defs/envMap" }
+              }
+            },
+            "entrypoint": { "type": "string" },
+            "command": { "type": "array", "items": { "type": "string" } },
+            "readOnly": { "type": "boolean" },
+            "tmpfs": { "type": "array", "items": { "type": "string" } },
+            "mounts": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["src", "dst"], "properties": { "src": { "type": "string", "description": "Relative to the repository root." }, "dst": { "type": "string" }, "ro": { "type": "boolean" } } } },
+            "volumes": { "type": "array", "description": "Named volumes; reset deletes them.", "items": { "type": "object", "additionalProperties": false, "required": ["name", "dst"], "properties": { "name": { "type": "string" }, "dst": { "type": "string" } } } },
+            "memory": { "type": "string" },
+            "cpus": { "type": "number" },
+            "shm": { "type": "string" },
+            "restart": { "type": "string" },
+            "user": { "type": "string" }
+          }
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "postStart": { "type": "array", "description": "Tools run after it is healthy (and again when their image changes).", "items": { "type": "object", "additionalProperties": false, "required": ["component"], "properties": { "component": { "type": "string" }, "args": { "type": "array", "items": { "type": "string" } } } } }
+      }
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit": { "type": "boolean" },
+        "integration": { "type": "object", "additionalProperties": false, "properties": { "needs": { "$ref": "#/$defs/names" } } },
+        "e2e": { "type": "array", "items": { "type": "string" }, "description": "The browser specs covering this component (apps/e2e/tests/...)." }
+      }
+    }
+  }
+}

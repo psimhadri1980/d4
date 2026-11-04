@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../run/schema/component.schema.json
+apiVersion: d4/v1
+kind: Component
+name: e2e
+category: tool
+description: Browser tests (Playwright) through the gateway; run.sh <component>:test e2e picks the specs
+ports: { hook: 3199 }
+runtimes:
+  default: podman
+  podman:
+    build:
+      artifact: files
+      files:
+        - { from: pnpm-lock.yaml, to: pnpm-lock.yaml }
+        - { from: pnpm-workspace.yaml, to: pnpm-workspace.yaml }
+        - { from: package.json, to: package.json }
+        - { from: samples, to: samples }
+    mounts: [{ src: apps/e2e/results, dst: /repo/apps/e2e/results }]
+    shm: 1g
