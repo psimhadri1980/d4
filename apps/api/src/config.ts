@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 const ApiEnv = {
   API_PORT: z.coerce.number().default(3000),
+  /** The address to listen on (run/env/common.env: 127.0.0.1 on the shared host network). */
+  D4_LISTEN_HOST: z.string().default('0.0.0.0'),
   ...postgres,
   ...neo4j,
   ...oidc,

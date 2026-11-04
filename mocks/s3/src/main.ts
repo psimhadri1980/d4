@@ -9,6 +9,7 @@ import { FileStore } from './store';
  *   S3_MOCK_BUCKETS                comma-separated buckets created at start
  *   S3_MOCK_PUBLIC_BUCKETS         comma-separated buckets readable without signing (GET/HEAD)
  *   S3_MOCK_PORT                   default 8333
+ *   D4_LISTEN_HOST                 default 0.0.0.0
  */
 async function main() {
   const { S3_ACCESS_KEY: accessKey, S3_SECRET_KEY: secretKey } = process.env;
@@ -20,7 +21,7 @@ async function main() {
   const port = Number(process.env['S3_MOCK_PORT'] || 8333);
   const publicReadBuckets = list(process.env['S3_MOCK_PUBLIC_BUCKETS']);
   const server = createS3Server({ store, credentials: { accessKey, secretKey }, publicReadBuckets, log });
-  server.listen(port, '0.0.0.0', () => log('mock S3 ready', { port, buckets: store.listBuckets().map((b) => b.name) }));
+  server.listen(port, process.env['D4_LISTEN_HOST'] || '0.0.0.0', () => log('mock S3 ready', { port, buckets: store.listBuckets().map((b) => b.name) }));
   const stop = () => server.close(() => process.exit(0));
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);

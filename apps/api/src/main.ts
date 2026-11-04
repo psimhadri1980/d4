@@ -21,7 +21,7 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   await configureApp(app);
   const config = app.get<AppConfig>(APP_CONFIG);
-  await app.listen(config.API_PORT, '0.0.0.0');
+  await app.listen(config.API_PORT, config.D4_LISTEN_HOST);
 }
 
 void bootstrap();

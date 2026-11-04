@@ -13,6 +13,7 @@ const RendererEnv = {
   RENDER_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
   /** Health endpoint for container checks. */
   RENDER_HEALTH_PORT: z.coerce.number().int().default(3003),
+  D4_LISTEN_HOST: optional(z.string()),
   /** A Chromium other than the one Playwright installed. */
   CHROMIUM_PATH: optional(z.string()),
 };
