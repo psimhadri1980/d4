@@ -179,7 +179,7 @@ async function stage(comp: Component, ctx: string): Promise<void> {
   if (build.artifact === 'node') {
     log.detail(`packaging ${comp.source} with its production dependencies (pnpm deploy)`);
     rmSync(app, { recursive: true, force: true });
-    await exec('pnpm', ['--filter', comp.source!, 'deploy', '--prod', '--offline', app], {
+    await exec('pnpm', ['--filter', comp.source!, 'deploy', '--prod', '--prefer-offline', app], {
       cwd: ROOT, env: toolEnv(), logName: `${comp.name}.package.log`, label: `packaging ${comp.name}`, quiet: !process.env['D4_DEBUG'],
     });
     for (const extra of ['src', 'test', 'Containerfile', 'component.yaml', 'tsconfig.json', 'tsconfig.build.json', 'vitest.config.ts'])
