@@ -45,9 +45,51 @@ docs/                 PLAN.md (decision log), ADRs, the developer guide, the run
 user-manual/          How to use D4, with screenshots
 ```
 
+## Initial setup
+
+One-time, on a Linux machine (or a Podman machine on macOS/Windows) with about 4 GB of free memory.
+
+1. **Install the prerequisites:** rootless Podman 4.4 or later, git, and Node.js 24 (`.node-version`). With nvm: `nvm install 24`. `run.sh` uses nvm's Node 24 even when your shell's default differs. You don't need pnpm, corepack, compose or a Podman socket: `run.sh` installs the pinned pnpm into `run/.run/tools` itself.
+2. **Clone the repository:**
+   ```bash
+   git clone https://github.com/psimhadri1980/d4.git && cd d4
+   ```
+3. **Optional, behind a corporate network:** create `run/env/local.env` (git-ignored). Overrides there win over the shared files.
+   ```bash
+   # npm mirror for every install (flat KEY=value lines; comments on their own lines)
+   NPM_REGISTRY=https://your-registry.example.com/npm/
+   # your internal CA, trusted by builds, services, Keycloak and the renderer
+   ORG_CA_FILE=/etc/pki/org/ca-bundle.crt
+   ```
+   For HTTPS at the gateway, set `GATEWAY_TLS_CERT_FILE` and `GATEWAY_TLS_KEY_FILE` the same way (see [run/certs/README.md](run/certs/README.md)).
+4. **Optional, another address:** the browser-facing origin is in [`host.conf`](host.conf), by default `http://localhost:5173`. Change `D4_HOST`, `D4_PORT` or `D4_BIND` (`0.0.0.0` to serve other machines) there or in `local.env`.
+5. **Check the machine:**
+   ```bash
+   run/run.sh doctor
+   ```
+   It checks Podman, Node 24, cgroup delegation (for memory and CPU limits), every `component.yaml`, and that D4's ports are free. Warnings about limits can be ignored on a laptop. The first run of any `run.sh` command installs the workspace dependencies.
+6. **Build and start everything:**
+   ```bash
+   run/run.sh podman:stack:deploy
+   ```
+   The first run pulls the base images and builds every image, which takes a few minutes. After that, only what changed is rebuilt (a no-change run takes about 20 s). It starts every component in dependency order, waits until each is healthy, and runs the database migrations, local seed and graph schema.
+7. **Load the sample model:**
+   ```bash
+   run/run.sh cli:exec -- import samples/ubs-banking.yaml -w default
+   ```
+8. **Open http://localhost:5173** and sign in as `dev-admin`, password `d4-local-dev` (other users: `dev-viewer`, `dev-author`, `dev-steward`; local only).
+9. **Confirm everything is running:**
+   ```bash
+   run/run.sh status
+   run/run.sh stack:test smoke
+   ```
+   `status` should show every component as `healthy`. `stack:test smoke` checks health, a sign-in and `/api/v1/me`.
+
+If a step fails, it prints the failing command, its output and a hint; the full logs are in `run/.run/logs/`. Rerunning is safe: `deploy` continues from where things are. Moving from the old `deploy/` scripts: the first `podman:stack:deploy` replaces the old compose containers and keeps their data volumes.
+
 ## Local stack
 
-Prerequisites: rootless Podman 4.4+ and Node 24. `run/run.sh doctor` checks the setup; [docs/run-cheatsheet.pdf](docs/run-cheatsheet.pdf) lists every command on one page. Every component (app, web module, service, tool, infra) has a `component.yaml` next to it; shared settings are in `run/env/`, the entry point in `host.conf`.
+Day to day ([docs/run-cheatsheet.pdf](docs/run-cheatsheet.pdf) lists every command on one page). Every component (app, web module, service, tool, infra) has a `component.yaml` next to it; shared settings are in `run/env/`, the entry point in `host.conf`.
 
 ```bash
 run/run.sh podman:stack:deploy        # build what changed, start everything in dependency order, wait until healthy
