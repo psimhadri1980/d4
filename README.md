@@ -72,7 +72,7 @@ One-time, on a Linux machine (or a Podman machine on macOS/Windows) with about 4
    ```bash
    run/run.sh podman:stack:deploy
    ```
-   The first run pulls the base images and builds every image, which takes a few minutes. After that, only what changed is rebuilt (a no-change run takes about 20 s). It starts every component in dependency order, waits until each is healthy, and runs the database migrations, local seed and graph schema.
+   The first run pulls the base images and builds every image, which takes a few minutes. After that, only what changed is rebuilt (a no-change run takes about 20 s). It starts every component in dependency order, waits until each is healthy, and runs the database migrations, local seed and graph schema (see [Databases](#databases-initialization-seed-and-migrations)).
 7. **Load the sample model:**
    ```bash
    run/run.sh cli:exec -- import samples/ubs-banking.yaml -w default
@@ -85,7 +85,44 @@ One-time, on a Linux machine (or a Podman machine on macOS/Windows) with about 4
    ```
    `status` should show every component as `healthy`. `stack:test smoke` checks health, a sign-in and `/api/v1/me`.
 
+**After a reboot:** rootless Podman brings containers back only when the user service is enabled: run `systemctl --user enable --now podman-restart.service` once (`doctor` warns when it isn't). Otherwise run `run/run.sh podman:stack:start` after booting. Tools start what they need themselves: `ops:exec` starts Postgres and Neo4j, `cli:exec` starts the API, and their dependencies.
+
 If a step fails, it prints the failing command, its output and a hint; the full logs are in `run/.run/logs/`. Rerunning is safe: `deploy` continues from where things are. Moving from the old `deploy/` scripts: the first `podman:stack:deploy` replaces the old compose containers and keeps their data volumes.
+
+### Databases: initialization, seed and migrations
+
+No separate init step is needed. `deploy` and `start` take care of it through the hooks in `infra/postgres/component.yaml` and `infra/neo4j/component.yaml`:
+
+| When | What runs | What it does |
+|---|---|---|
+| Postgres first starts on an empty volume (`d4_pg-data`) | the `postgres` image | Creates database `d4` and user `d4` (`POSTGRES_*` in `run/env`). |
+| Postgres is healthy | hook `ops seed` | 1. Applies every pending migration in `packages/db/drizzle/` (`0000_init.sql`, …), each exactly once, in order. 2. Runs the idempotent local seed: tenant `t_local` and its graph (`bolt://neo4j:7687`), the starter metamodel (active), the `default` workspace, the web module registry. |
+| Neo4j is healthy | hook `ops schema t_local` | Creates the graph constraints and indexes for the starter metamodel and every metamodel a workspace uses. |
+
+The hooks run again whenever Postgres or Neo4j is (re)started, and whenever the `ops` image changes, for example after pulling a new migration. So after `git pull`, `run/run.sh podman:stack:deploy` applies new migrations by itself. To run them by hand:
+
+```bash
+run/run.sh ops:exec -- migrate          # pending migrations only
+run/run.sh ops:exec -- seed             # migrations, then the local seed (safe to repeat)
+run/run.sh ops:exec -- schema t_local   # graph constraints and indexes for a tenant
+```
+
+**Adding a migration:**
+1. Change `packages/db/src/schema.ts`.
+2. Generate the SQL with `npx pnpm@9.12.0 --filter @d4/db run generate`. It writes the next `packages/db/drizzle/NNNN_*.sql`; review it and commit it with the schema change.
+3. Apply it with `run/run.sh podman:stack:deploy`, which rebuilds the `ops` image, so the hook runs.
+4. Test it with `run/run.sh stack:test integration`. Integration tests create and drop their own throwaway databases.
+
+**Data lifetime:** data lives in named volumes (`d4_pg-data`, `d4_neo4j-data`, `d4_redis-data`, `d4_s3-mock-data`, and `d4-neo4j-<tenant>-data` for extra tenants). It survives `stop`, `deploy` and image rebuilds.
+- `run/run.sh podman:postgres:reset --yes` deletes the Postgres data; the next `deploy` recreates it, migrates and seeds.
+- `run/run.sh stack:reset --yes` deletes everything.
+
+**Moving data from the old `deploy/` setup:** the volumes have the same names, so the first `podman:stack:deploy` picks up the existing data. It also removes the old `d4-*-1` containers. Copy over what was git-ignored, then recreate any extra tenant graphs:
+
+```bash
+cp deploy/env/local.env run/env/local.env 2>/dev/null; cp deploy/secrets/neo4j-* run/secrets/ 2>/dev/null
+run/run.sh ops:exec -- tenant create t_acme "Acme Ltd"   # per extra tenant: reuses volume d4-neo4j-t_acme-data
+```
 
 ## Local stack
 
