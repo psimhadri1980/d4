@@ -300,6 +300,14 @@ export async function runTool(comp: Component, rt: Runtime, args: string[], o: {
   });
 }
 
+/** Before a tool runs (ops, cli): starts what it depends on that is not running (no build). */
+export async function ensureDependencies(comp: Component): Promise<void> {
+  const missing = dependencies(comp).filter((d) => isProcess(d) && !whereRunning(d).length);
+  if (!missing.length) return;
+  log.info(`${comp.name} needs ${missing.map((d) => d.name).join(', ')}, which ${missing.length > 1 ? 'are' : 'is'} not running: starting ${missing.length > 1 ? 'them' : 'it'}`);
+  await up(plan(missing, undefined, false), { build: false });
+}
+
 /** exec: a tool once, or a command inside a running component (its container, or its env locally). */
 export async function execIn(comp: Component, rt: Runtime | undefined, args: string[]): Promise<void> {
   if (!isProcess(comp)) return runTool(comp, runtimeFor(comp, rt), args);

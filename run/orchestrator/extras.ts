@@ -186,6 +186,8 @@ export async function doctor(): Promise<number> {
       check(`port ${p} (${comp.name}) used by ${owner}`, ours, `free it, or another program holds a D4 port`, true);
     }
   }
+  const restart = capture('systemctl', ['--user', 'is-enabled', 'podman-restart.service']).out.trim();
+  check('podman-restart.service enabled (containers come back after a reboot)', restart === 'enabled', 'systemctl --user enable podman-restart.service, or run run/run.sh podman:stack:start after each boot', true);
   const legacy = legacyContainers();
   check('no containers from the old compose setup', !legacy.length, `${legacy.join(', ')}: run/run.sh podman:stack:deploy replaces them (volumes are kept)`, true);
   const running = [...cons.values()].find((x) => x.state === 'running' && x.health);

@@ -3,7 +3,7 @@
 import { join } from 'node:path';
 import { c, initLogs, log, opts, reportError, RunError } from './log.ts';
 import { CATEGORIES, component, isProcess, loadComponents, mainPort, RUNTIMES, runtimeFor, select, STATE_DIR, type Runtime } from './components.ts';
-import { build, execIn, logs, plan, reset, runTool, shell, status, stop, up } from './lifecycle.ts';
+import { build, ensureDependencies, execIn, logs, plan, reset, runTool, shell, status, stop, up } from './lifecycle.ts';
 import { doctor, keycloakExec, opsExec, publish, token } from './extras.ts';
 import { test } from './test.ts';
 
@@ -105,6 +105,7 @@ async function main(argv: string[]): Promise<number> {
     case 'shell': await shell(onlyOne(comps, sel, 'shell'), rt); return 0;
     case 'exec': {
       const comp = onlyOne(comps, sel, 'exec');
+      if (!isProcess(comp)) await ensureDependencies(comp);
       if (comp.name === 'keycloak' && (await keycloakExec(after))) return 0;
       if (comp.name === 'ops' && (await opsExec(rt ?? 'podman', after))) return 0;
       if (comp.runtimes.podman?.via === 'ui-modules' && after[0] === 'publish') { await publish(comp, after); return 0; }

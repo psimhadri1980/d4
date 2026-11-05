@@ -5,6 +5,7 @@ name: cli
 category: tool
 description: The d4 CLI against the API (token from Keycloak); paths are relative to the repository root
 source: '@d4/cli'
+dependsOn: [api]
 env:
   common: { D4_API_URL: 'http://127.0.0.1:${PORT_API}' }
 runtimes:
