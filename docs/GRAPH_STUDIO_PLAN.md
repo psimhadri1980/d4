@@ -119,7 +119,13 @@ panel left (LS-8, Should), and opening large results in the Overview (LS-6, with
   cross-lens counts only for "Not sure yet" (an API `lens-counts` call), Clear resets everything (LS-8).
 - Lens defaults for depth, layout, view (LS-6); predefined lenses for the starter data.
 
-### Phase 6: lens editor and saved lenses
+### Phase 6: lens editor and saved lenses: done
+`LensEditor` in ui-kit, full screen, fetching nothing: the page passes the contour's profile
+(`POST /studio/profile`) and the preview (funnel and sample from `POST /studio/counts`). Lenses
+are saved per workspace (D82). A built-in lens, or someone else's shared one, is saved as the
+user's own copy. Pinned contour types are kept per browser. Not yet: planned versus current in
+the preview (needs a count by validity), and pinning "＋ New lens…" above a long list (LE-10).
+Deploying it needs the control-plane migration: `run/run.sh ops:exec -- migrate`.
 - Full-screen editor (LE-1…LE-7, LE-9, LE-10): contour picker for 30–40 types, link-aware facet
   suggestions, attribute filters with ranked suggestions, About, When opened, roles table, sticky
   preview with funnel and load meter, Start from…
