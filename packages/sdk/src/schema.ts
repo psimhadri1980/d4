@@ -7887,6 +7887,8 @@ export interface components {
             asOf?: string;
             /** @description Scenario element id: the baseline plus this scenario */
             scenario?: string;
+            /** @description Exactly these elements as roots (a drill-down) */
+            ids?: string[];
             /** @description Contour node types; any type when absent */
             types?: string[];
             /** @description Case-insensitive part of the name */

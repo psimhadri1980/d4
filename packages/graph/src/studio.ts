@@ -39,6 +39,8 @@ export interface FacetFilter {
 }
 
 export interface RootSearch {
+  /** Exactly these elements (a drill-down); other filters still apply. */
+  ids?: readonly string[];
   /** Contour types; any type when empty. */
   types?: readonly string[];
   /** Case-insensitive part of the name. */
@@ -87,6 +89,10 @@ export class StudioQueries {
   async findRoots(ws: string, search: RootSearch, limit: number, view?: ModelView): Promise<{ roots: Element[]; tooMany: boolean }> {
     const params: Row = { ws, limit: limit + 1, ...viewParams(view) };
     const where = ['n.workspaceId = $ws', 'n.deleted = false', inView('n')];
+    if (search.ids?.length) {
+      params['ids'] = [...search.ids];
+      where.push('n.id IN $ids');
+    }
     if (search.types?.length) {
       params['types'] = search.types.map((t) => this.knownType(t));
       where.push('any(l IN labels(n) WHERE l IN $types)');
