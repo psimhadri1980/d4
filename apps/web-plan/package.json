@@ -28,6 +28,6 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^4.3.1",
     "jsdom": "catalog:",
-    "vite": "^5.4.6"
+    "vite": "^8.3.5"
   }
 }
