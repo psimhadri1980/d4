@@ -15,6 +15,8 @@ export interface GraphInspectorProps {
   onSelect?(id: string): void;
   /** Where the element editor is (DP-4: the panel itself is read-only). */
   editTo?: string;
+  /** Focus on this node: drill down to it (DD-1). */
+  onFocus?(id: string): void;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface GraphInspectorProps {
  * type and layer, every attribute its type defines (a dash when empty) plus any others it carries,
  * and its direct relationships in the result.
  */
-export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo }: GraphInspectorProps) {
+export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo, onFocus }: GraphInspectorProps) {
   const headingId = useId();
   if (!node) {
     return (
@@ -51,7 +53,14 @@ export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSel
           {node.type} · {node.layer}
           {node.state === 'planned' ? ' · planned' : ''}
         </p>
-        {editTo && <Link to={editTo}>Edit in the element editor</Link>}
+        <div className="graph-inspector-actions">
+          {onFocus && (
+            <button type="button" className="button small" onClick={() => onFocus(node.id)}>
+              Focus on this node
+            </button>
+          )}
+          {editTo && <Link to={editTo}>Edit in the element editor</Link>}
+        </div>
       </header>
       <dl className="graph-inspector-attrs">
         {[...defined.map((d) => d.name), ...extra].map((k) => (

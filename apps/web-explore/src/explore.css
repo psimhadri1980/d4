@@ -294,3 +294,36 @@ table.matrix tbody tr:hover .row-head {
     height: 60vh;
   }
 }
+
+/* Graph Studio: search on top, the result and the inspector side by side. */
+.graph-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  min-height: 0;
+}
+.graph-studio-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 12px;
+  min-height: 0;
+}
+.graph-studio-result {
+  position: relative;
+  height: calc(100vh - 220px);
+  min-height: 480px;
+}
+.graph-studio-main .graph-inspector {
+  border: 1px solid var(--border-subtle);
+  max-height: calc(100vh - 220px);
+}
+/* Tablet width: the inspector drops below the result (Q-4). */
+@media (max-width: 1024px) {
+  .graph-studio-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .graph-studio-main .graph-inspector {
+    max-height: none;
+  }
+}

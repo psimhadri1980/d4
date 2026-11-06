@@ -9,20 +9,22 @@ const Explorer = lazyPage(() => import('./Explorer'), 'Explorer');
 const ElementEditor = lazyPage(() => import('./ElementEditor'), 'ElementEditor');
 const Matrices = lazyPage(() => import('./Matrices'), 'Matrices');
 const Compare = lazyPage(() => import('./Compare'), 'Compare');
+const GraphStudio = lazyPage(() => import('./GraphStudio'), 'GraphStudio');
 
-/** The model: Explorer (the workspace home, element pages and the element editor), matrices, Compare. */
+/** The model: Explorer (the workspace home, element pages and the element editor), Graph Studio, matrices, Compare. */
 export const manifest: ModuleManifest = {
   id: 'explore',
   contract: LIFECYCLE_CONTRACT,
   shared: __D4_SHARED__,
   // The workspace home (/w/:ws) as well as these paths.
   home: true,
-  paths: ['e', 'new', 'matrices', 'compare'],
+  paths: ['e', 'new', 'graph-studio', 'matrices', 'compare'],
   nav: {
     group: 'Explore',
     order: 10,
     items: [
       { id: 'explorer', label: 'Explorer', icon: 'hierarchy', to: '', match: ['', 'e/', 'new'], order: 10 },
+      { id: 'studio', label: 'Graph Studio', icon: 'affiliate', to: 'graph-studio', match: ['graph-studio'], order: 20 },
       {
         id: 'matrices',
         label: 'Matrices',
@@ -52,6 +54,7 @@ function Root({ platform }: LifecycleProps) {
             <Route path="e/:id" element={<Explorer />} />
             <Route path="new" element={<ElementEditor mode="create" />} />
             <Route path="e/:id/edit" element={<ElementEditor mode="edit" />} />
+            <Route path="graph-studio" element={<GraphStudio />} />
             <Route path="matrices" element={<Matrices />} />
             <Route path="compare" element={<Compare />} />
           </Route>

@@ -1,4 +1,5 @@
 import {
+  IconAffiliate,
   IconArrowsDiff,
   IconDatabaseExport,
   IconDatabaseSearch,
@@ -36,6 +37,7 @@ function buildNav(contributions: NavContribution[]): NavGroup[] {
 
 /** Icons lifecycle modules may name in their manifest. */
 const ICONS: Record<string, Icon> = {
+  affiliate: IconAffiliate,
   'arrows-diff': IconArrowsDiff,
   'database-export': IconDatabaseExport,
   'database-search': IconDatabaseSearch,

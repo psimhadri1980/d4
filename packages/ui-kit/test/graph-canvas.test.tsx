@@ -30,7 +30,7 @@ const node = (id: string) => host.querySelector(`[data-node-id="${id}"]`)!;
 describe('GraphCanvas', () => {
   it('draws a card per node with the root marked, and labelled connectors, dashed when planned', () => {
     const root = render(<GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} />);
-    expect(host.querySelector('svg')!.getAttribute('aria-label')).toBe('Graph of 3 nodes and 2 relationships');
+    expect(host.querySelector('svg.graph-canvas-svg')!.getAttribute('aria-label')).toBe('Graph of 3 nodes and 2 relationships');
     expect(node('r1').getAttribute('aria-label')).toBe('Customer Onboarding, BusinessService, Strategy, root');
     expect(node('sv').getAttribute('aria-label')).toBe('app-eu-01, Server, Technology, planned');
     expect(node('r1').textContent).toContain('Root');
@@ -49,7 +49,7 @@ describe('GraphCanvas', () => {
     expect(node('iv').getAttribute('aria-pressed')).toBe('true');
     expect(node('iv').classList.contains('selected')).toBe(true);
     click(node('sv'));
-    click(host.querySelector('svg')!);
+    click(host.querySelector('svg.graph-canvas-svg')!);
     click(node('r1'), 'dblclick');
     act(() => node('sv').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
     expect(events).toEqual(['sv', null, 'sv']);
@@ -65,10 +65,11 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
     root = render(<GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} maxNodes={2} />);
     expect(host.querySelector('[role="alert"]')!.textContent).toMatch(/3 nodes, more than the 2 the canvas shows/);
-    expect(host.querySelector('svg')).toBeNull();
+    expect(host.querySelector('svg.graph-canvas-svg')).toBeNull();
     act(() => root.unmount());
-    root = render(<GraphCanvas nodes={[]} edges={[]} rootIds={[]} />);
-    expect(host.textContent).toBe('Nothing to show.');
+    root = render(<GraphCanvas nodes={[]} edges={[]} rootIds={[]} emptyMessage="Find a node to start." />);
+    expect(host.querySelector('.graph-canvas-state')!.textContent).toBe('Find a node to start.');
+    expect(host.querySelector('.graph-canvas-summary')).toBeNull();
     act(() => root.unmount());
   });
 
@@ -106,6 +107,41 @@ describe('GraphCanvas', () => {
     expect(first.tabIndex).toBe(0);
     act(() => first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
     expect(opened).toEqual([['r1']]);
+    act(() => root.unmount());
+  });
+
+  it('has a top bar with the focus path, an option bar for the view, and a status bar', () => {
+    const calls: string[] = [];
+    const root = render(
+      <GraphCanvas
+        nodes={nodes}
+        edges={edges}
+        rootIds={['r1']}
+        depth={2}
+        layout="hier"
+        crumbs={[{ label: 'Onboarding' }, { label: 'Identity Verification' }]}
+        onCrumb={(i) => calls.push(`crumb ${i}`)}
+        onDepthChange={(d) => calls.push(`depth ${d}`)}
+        onLayoutChange={(l) => calls.push(`layout ${l}`)}
+        onViewChange={(v) => calls.push(`view ${v}`)}
+      />,
+    );
+    expect(host.querySelector('h2')!.textContent).toBe('Result');
+    const crumbs = host.querySelector('nav[aria-label="Focus path"]')!;
+    expect(crumbs.textContent).toBe('OnboardingIdentity Verification');
+    expect(crumbs.querySelector('[aria-current="location"]')!.textContent).toBe('Identity Verification');
+    const button = (name: string) => [...host.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent!.trim()) === name)!;
+    expect(button('Depth 2').getAttribute('aria-pressed')).toBe('true');
+    expect(button('Hierarchical').getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('[role="tab"][aria-selected="true"]')!.textContent).toBe('Graph');
+    click(crumbs.querySelector('button')!);
+    click(button('‹ Back'));
+    click(button('Depth 5'));
+    click(button('Radial'));
+    click([...host.querySelectorAll('[role="tab"]')].find((t) => t.textContent === 'Table')!);
+    expect(calls).toEqual(['crumb 0', 'crumb 0', 'depth 5', 'layout radial', 'view table']);
+    expect([...host.querySelectorAll('.graph-canvas-summary li')].map((l) => l.textContent)).toEqual(['1 root', '3 nodes', '1 planned edge']);
+    expect(host.querySelector('.graph-canvas-legend')!.textContent).toBe('currentplanned');
     act(() => root.unmount());
   });
 

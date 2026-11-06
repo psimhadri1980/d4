@@ -1,5 +1,5 @@
-import { useId, useMemo } from 'react';
-import { canvasGeometry, LAYER_COLORS, labelSize, truncate, type CanvasLayout, type Route } from '@d4/render';
+import { useId, useMemo, type ReactNode } from 'react';
+import { CanvasTree, canvasGeometry, LAYER_COLORS, labelSize, truncate, type CanvasLayout, type Route } from '@d4/render';
 import { GraphCanvasTable } from './GraphCanvasTable';
 
 /** A node as Graph Studio and Ingestion Studio pass it (CT-2). */
@@ -45,16 +45,178 @@ export interface GraphCanvasProps {
   onDrill?(id: string): void;
   /** A chevron, Expand all or Collapse all was used: the full new list of open rows. */
   onExpandedChange?(paths: string[]): void;
+  /** Shown instead of the result when there are no nodes (e.g. "Find a node to start"). */
+  emptyMessage?: ReactNode;
+  /** Hops loaded from each root (GC-2); the depth buttons show only with `onDepthChange`. */
+  depth?: number;
+  maxDepth?: number;
+  /** Focus path: what the user searched for, then one step per drill (GC-3, DD-2). */
+  crumbs?: { label: string }[];
+  /** Small text at the top right. */
+  caption?: ReactNode;
+  onViewChange?(view: GraphCanvasView): void;
+  onLayoutChange?(layout: CanvasLayout): void;
+  onDepthChange?(depth: number): void;
+  /** An earlier breadcrumb step was chosen, or Back (the step before the last). */
+  onCrumb?(index: number): void;
 }
 
 export type GraphCanvasView = 'graph' | 'table';
+export type { CanvasLayout };
+
+const LAYOUTS: { id: CanvasLayout; label: string; icon: string }[] = [
+  { id: 'hier', label: 'Hierarchical', icon: 'M8 2v4M8 6L3 10M8 6l5 4M1 10h4v4H1zM11 10h4v4h-4z' },
+  { id: 'flow', label: 'Flow', icon: 'M1 6h4v4H1zM11 1h4v4h-4zM11 11h4v4h-4zM5 8h3M8 3v10M8 3h3M8 13h3' },
+  { id: 'layers', label: 'By layer', icon: 'M1 2h14M1 8h14M1 14h14M3 1v2M9 1v2M6 7v2M12 7v2M4 13v2' },
+  { id: 'radial', label: 'Radial', icon: 'M8 8m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M8 1v3M8 12v3M1 8h3M12 8h3' },
+  { id: 'force', label: 'Force-directed', icon: 'M3 3l10 4M3 3l3 10M13 7l-7 6M3 3m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0' },
+];
 
 /**
- * Graph Studio's result canvas (graph view): node cards, labelled directed connectors, solid for
- * current and dashed for planned relationships. It fetches nothing and keeps no data of its own;
- * the host passes the result and listens to the events.
+ * Graph Studio's result (GC-1): a top bar (title and focus path), an option bar (the Graph and
+ * Table tabs, then options for the chosen view), the result edge to edge, and a status bar (result
+ * summary and, in the graph, the line legend). It fetches nothing and keeps no data of its own:
+ * the host passes the result and every setting, and listens to the events.
  */
-export function GraphCanvas({
+export function GraphCanvas(props: GraphCanvasProps) {
+  const {
+    nodes,
+    edges,
+    rootIds,
+    view = 'graph',
+    layout = 'hier',
+    depth,
+    maxDepth = 6,
+    crumbs = [],
+    caption,
+    fill = false,
+    loading = false,
+    onViewChange,
+    onLayoutChange,
+    onDepthChange,
+    onCrumb,
+    onExpandedChange,
+  } = props;
+  const tabsId = useId();
+  const tree = useMemo(
+    () => (view === 'table' ? new CanvasTree({ nodeIds: nodes.map((n) => n.id), edges, rootIds }) : null),
+    [view, nodes, edges, rootIds],
+  );
+  const hasResult = !loading && nodes.length > 0;
+  const planned = edges.filter((e) => e.planned).length;
+
+  return (
+    <section className={`graph-canvas${fill ? ' fill' : ''}`} aria-labelledby={`${tabsId}-title`}>
+      <header className="graph-canvas-top">
+        <h2 id={`${tabsId}-title`}>Result</h2>
+        {crumbs.length > 1 && onCrumb && (
+          <button type="button" className="button ghost small" onClick={() => onCrumb(crumbs.length - 2)}>
+            <span aria-hidden="true">‹</span> Back
+          </button>
+        )}
+        {crumbs.length > 0 && (
+          <nav aria-label="Focus path" className="graph-canvas-crumbs">
+            <ol>
+              {crumbs.map((c, i) => (
+                <li key={i}>
+                  {i < crumbs.length - 1 ? (
+                    <button type="button" className="link" onClick={() => onCrumb?.(i)}>
+                      {c.label}
+                    </button>
+                  ) : (
+                    <span aria-current="location">{c.label}</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+        {caption && <span className="graph-canvas-caption">{caption}</span>}
+      </header>
+
+      <div className="graph-canvas-options">
+        <div role="tablist" aria-label="Result view" className="graph-canvas-tabs">
+          {(['graph', 'table'] as const).map((v) => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'active' : ''} onClick={() => onViewChange?.(v)}>
+              {v === 'graph' ? 'Graph' : 'Table'}
+            </button>
+          ))}
+        </div>
+        {onDepthChange && (
+          <div className="graph-canvas-option" role="group" aria-label="Depth">
+            <span className="graph-canvas-option-label" aria-hidden="true">
+              Depth
+            </span>
+            {Array.from({ length: maxDepth }, (_, i) => i + 1).map((d) => (
+              <button key={d} type="button" className="graph-canvas-seg" aria-pressed={d === depth} aria-label={`Depth ${d}`} onClick={() => onDepthChange(d)}>
+                {d}
+              </button>
+            ))}
+          </div>
+        )}
+        {view === 'graph' && onLayoutChange && (
+          <div className="graph-canvas-option" role="group" aria-label="Layout">
+            <span className="graph-canvas-option-label" aria-hidden="true">
+              Layout
+            </span>
+            {LAYOUTS.map((l) => (
+              <button key={l.id} type="button" className="graph-canvas-seg icon" aria-pressed={l.id === layout} aria-label={l.label} title={l.label} onClick={() => onLayoutChange(l.id)}>
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                  <path d={l.icon} />
+                </svg>
+              </button>
+            ))}
+          </div>
+        )}
+        {view === 'table' && tree && (
+          <div className="graph-canvas-option end">
+            <button type="button" className="button ghost small" disabled={!hasResult} onClick={() => onExpandedChange?.(tree.allExpandable())}>
+              Expand all <span aria-hidden="true">+</span>
+            </button>
+            <button type="button" className="button ghost small" disabled={!hasResult} onClick={() => onExpandedChange?.([])}>
+              Collapse all <span aria-hidden="true">−</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      <CanvasBody {...props} />
+
+      <footer className="graph-canvas-status">
+        {hasResult && (
+          <ul className="graph-canvas-summary" aria-label="Result summary">
+            <li>
+              {rootIds.length} {rootIds.length === 1 ? 'root' : 'roots'}
+            </li>
+            <li>
+              {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
+            </li>
+            <li>{planned} planned {planned === 1 ? 'edge' : 'edges'}</li>
+          </ul>
+        )}
+        {view === 'graph' && hasResult && (
+          <ul className="graph-canvas-legend" aria-label="Legend">
+            <li>
+              <svg width="28" height="8" aria-hidden="true">
+                <line x1="0" y1="4" x2="28" y2="4" />
+              </svg>
+              current
+            </li>
+            <li>
+              <svg width="28" height="8" aria-hidden="true">
+                <line x1="0" y1="4" x2="28" y2="4" className="planned" />
+              </svg>
+              planned
+            </li>
+          </ul>
+        )}
+      </footer>
+    </section>
+  );
+}
+
+/** The result itself, between the option bar and the status bar: graph or table, or a state. */
+function CanvasBody({
   nodes,
   edges,
   rootIds,
@@ -63,11 +225,11 @@ export function GraphCanvas({
   expandedIds,
   layout = 'hier',
   layers = [],
-  fill = false,
   loading = false,
   maxNodes = 1000,
   onSelect,
   onDrill,
+  emptyMessage = 'Nothing to show.',
   onExpandedChange,
 }: GraphCanvasProps) {
   const markerId = useId();
@@ -89,7 +251,7 @@ export function GraphCanvas({
     [nodes, keyed, rootIds, layout, layers, graphShown],
   );
 
-  const cls = `graph-canvas${fill ? ' fill' : ''}`;
+  const cls = 'graph-canvas-body';
   if (loading) {
     return (
       <div className={cls}>
@@ -112,7 +274,7 @@ export function GraphCanvas({
   if (!nodes.length) {
     return (
       <div className={cls}>
-        <p className="graph-canvas-state">Nothing to show.</p>
+        <div className="graph-canvas-state">{emptyMessage}</div>
       </div>
     );
   }
