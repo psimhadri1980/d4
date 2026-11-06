@@ -11,6 +11,28 @@ import { api, defaultWorkspaceId, RUN } from './helpers';
 const resync = (page: Page) => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 
 test.describe('web modules', () => {
+  test('a module claiming a path another module owns is refused; the owner keeps it', async ({ page }) => {
+    const ws = await defaultWorkspaceId();
+    // Reporting's entry is replaced by one that also claims Queries' path. Modules register in
+    // registry (name) order, so queries is already in place.
+    await page.route(/\/mfe\/.*reporting\.js/, (route) =>
+      route.fulfill({
+        contentType: 'text/javascript',
+        body: `const f = async () => {};
+          export const manifest = { id: 'reporting', contract: 2, paths: ['reports', 'queries'], nav: { group: 'Reporting', order: 50, items: [] } };
+          export const bootstrap = f, mount = f, unmount = f;`,
+      }),
+    );
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    await page.goto(`/w/${ws}/reports`);
+    await expect(page.getByRole('alert')).toContainText('This part of D4 is unavailable at the moment.');
+    expect(errors.join('\n')).toContain("claims path 'queries', which module 'queries' already owns");
+
+    await page.goto(`/w/${ws}/queries`);
+    await expect(page.locator('section.accordion').first()).toBeVisible();
+  });
+
   test('a module that fails to load is unavailable; the rest of D4 works', async ({ page }) => {
     const ws = await defaultWorkspaceId();
     // Reporting's entry fails, wherever the registry points it (module image or release).

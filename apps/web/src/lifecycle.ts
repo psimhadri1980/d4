@@ -1,5 +1,5 @@
 import { addErrorHandler, getAppStatus, navigateToUrl, registerApplication, start, unregisterApplication } from 'single-spa';
-import { config, d4, accessToken, lifecycleProblems, ownedPaths, type LifecycleModule, type ModuleManifest, type Platform } from '@d4/web-platform';
+import { config, d4, accessToken, lifecycleProblems, ownedPaths, pathClashes, type LifecycleModule, type ModuleManifest, type Platform } from '@d4/web-platform';
 import type { QueryClient } from '@tanstack/react-query';
 
 /**
@@ -92,8 +92,8 @@ export const registryState = () => ({ ready, failed });
 
 const release = (m: Listed) => `${m.entry}@${m.version}`;
 
-/** Imports one module and registers it with single-spa; its state is published as it settles. */
-async function load(platform: Platform, m: Listed): Promise<void> {
+/** Imports one module and checks its exports; null (and the module marked failed) when it cannot load. */
+async function importModule(m: Listed): Promise<LifecycleModule | null> {
   const { name } = m;
   set(name, { status: 'loading' });
   // The version in the URL makes a new release a new ES module; the browser caches each one.
@@ -102,15 +102,33 @@ async function load(platform: Platform, m: Listed): Promise<void> {
     const mod = await withTimeout(import(/* @vite-ignore */ url) as Promise<LifecycleModule>, `Module '${name}'`);
     const problems = lifecycleProblems(mod, name, __D4_SHARED__);
     if (problems.length) throw new Error(problems.join('; '));
-    if (registered.get(name) !== release(m)) return; // superseded while loading
-    const owned = `/(${ownedPaths(mod.manifest).join('|')})(/|$)`;
-    const prefix = new RegExp(`^/w/[^/]+(${owned}${mod.manifest.home ? '|/?$' : ''})`);
-    registerApplication({ name, app: mod, activeWhen: (l) => prefix.test(l.pathname), customProps: { platform, domElementGetter: () => slotFor(name) } });
-    set(name, { status: 'ready', manifest: mod.manifest });
+    return mod;
   } catch (e) {
-    console.error(`D4 module '${name}' is unavailable:`, e);
-    set(name, { status: 'failed', error: e instanceof Error ? e.message : String(e) });
+    fail(name, e);
+    return null;
   }
+}
+
+/**
+ * Registers an imported module with single-spa, unless a module already in place owns one of its
+ * paths: then it is refused, so the clash shows instead of one module being silently unreachable.
+ */
+function register(platform: Platform, m: Listed, mod: LifecycleModule): void {
+  const { name } = m;
+  if (registered.get(name) !== release(m)) return; // superseded while loading
+  const owners = new Map<string, ModuleManifest>();
+  for (const [other, s] of states) if (s.status === 'ready') owners.set(other, s.manifest);
+  const clashes = pathClashes(mod.manifest, owners);
+  if (clashes.length) return fail(name, new Error(clashes.join('; ')));
+  const owned = `/(${ownedPaths(mod.manifest).join('|')})(/|$)`;
+  const prefix = new RegExp(`^/w/[^/]+(${owned}${mod.manifest.home ? '|/?$' : ''})`);
+  registerApplication({ name, app: mod, activeWhen: (l) => prefix.test(l.pathname), customProps: { platform, domElementGetter: () => slotFor(name) } });
+  set(name, { status: 'ready', manifest: mod.manifest });
+}
+
+function fail(name: string, e: unknown) {
+  console.error(`D4 module '${name}' is unavailable:`, e);
+  set(name, { status: 'failed', error: e instanceof Error ? e.message : String(e) });
 }
 
 /**
@@ -152,7 +170,10 @@ async function sync(platform: Platform): Promise<void> {
     const added = modules.filter((m) => !registered.has(m.name));
     added.forEach((m) => registered.set(m.name, release(m)));
     failed = false;
-    await Promise.all(added.map((m) => load(platform, m)));
+    // Imports run in parallel; registering follows the registry's order, so when two modules
+    // claim one path the same one wins every time (a module already in place before both).
+    const imported = await Promise.all(added.map((m) => importModule(m)));
+    added.forEach((m, i) => imported[i] && register(platform, m, imported[i]!));
   } catch (e) {
     console.error('D4 could not read the module registry:', e);
     failed = true;
