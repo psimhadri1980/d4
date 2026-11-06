@@ -23,10 +23,15 @@ export function App() {
   );
 }
 
+/**
+ * Where `/` goes: the `default` workspace when the user has it, else the first one. The list is
+ * sorted by name, so without the preference a new workspace could move everyone's start page.
+ */
 function FirstWorkspace() {
   const { data, error } = useQuery({ queryKey: keys.workspaces, queryFn: api.workspaces });
   if (error) return <ErrorBanner error={error} />;
   if (!data) return <div className="splash">Loading workspaces…</div>;
   if (!data.length) return <div className="splash">No workspaces yet.</div>;
-  return <Navigate to={`/w/${data[0]!.id}`} replace />;
+  const start = data.find((w) => w.slug === 'default') ?? data[0]!;
+  return <Navigate to={`/w/${start.id}`} replace />;
 }
