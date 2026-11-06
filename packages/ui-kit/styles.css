@@ -114,3 +114,92 @@
   min-height: 300px;
   background: var(--background, #f4f4f4);
 }
+
+/* GraphCanvas: Graph Studio's result canvas. */
+.graph-canvas {
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  background: var(--background, #f4f4f4);
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+.graph-canvas.fill {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+.graph-canvas-scroll {
+  flex: 1;
+  overflow: auto;
+}
+.graph-canvas-svg {
+  display: block;
+}
+.graph-canvas-state {
+  margin: auto;
+  padding: 24px;
+  max-width: 480px;
+  text-align: center;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-node {
+  cursor: pointer;
+  outline: none;
+}
+.graph-canvas-card {
+  fill: var(--layer-01, #ffffff);
+  stroke: var(--border-strong, #8d8d8d);
+  stroke-width: 1;
+}
+.graph-canvas-node.root .graph-canvas-card {
+  stroke: var(--text-primary, #161616);
+  stroke-width: 2;
+}
+.graph-canvas-node.planned .graph-canvas-card {
+  stroke-dasharray: 5 3;
+}
+.graph-canvas-node:hover .graph-canvas-card {
+  fill: var(--layer-hover, #e8e8e8);
+}
+.graph-canvas-node.selected .graph-canvas-card {
+  stroke: var(--interactive, #0f62fe);
+  stroke-width: 3;
+}
+.graph-canvas-node:focus-visible .graph-canvas-card {
+  stroke: var(--focus, #0f62fe);
+  stroke-width: 3;
+}
+.graph-canvas-name {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--text-primary, #161616);
+}
+.graph-canvas-meta {
+  font-size: 12px;
+  fill: var(--text-secondary, #525252);
+}
+.graph-canvas-root {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+  fill: var(--text-secondary, #525252);
+}
+.graph-canvas-edge path {
+  fill: none;
+  stroke: var(--text-secondary, #525252);
+  stroke-width: 1.25;
+}
+.graph-canvas-edge.planned path {
+  stroke-dasharray: 6 4;
+}
+.graph-canvas-arrow {
+  fill: var(--text-secondary, #525252);
+}
+.graph-canvas-label-bg {
+  fill: var(--background, #f4f4f4);
+}
+.graph-canvas-label {
+  font-size: 11px;
+  fill: var(--text-secondary, #525252);
+}

@@ -51,7 +51,12 @@ depth 6. Above the node limit the endpoint returns `tooLarge` and no nodes. The 
   filters, name text, depth). Zod schema, OpenAPI entry, typed client in `@d4/sdk`/web-platform.
 - Tests: `api:test`, `api:test integration` against Neo4j.
 
-### Phase 1: GraphCanvas, graph view (ui-kit + render)
+### Phase 1: GraphCanvas, graph view (ui-kit + render): done
+`canvasGeometry` in `packages/render/src/canvas-layout.ts` places cards for the five layouts and
+routes connectors; `GraphCanvas` in ui-kit draws them as SVG. Connectors within one row run through
+the gap below the row, so they never cross the cards between their ends. Connectors that skip rows
+can still pass beside cards in between; avoiding those fully is left for phase 4, with dragging.
+The table view, `view` and `expandedIds` come with phase 2; the legend with the status bar in phase 3.
 - Contract per CT-2…CT-4: `nodes`, `edges`, `rootIds`, `selectedId`, `view`, `layout`, `expandedIds`,
   `fill`, `loading`, `maxNodes`; events `onSelect`, `onViewChange`, `onDrill`, `onExpandedChange`.
 - SVG cards (GV-2), solid/dashed directed edges with labels (GV-3, GV-3a), five layouts (FB-3):
