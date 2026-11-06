@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LIFECYCLE_CONTRACT, lifecycleProblems } from '../src/lifecycle';
+import { LIFECYCLE_CONTRACT, lifecycleProblems, pathClashes } from '../src/lifecycle';
 
 const fn = async () => undefined;
 const good = {
@@ -36,5 +36,23 @@ describe('lifecycleProblems', () => {
     expect(lifecycleProblems(built, 'hello', { react: '18', '@d4/web-platform': '0' })).toEqual([]);
     expect(lifecycleProblems(built, 'hello', { react: '19', '@d4/web-platform': '0' })).toEqual(['was built against react 18; this app shares 19']);
     expect(lifecycleProblems(built, 'hello')).toEqual([]);
+  });
+});
+
+describe('pathClashes', () => {
+  const owners = new Map([
+    ['queries', { id: 'queries', paths: ['queries', 'catalog', 'studio'] }],
+    ['explore', { id: 'explore', paths: ['e', 'new'], home: true }],
+  ]);
+
+  it('names each path another module already owns, and that module', () => {
+    expect(pathClashes({ id: 'graphs', paths: ['studio', 'graphs'] }, owners)).toEqual(["claims path 'studio', which module 'queries' already owns"]);
+    expect(pathClashes({ id: 'catalog' }, owners)).toEqual(["claims path 'catalog', which module 'queries' already owns"]);
+    expect(pathClashes({ id: 'start', paths: ['start'], home: true }, owners)).toEqual(["claims the workspace home, which module 'explore' already owns"]);
+  });
+
+  it('accepts free paths, and a module replacing itself', () => {
+    expect(pathClashes({ id: 'graphs', paths: ['graph-studio'] }, owners)).toEqual([]);
+    expect(pathClashes({ id: 'queries', paths: ['queries', 'studio'] }, owners)).toEqual([]);
   });
 });

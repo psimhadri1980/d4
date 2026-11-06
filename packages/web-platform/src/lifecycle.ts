@@ -85,6 +85,22 @@ export interface LifecycleModule {
 /** The top-level segments under the workspace a module owns. */
 export const ownedPaths = (manifest: Pick<ModuleManifest, 'id' | 'paths'>) => manifest.paths ?? [manifest.id];
 
+/**
+ * Paths a module claims that another module already owns, as problems: two modules on one path
+ * would leave the first one shown and the other silently unreachable. `owners` are the modules
+ * already in place (by name); the workspace home counts as a path of its own.
+ */
+export function pathClashes(manifest: Pick<ModuleManifest, 'id' | 'paths' | 'home'>, owners: ReadonlyMap<string, Pick<ModuleManifest, 'id' | 'paths' | 'home'>>): string[] {
+  const out: string[] = [];
+  for (const [name, other] of owners) {
+    if (name === manifest.id) continue;
+    const taken = ownedPaths(other);
+    for (const p of ownedPaths(manifest)) if (taken.includes(p)) out.push(`claims path '${p}', which module '${name}' already owns`);
+    if (manifest.home && other.home) out.push(`claims the workspace home, which module '${name}' already owns`);
+  }
+  return out;
+}
+
 const isLifecycle = (v: unknown) => typeof v === 'function' || (Array.isArray(v) && v.length > 0 && v.every((f) => typeof f === 'function'));
 
 /**
