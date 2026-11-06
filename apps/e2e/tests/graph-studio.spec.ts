@@ -3,14 +3,16 @@ import { openNav } from './helpers';
 
 const search = (page: Page) => page.getByRole('search', { name: 'Find nodes' });
 const result = (page: Page) => page.getByRole('region', { name: 'Result' });
+const nameBox = (page: Page) => search(page).getByRole('combobox', { name: /name/i });
 const card = (page: Page, name: string) => result(page).locator('.graph-canvas-node', { has: page.locator('title', { hasText: new RegExp(`^${name}$`) }) });
 
 async function findClientMaster(page: Page) {
   await page.goto('/');
   await openNav(page, 'Graph Studio');
-  await search(page).getByLabel('Type').selectOption('DataProduct');
-  await search(page).getByLabel('Name').fill('Client Master');
-  await search(page).getByLabel('Name').press('Enter');
+  await search(page).getByLabel('Lens', { exact: true }).selectOption({ label: 'Data products (DataProduct)' });
+  await nameBox(page).fill('Client Master');
+  await nameBox(page).press('Escape');
+  await nameBox(page).press('Enter');
   await expect(card(page, 'Client Master')).toHaveAttribute('aria-label', 'Client Master, DataProduct, Data, root');
 }
 
@@ -20,19 +22,20 @@ test.describe('graph studio', () => {
     await openNav(page, 'Graph Studio');
     await expect(result(page)).toContainText('Find a node to start.');
 
-    // Picking a type sets its layer; nothing runs before Search.
-    await search(page).getByLabel('Type').selectOption('DataProduct');
-    await expect(search(page).getByLabel('Layer')).toHaveValue('Data');
+    // Choosing a lens shows what it fixes; nothing runs before Search.
+    await search(page).getByLabel('Lens', { exact: true }).selectOption({ label: 'Data products (DataProduct)' });
+    await expect(search(page).getByLabel('Search criteria')).toContainText('DataProduct from lens');
     await expect(result(page)).toContainText('Find a node to start.');
 
-    await search(page).getByLabel('Name').fill('Client Master');
+    await nameBox(page).fill('Client Master');
     await search(page).getByRole('button', { name: 'Search' }).click();
     await expect(card(page, 'Client Master')).toBeVisible();
     await expect(result(page).getByLabel('Result summary')).toContainText('1 root');
-    // Depth 2 by default; Depth 1 loads less.
-    const two = await result(page).locator('.graph-canvas-node').count();
-    await result(page).getByRole('button', { name: 'Depth 1' }).click();
-    await expect.poll(() => result(page).locator('.graph-canvas-node').count()).toBeLessThan(two);
+    // The lens opens at its own depth, 1; Depth 2 loads more.
+    await expect(result(page).getByRole('button', { name: 'Depth 1' })).toHaveAttribute('aria-pressed', 'true');
+    const one = await result(page).locator('.graph-canvas-node').count();
+    await result(page).getByRole('button', { name: 'Depth 2' }).click();
+    await expect.poll(() => result(page).locator('.graph-canvas-node').count()).toBeGreaterThan(one);
     // Labels show from the Label level up; a wide result opens fitted, maybe at Dot.
     await result(page).getByRole('toolbar', { name: 'Zoom' }).getByRole('button', { name: 'Card' }).click();
     await expect(result(page).locator('.graph-canvas-label').first()).toBeVisible();
@@ -74,7 +77,7 @@ test.describe('graph studio', () => {
     await expect(card(page, name)).toHaveAttribute('aria-label', new RegExp(', root$'));
 
     await result(page).getByRole('button', { name: 'Back' }).click();
-    await expect(path.locator('[aria-current="location"]')).toHaveText('"Client Master" · DataProduct');
+    await expect(path.locator('[aria-current="location"]')).toHaveText('Data products · "Client Master"');
     // The selection at that step is back.
     await expect(card(page, name)).toHaveAttribute('aria-pressed', 'true');
   });
@@ -102,6 +105,9 @@ test.describe('graph studio', () => {
     await findClientMaster(page);
     const node = card(page, 'Client Master');
     const reset = result(page).getByRole('button', { name: 'Reset layout' });
+    // Positions are compared at one level of detail: box sizes, and so positions, follow the level.
+    const cardLevel = result(page).getByRole('toolbar', { name: 'Zoom' }).getByRole('button', { name: 'Card' });
+    await cardLevel.click();
     await expect(reset).toBeDisabled();
     const before = await node.getAttribute('transform');
     await node.scrollIntoViewIfNeeded();
@@ -125,6 +131,7 @@ test.describe('graph studio', () => {
     await expect(reset).toBeDisabled();
     await result(page).getByRole('button', { name: 'Hierarchical' }).click();
     await expect(reset).toBeEnabled();
+    await cardLevel.click();
     await reset.click();
     await expect(node).toHaveAttribute('transform', before!);
   });
@@ -161,14 +168,46 @@ test.describe('graph studio', () => {
     await expect.poll(percent).toBeLessThanOrEqual(100);
   });
 
+  test('not sure yet: the lenses that fit the text show with counts; picking one searches inside it with its defaults', async ({ page }) => {
+    await page.goto('/');
+    await openNav(page, 'Graph Studio');
+    await nameBox(page).fill('client');
+    const list = search(page).getByRole('listbox', { name: 'Suggestions' });
+    // Counts arrive for the lenses whose roots match "client".
+    await expect(list.getByRole('option', { name: /^Data products ?\d+$/ })).toBeVisible();
+    await list.getByRole('option', { name: /^Data products with a store/ }).click();
+    await expect(search(page).getByLabel('Lens', { exact: true })).toHaveValue('mastered-data-products');
+    await expect(search(page).getByLabel('Search criteria')).toContainText('Linked to DataStore by HOLDS');
+    await nameBox(page).fill('client');
+    await nameBox(page).press('Escape');
+    await nameBox(page).press('Enter');
+    // This lens opens in the Flow layout.
+    await expect(result(page).getByRole('button', { name: 'Flow' })).toHaveAttribute('aria-pressed', 'true');
+    for (const label of await result(page).locator('.graph-canvas-node.root').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')!)))
+      expect(label).toMatch(/, DataProduct, Data, root$/);
+  });
+
+  test('quick filters narrow a lens and show as removable chips', async ({ page }) => {
+    await page.goto('/');
+    await openNav(page, 'Graph Studio');
+    await search(page).getByLabel('Lens', { exact: true }).selectOption({ label: 'Data products (DataProduct)' });
+    await nameBox(page).fill('live');
+    await search(page).getByRole('option', { name: 'Lifecycle LIVE' }).click();
+    await expect(search(page).getByRole('button', { name: 'Remove Lifecycle LIVE' })).toBeVisible();
+    await search(page).getByRole('button', { name: 'Search' }).click();
+    await expect(result(page).getByLabel('Result summary')).toBeVisible();
+    await expect(result(page).getByRole('navigation', { name: 'Focus path' })).toContainText('Data products · Lifecycle LIVE');
+  });
+
   test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {
     await page.goto('/');
     await openNav(page, 'Graph Studio');
-    await search(page).getByLabel('Name').fill('zz-no-such-node');
+    await nameBox(page).fill('zz-no-such-node');
+    await nameBox(page).press('Escape');
     await search(page).getByRole('button', { name: 'Search' }).click();
     await expect(result(page)).toContainText('No nodes match "zz-no-such-node".');
     await result(page).getByRole('button', { name: 'Clear the search' }).click();
     await expect(result(page)).toContainText('Find a node to start.');
-    await expect(search(page).getByLabel('Name')).toHaveValue('');
+    await expect(nameBox(page)).toHaveValue('');
   });
 });

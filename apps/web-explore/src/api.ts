@@ -3,6 +3,7 @@ import { d4, type Schemas, type ViewParams } from '@d4/web-platform';
 
 /** A Graph Studio search without the view, which comes from the page's view picker. */
 type StudioSearch = Omit<Schemas['StudioSearch'], 'asOf' | 'scenario'>;
+type StudioCountSearch = Schemas['StudioCounts']['searches'][number];
 
 const text = (v: string | undefined) => v || undefined;
 const view = (v: ViewParams) => ({ asOf: text(v.asOf), scenario: text(v.scenario) });
@@ -16,6 +17,9 @@ export const exploreApi = {
   /** Graph Studio: every element the search matches is a root, loaded with its neighbourhood. */
   studioSearch: (ws: string, search: StudioSearch, v: ViewParams = {}) =>
     d4().post('/v1/workspaces/{ws}/studio/search', { path: { ws }, body: { ...search, ...view(v) } }),
+  /** How many roots each search finds, for the lens list while no lens is chosen. */
+  studioCounts: (ws: string, searches: StudioCountSearch[], v: ViewParams = {}) =>
+    d4().post('/v1/workspaces/{ws}/studio/counts', { path: { ws }, body: { searches, cap: 1000, ...view(v) } }),
   matrix: (ws: string, kind: MatrixKind, v: ViewParams = {}) =>
     d4().get('/v1/workspaces/{ws}/matrix/{kind}', { path: { ws, kind }, query: view(v) }),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>

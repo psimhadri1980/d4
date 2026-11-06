@@ -508,6 +508,11 @@
 /* GraphSearch: Graph Studio's search panel. */
 .graph-search {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.graph-search-row {
+  display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
@@ -519,7 +524,89 @@
   min-width: 160px;
 }
 .graph-search-field.grow {
-  flex: 1 1 220px;
+  position: relative;
+  flex: 1 1 260px;
+}
+.graph-search-field select {
+  min-width: 220px;
+}
+.graph-search-list {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 360px;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--border-strong, #8d8d8d);
+  border-radius: 8px;
+  background: var(--layer-01, #ffffff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.graph-search-group {
+  padding: 6px 10px;
+  font-size: 11px;
+  letter-spacing: 0.48px;
+  text-transform: uppercase;
+  color: var(--text-secondary, #525252);
+  background: var(--layer-02, #f4f4f4);
+}
+.graph-search-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.graph-search-option.active,
+.graph-search-option:hover {
+  background: var(--layer-hover, #e8e8e8);
+}
+.graph-search-note {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+  font-variant-numeric: tabular-nums;
+}
+.graph-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.graph-search-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--border-strong, #8d8d8d);
+  border-radius: 14px;
+  background: var(--layer-02, #f4f4f4);
+}
+.graph-search-chips li.locked {
+  padding-right: 10px;
+}
+.graph-search-chips li .graph-search-note {
+  margin-left: 0;
+}
+.graph-search-chips button {
+  border: 0;
+  background: none;
+  color: var(--text-secondary, #525252);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 50%;
+  cursor: pointer;
 }
 .graph-search-field label {
   font-size: 12px;
