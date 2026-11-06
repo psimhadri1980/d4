@@ -18,8 +18,9 @@ interface Props {
 
 /**
  * The table view: the result as an indented tree (TV-1…TV-7). Only the rows in view are drawn
- * (TV-4), and keys follow the tree pattern: Up/Down move, Right expands, Left collapses, Enter
- * selects. The host owns the selection and the open rows.
+ * (TV-4); Expand all and Collapse all are in GraphCanvas's option bar. Keys follow the tree
+ * pattern: Up/Down move, Right expands, Left collapses, Enter selects. The host owns the
+ * selection and the open rows.
  */
 export function GraphCanvasTable({ nodes, edges, rootIds, selectedId, expandedIds, onSelect, onExpandedChange }: Props) {
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
@@ -89,14 +90,6 @@ export function GraphCanvasTable({ nodes, edges, rootIds, selectedId, expandedId
 
   return (
     <div className="graph-canvas-table">
-      <div className="graph-canvas-table-tools">
-        <button type="button" className="button ghost small" onClick={() => onExpandedChange?.(tree.allExpandable())}>
-          Expand all <span aria-hidden="true">+</span>
-        </button>
-        <button type="button" className="button ghost small" onClick={() => onExpandedChange?.([])}>
-          Collapse all <span aria-hidden="true">−</span>
-        </button>
-      </div>
       <div className="graph-canvas-table-scroll" ref={scroller} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
         <div role="tree" aria-label="Result as a tree" style={{ height: rows.length * ROW_H, position: 'relative' }}>
           {rows.slice(first, last).map((row, k) => {

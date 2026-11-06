@@ -121,9 +121,18 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  min-height: 320px;
-  background: var(--background, #f4f4f4);
+  min-height: 420px;
+  border: 1px solid var(--border-subtle, #e0e0e0);
+  background: var(--layer-01, #ffffff);
+  color: var(--text-primary, #161616);
   font-family: var(--font-sans, system-ui, sans-serif);
+}
+.graph-canvas-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--background, #f4f4f4);
 }
 .graph-canvas.fill {
   position: absolute;
@@ -211,13 +220,6 @@
   flex-direction: column;
   min-height: 0;
   background: var(--layer-01, #ffffff);
-}
-.graph-canvas-table-tools {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 8px;
-  border-bottom: 1px solid var(--border-subtle, #e0e0e0);
 }
 .graph-canvas-table-scroll {
   flex: 1;
@@ -357,4 +359,186 @@
 .graph-inspector-type {
   font-size: 12px;
   color: var(--text-secondary, #525252);
+}
+
+.graph-canvas-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  min-height: 24px;
+}
+.graph-canvas-top h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.graph-canvas-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-crumbs li + li::before {
+  content: '›';
+  padding: 0 6px;
+}
+.graph-canvas-caption {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-subtle, #e0e0e0);
+}
+.graph-canvas-tabs {
+  display: flex;
+}
+.graph-canvas-tabs button {
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-secondary, #525252);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.graph-canvas-tabs button.active {
+  border-bottom-color: var(--interactive, #0f62fe);
+  color: var(--text-primary, #161616);
+  font-weight: 600;
+}
+.graph-canvas-tabs button:focus-visible,
+.graph-canvas-seg:focus-visible {
+  outline: 2px solid var(--focus, #0f62fe);
+  outline-offset: -2px;
+}
+.graph-canvas-option {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.graph-canvas-option.end {
+  margin-left: auto;
+  gap: 8px;
+}
+.graph-canvas-option-label {
+  margin-right: 6px;
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-seg {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--border-subtle, #e0e0e0);
+  background: var(--field, #f4f4f4);
+  color: var(--text-primary, #161616);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.graph-canvas-seg:hover {
+  background: var(--layer-hover, #e8e8e8);
+}
+.graph-canvas-seg[aria-pressed='true'] {
+  background: var(--interactive, #0f62fe);
+  border-color: var(--interactive, #0f62fe);
+  color: var(--text-on-color, #ffffff);
+}
+.graph-canvas-seg.icon svg {
+  display: block;
+  margin: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+.graph-canvas-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--border-subtle, #e0e0e0);
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-summary,
+.graph-canvas-legend {
+  display: flex;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.graph-canvas-summary li {
+  padding: 1px 8px;
+  border: 1px solid var(--border-subtle, #e0e0e0);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.graph-canvas-legend {
+  margin-left: auto;
+}
+.graph-canvas-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.graph-canvas-legend line {
+  stroke: var(--text-secondary, #525252);
+  stroke-width: 1.25;
+}
+.graph-canvas-legend line.planned {
+  stroke-dasharray: 6 4;
+}
+
+/* GraphSearch: Graph Studio's search panel. */
+.graph-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.graph-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+.graph-search-field.grow {
+  flex: 1 1 220px;
+}
+.graph-search-field label {
+  font-size: 12px;
+  letter-spacing: 0.32px;
+  color: var(--text-secondary, #525252);
+}
+.graph-search-actions {
+  display: flex;
+  gap: 8px;
+}
+.graph-search-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--support-error, #da1e28);
+}
+.graph-inspector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }

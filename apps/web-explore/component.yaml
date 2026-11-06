@@ -17,4 +17,4 @@ runtimes:
     command: 'pnpm --filter @d4/web-explore exec vite build --watch --emptyOutDir false --logLevel warn & pnpm --filter @d4/web-explore exec vite preview --host 127.0.0.1 --port ${PORT_WEB_EXPLORE} --strictPort --base /mfe/explore/'
   podman: { via: ui-modules }
 test:
-  e2e: [tests/explorer.spec.ts, tests/catalog.spec.ts, tests/relationships.spec.ts, tests/viewer.spec.ts]
+  e2e: [tests/explorer.spec.ts, tests/graph-studio.spec.ts, tests/catalog.spec.ts, tests/relationships.spec.ts, tests/viewer.spec.ts]

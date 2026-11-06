@@ -4,7 +4,7 @@ Source: the *Graph Studio Requirements* design canvas (Draft 4), sections A to N
 and its prototype boards (Studio, GraphCanvas, GraphView, Lens smart bar, Lens editor). Requirement ids
 (FN-, GV-, TV-, DP-, CT-, FK-, DD-, GC-, LS-, LE-, ZM-, OV-, CG-) are quoted from there.
 
-Graph Studio is a new page in the **Explore** module (`apps/web-explore`), route `/w/:ws/studio`,
+Graph Studio is a new page in the **Explore** module (`apps/web-explore`), route `/w/:ws/graph-studio` (`/studio` belongs to Query Studio),
 nav item "Graph Studio". The existing Explorer stays until Graph Studio covers it; retiring it is a
 separate decision.
 
@@ -75,11 +75,15 @@ the option bar (GC-2). `GraphInspector` also lists attributes the metamodel does
 - `GraphInspector` (DP-1…DP-5): attributes from the metamodel, dashes for empty, direct relationships,
   link to the element editor.
 
-### Phase 3: Studio page, first usable slice
+### Phase 3: Studio page, first usable slice: done
+`apps/web-explore/src/GraphStudio.tsx` at `/w/:ws/graph-studio`, nav item "Graph Studio" (icon
+`affiliate`, added to the shell). The search endpoint gained `ids` for drill-downs. A node or
+relationship counts as planned when it starts after the viewed date, as in the Explorer. Reset
+layout and the Overview tab come with phases 4 and 7. Specs: `apps/e2e/tests/graph-studio.spec.ts`.
 - `GraphCanvas` bands (GC-1…GC-5): top bar with breadcrumb, option bar with Graph/Table tabs,
   Depth 1–6, Layout icons, Reset layout, Expand/Collapse; status bar with summary chips and legend.
 - `GraphSearch` with Layer, Type and Name (FN-2…FN-4, FB-1, FB-4).
-- Page `/w/:ws/studio`: empty state "Find a node to start" (FN-1), a plain type + name search on the
+- Page `/w/:ws/graph-studio`: empty state "Find a node to start" (FN-1), a plain type + name search on the
   phase 0 endpoint, every match a root (FN-5), empty/loading/error states (Q-1), tab switches keep
   state with no refetch (Q-2), tablet layout (Q-4).
 - Drill down and Focus path breadcrumb with per-step restore (DD-1…DD-3).

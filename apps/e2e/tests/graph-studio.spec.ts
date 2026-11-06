@@ -1,0 +1,90 @@
+import { expect, test, type Page } from '@playwright/test';
+import { openNav } from './helpers';
+
+const search = (page: Page) => page.getByRole('search', { name: 'Find nodes' });
+const result = (page: Page) => page.getByRole('region', { name: 'Result' });
+const card = (page: Page, name: string) => result(page).locator('.graph-canvas-node', { has: page.locator('title', { hasText: new RegExp(`^${name}$`) }) });
+
+async function findClientMaster(page: Page) {
+  await page.goto('/');
+  await openNav(page, 'Graph Studio');
+  await search(page).getByLabel('Type').selectOption('DataProduct');
+  await search(page).getByLabel('Name').fill('Client Master');
+  await search(page).getByLabel('Name').press('Enter');
+  await expect(card(page, 'Client Master')).toHaveAttribute('aria-label', 'Client Master, DataProduct, Data, root');
+}
+
+test.describe('graph studio', () => {
+  test('opens empty, then shows every match as a root with its neighbourhood', async ({ page }) => {
+    await page.goto('/');
+    await openNav(page, 'Graph Studio');
+    await expect(result(page)).toContainText('Find a node to start.');
+
+    // Picking a type sets its layer; nothing runs before Search.
+    await search(page).getByLabel('Type').selectOption('DataProduct');
+    await expect(search(page).getByLabel('Layer')).toHaveValue('Data');
+    await expect(result(page)).toContainText('Find a node to start.');
+
+    await search(page).getByLabel('Name').fill('Client Master');
+    await search(page).getByRole('button', { name: 'Search' }).click();
+    await expect(card(page, 'Client Master')).toBeVisible();
+    await expect(result(page).getByLabel('Result summary')).toContainText('1 root');
+    // Depth 2 by default; Depth 1 loads less.
+    const two = await result(page).locator('.graph-canvas-node').count();
+    await result(page).getByRole('button', { name: 'Depth 1' }).click();
+    await expect.poll(() => result(page).locator('.graph-canvas-node').count()).toBeLessThan(two);
+    await expect(result(page).locator('.graph-canvas-label').first()).toBeVisible();
+  });
+
+  test('graph and table share the selection; the inspector follows it', async ({ page }) => {
+    await findClientMaster(page);
+    await expect(page.getByRole('complementary', { name: 'Inspector' })).toContainText('Select a node to see its attributes');
+    await card(page, 'Client Master').click();
+    const inspector = page.getByRole('complementary', { name: 'Client Master' });
+    await expect(inspector).toContainText('DataProduct · Data');
+    await expect(inspector).toContainText('RESTRICTED');
+
+    await result(page).getByRole('tab', { name: 'Table' }).click();
+    const tree = result(page).getByRole('tree');
+    await expect(tree.getByRole('treeitem').first()).toContainText('Client Master');
+    await expect(tree.getByRole('treeitem').first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tree.getByRole('treeitem').first()).toHaveAttribute('aria-expanded', 'true');
+    await result(page).getByRole('button', { name: /Collapse all/ }).click();
+    await expect(tree.getByRole('treeitem')).toHaveCount(1);
+    // Keyboard: Right expands again.
+    await tree.getByRole('treeitem').first().press('ArrowRight');
+    await expect.poll(() => tree.getByRole('treeitem').count()).toBeGreaterThan(1);
+
+    await result(page).getByRole('tab', { name: 'Graph' }).click();
+    await expect(card(page, 'Client Master')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('drills down along a focus path and goes back to what was there', async ({ page }) => {
+    await findClientMaster(page);
+    await card(page, 'Client Master').click();
+    const neighbour = page.getByRole('complementary', { name: 'Client Master' }).getByRole('listitem').getByRole('button').first();
+    const name = (await neighbour.innerText()).trim();
+    await neighbour.click();
+    await page.getByRole('button', { name: 'Focus on this node' }).click();
+
+    const path = result(page).getByRole('navigation', { name: 'Focus path' });
+    await expect(path.locator('[aria-current="location"]')).toHaveText(name);
+    await expect(card(page, name)).toHaveAttribute('aria-label', new RegExp(', root$'));
+
+    await result(page).getByRole('button', { name: 'Back' }).click();
+    await expect(path.locator('[aria-current="location"]')).toHaveText('"Client Master" · DataProduct');
+    // The selection at that step is back.
+    await expect(card(page, name)).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {
+    await page.goto('/');
+    await openNav(page, 'Graph Studio');
+    await search(page).getByLabel('Name').fill('zz-no-such-node');
+    await search(page).getByRole('button', { name: 'Search' }).click();
+    await expect(result(page)).toContainText('No nodes match "zz-no-such-node".');
+    await result(page).getByRole('button', { name: 'Clear the search' }).click();
+    await expect(result(page)).toContainText('Find a node to start.');
+    await expect(search(page).getByLabel('Name')).toHaveValue('');
+  });
+});

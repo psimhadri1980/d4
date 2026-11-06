@@ -2,6 +2,7 @@ export * from './Gantt';
 export * from './CytoscapeGraph';
 export * from './GraphCanvas';
 export * from './GraphInspector';
+export * from './GraphSearch';
 export * from './ResultTable';
 export * from './AdminGate';
 export * from './AttributeField';
