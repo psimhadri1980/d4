@@ -50,7 +50,7 @@ export const ModelDocument = z
       .object({
         name: z.string(),
         description: z.string().optional(),
-        /** Metamodel the document was written against, e.g. `d4-starter@0.2.0`. */
+        /** Metamodel the document was written against, e.g. `d4-starter@0.3.0`. */
         metamodel: z.string().optional(),
         disclaimer: z.string().optional(),
         exportedAt: z.string().optional(),

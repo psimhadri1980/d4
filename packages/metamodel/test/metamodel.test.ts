@@ -46,6 +46,14 @@ describe('starter metamodel', () => {
     expect(issues).toHaveLength(2);
   });
 
+  it('gives each node type a lens role, inherited, defaulting to both', () => {
+    expect(reg.roleOf('Capability')).toBe('contour');
+    expect(reg.roleOf('KPI')).toBe('facet');
+    expect(reg.roleOf('Vision')).toBe('both');
+    const sub = new MetamodelRegistry({ ...reg.metamodel, nodeTypes: [...reg.metamodel.nodeTypes, { name: 'MobileApp', layer: 'Application', extends: 'Application', attributes: [], internal: false }] });
+    expect(sub.roleOf('MobileApp')).toBe('contour');
+  });
+
   it('accepts attributes the metamodel does not define, except reserved names and unstorable values', () => {
     expect(reg.validateNodeAttributes('DataProduct', { name: 'Customer', costCentre: 'CC-12', tags: ['a', 'b'], score: 3 })).toEqual([]);
     expect(reg.validateRelationship('OWNS', 'Division', 'DataProduct', { since: '2024' })).toEqual([]);
