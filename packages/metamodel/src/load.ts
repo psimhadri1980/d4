@@ -1,26 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { Metamodel, type AttributeDef } from './schema';
-
-/**
- * Property names the platform stores on every node and relationship. Metamodel attributes are
- * stored as sibling properties, so they must not reuse these.
- */
-export const RESERVED_ATTRIBUTE_NAMES = new Set([
-  'id',
-  'type',
-  'workspaceId',
-  'version',
-  'validFrom',
-  'validTo',
-  'scenarioId',
-  'deleted',
-  'createdAt',
-  'createdBy',
-  'updatedAt',
-  'updatedBy',
-]);
+import { Metamodel, RESERVED_ATTRIBUTE_NAMES, type AttributeDef } from './schema';
 
 export class MetamodelError extends Error {
   constructor(public readonly issues: string[]) {
