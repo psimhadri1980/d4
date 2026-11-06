@@ -4,7 +4,7 @@
  * A search always runs inside a lens, or across every type when the user is not sure yet (LS-3).
  */
 
-export type AttributeOp = 'eq' | 'in' | 'contains' | 'gte' | 'lte';
+export type AttributeOp = 'eq' | 'in' | 'contains' | 'starts' | 'gte' | 'lte';
 
 export interface LensAttributeFilter {
   attribute: string;
@@ -35,6 +35,12 @@ export interface Lens {
   depth: number;
   layout: 'hier' | 'flow' | 'layers' | 'radial' | 'force';
   view: 'graph' | 'table';
+  /** Keep the selected node centred (ZM-4). */
+  follow?: boolean;
+  /** Who sees it: only its owner, or everyone in the workspace. Built-in lenses have none. */
+  visibility?: 'private' | 'workspace';
+  /** The user id that saved it; absent for built-in lenses. */
+  owner?: string;
 }
 
 /** What the user adds on top of a lens: they narrow it, never widen it (LS-4). */
@@ -69,7 +75,7 @@ export function describeFilter(f: LensAttributeFilter): string {
   const label = camel(f.attribute);
   const name = label.charAt(0).toUpperCase() + label.slice(1);
   const v = Array.isArray(f.value) ? f.value.join(' or ') : String(f.value);
-  const op = { eq: '', in: '', contains: 'contains ', gte: 'at least ', lte: 'at most ' }[f.op];
+  const op = { eq: '', in: '', contains: 'contains ', starts: 'starts with ', gte: 'at least ', lte: 'at most ' }[f.op];
   return `${name} ${op}${v}`;
 }
 

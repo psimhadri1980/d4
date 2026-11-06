@@ -1,4 +1,4 @@
-import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioResultSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
+import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioResultSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
 import { json, errors, writeErrors, ws, id, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
@@ -87,6 +87,20 @@ export function registerModelRoutes(route: ApiRoute) {
     request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioCountsBody } } } },
     responses: { 200: json(StudioCountsSchema, 'One count per search, in order'), ...errors },
   });
+
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/studio/profile',
+    tags: ['Elements'],
+    description: 'For the lens editor: how many elements of a type there are, the types linked to them by relationship and direction (with counts), and the most common values of the asked attributes.',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioProfileBody } } } },
+    responses: { 200: json(StudioProfileSchema, 'The profile'), ...errors },
+  });
+  const lenses = '/v1/workspaces/{ws}/studio/lenses';
+  route({ method: 'get', path: lenses, tags: ['Elements'], summary: "Saved Graph Studio lenses: the caller's own and every workspace lens", request: { params: z.object({ ws }) }, responses: { 200: json(z.array(StudioLensSchema), 'Lenses by name'), ...errors } });
+  route({ method: 'post', path: lenses, tags: ['Elements'], summary: 'Save a lens', request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioLensBody } } } }, responses: { 201: json(StudioLensSchema, 'The saved lens'), ...errors } });
+  route({ method: 'put', path: `${lenses}/{id}`, tags: ['Elements'], summary: 'Change a lens (its owner only)', request: { params: z.object({ ws, id }), body: { content: { 'application/json': { schema: StudioLensBody } } } }, responses: { 200: json(StudioLensSchema, 'The changed lens'), ...errors } });
+  route({ method: 'delete', path: `${lenses}/{id}`, tags: ['Elements'], summary: 'Delete a lens (its owner only)', request: { params: z.object({ ws, id }) }, responses: { 204: { description: 'Deleted' }, ...errors } });
 
   // Roadmaps
   route({

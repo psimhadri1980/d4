@@ -255,10 +255,21 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
 
     // Counts for the lens list: roots only, capped.
     expect(await studio.countRoots(ws, [{ types: ['DataProduct'], name: 'studio' }, { name: 'studio', facets: [held] }, { name: 'no-such-studio' }], 2)).toEqual([
-      { count: 2, more: true },
-      { count: 2, more: false },
-      { count: 0, more: false },
+      { count: 2, more: true, sample: [] },
+      { count: 2, more: false, sample: [] },
+      { count: 0, more: false, sample: [] },
     ]);
+
+    expect((await studio.countRoots(ws, [{ types: ['DataProduct'], name: 'studio' }], 10, undefined, 2))[0]).toEqual({ count: 3, more: false, sample: ['Studio Loans', 'Studio Orphan'] });
+    expect(names((await studio.search(ws, { name: 'studio', attributes: [{ attribute: 'name', op: 'starts', value: 'studio l' }] })).roots)).toEqual(['Studio Ledger', 'Studio Lending', 'Studio Loans']);
+
+    // The lens editor's profile of a contour type: links by relationship and direction, and values.
+    const profile = await studio.profile(ws, 'DataProduct', ['studioTag']);
+    // Other tests in this workspace add data products too, so counts are at least these.
+    const link = (relationship: string, type: string) => profile.links.find((l) => l.relationship === relationship && l.direction === 'IN' && l.type === type)!;
+    expect(link('HOLDS', 'DataStore').count).toBeGreaterThanOrEqual(2);
+    expect(link('OWNS', 'Division').count).toBeGreaterThanOrEqual(1);
+    expect(profile.values['studioTag']).toEqual(expect.arrayContaining([{ value: 'cold', count: 2 }, { value: 'hot', count: 1 }]));
 
     // A drill-down: exactly the given roots.
     expect(names((await studio.search(ws, { ids: [store.id] }, { depth: 1 })).elements)).toEqual(['Studio Loans', 'Studio Rates']);

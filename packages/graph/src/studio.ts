@@ -18,7 +18,7 @@ export const STUDIO_MAX_ROOTS = 500;
 /** Relationship rows read per hop before the result counts as too large. */
 const MAX_ROWS_PER_HOP = 20_000;
 
-export type AttributeOp = 'eq' | 'in' | 'contains' | 'gte' | 'lte';
+export type AttributeOp = 'eq' | 'in' | 'contains' | 'starts' | 'gte' | 'lte';
 
 export interface AttributeFilter {
   attribute: string;
@@ -66,6 +66,13 @@ export interface StudioResult {
 
 const ATTRIBUTE_NAME = /^[a-z][A-Za-z0-9]*$/;
 
+export interface StudioProfile {
+  count: number;
+  links: { relationship: string; direction: 'OUT' | 'IN'; type: string; count: number }[];
+  /** Up to 13 values per attribute, most common first: 12 to offer as a pick-list, one to tell there are more. */
+  values: Record<string, { value: unknown; count: number }[]>;
+}
+
 export class StudioQueries {
   constructor(
     private readonly reg: MetamodelRegistry,
@@ -101,16 +108,50 @@ export class StudioQueries {
    * How many roots each search finds, counting at most `cap` (LS-5: the lens list's counts while
    * the user has not chosen a lens). Nothing is expanded, so this stays cheap.
    */
-  async countRoots(ws: string, searches: readonly RootSearch[], cap: number, view?: ModelView): Promise<{ count: number; more: boolean }[]> {
+  async countRoots(ws: string, searches: readonly RootSearch[], cap: number, view?: ModelView, sample = 0): Promise<{ count: number; more: boolean; sample: string[] }[]> {
     return Promise.all(
       searches.map(async (search) => {
         const { where, params } = this.rootWhere(ws, search, view);
         params['cap'] = cap + 1;
-        const rows = await this.read(`MATCH (n:Element) WHERE ${where} WITH n LIMIT toInteger($cap) RETURN count(n) AS c`, params);
+        params['sample'] = sample;
+        const rows = await this.read(
+          `MATCH (n:Element) WHERE ${where} WITH n ORDER BY toLower(coalesce(n.name, "")), n.id LIMIT toInteger($cap)
+           WITH collect(n) AS ns RETURN size(ns) AS c, [x IN ns[0..toInteger($sample)] | coalesce(x.name, x.id)] AS sample`,
+          params,
+        );
         const c = Number(rows[0]?.['c'] ?? 0);
-        return { count: Math.min(c, cap), more: c > cap };
+        return { count: Math.min(c, cap), more: c > cap, sample: (rows[0]?.['sample'] as string[] | undefined) ?? [] };
       }),
     );
+  }
+
+  /**
+   * What the lens editor offers for a contour type (LE-2, LE-3, LE-8): how many nodes of it there
+   * are, the types linked to them (by relationship and direction, counting distinct contour
+   * nodes), and for each asked attribute its most common values with their counts.
+   */
+  async profile(ws: string, type: string, attributes: readonly string[], view?: ModelView): Promise<StudioProfile> {
+    const params: Row = { ws, types: [this.knownType(type)], ...viewParams(view) };
+    const of = `MATCH (n:Element) WHERE n.workspaceId = $ws AND n.deleted = false AND any(l IN labels(n) WHERE l IN $types) AND ${inView('n')}`;
+    const [countRows, linkRows, ...valueRows] = await Promise.all([
+      this.read(`${of} RETURN count(n) AS c`, params),
+      this.read(
+        `${of}
+         MATCH (n)-[r]-(m:Element) WHERE r.deleted = false AND m.deleted = false AND ${inView('m')} AND ${relInView('r')}
+         RETURN type(r) AS rel, CASE WHEN startNode(r) = n THEN 'OUT' ELSE 'IN' END AS dir, m.type AS type, count(DISTINCT n) AS c
+         ORDER BY c DESC, type, rel LIMIT 60`,
+        params,
+      ),
+      ...attributes.map((a) => {
+        if (!ATTRIBUTE_NAME.test(a)) throw new RangeError(`Invalid attribute name '${a}'`);
+        return this.read(`${of} AND n[$k] IS NOT NULL RETURN n[$k] AS v, count(*) AS c ORDER BY c DESC LIMIT 13`, { ...params, k: a });
+      }),
+    ]);
+    return {
+      count: Number(countRows[0]?.['c'] ?? 0),
+      links: linkRows.map((r) => ({ relationship: r['rel'] as string, direction: r['dir'] as 'OUT' | 'IN', type: r['type'] as string, count: Number(r['c']) })),
+      values: Object.fromEntries(attributes.map((a, i) => [a, valueRows[i]!.map((r) => ({ value: r['v'] as unknown, count: Number(r['c']) }))])),
+    };
   }
 
   private rootWhere(ws: string, search: RootSearch, view?: ModelView): { where: string; params: Row } {
@@ -245,7 +286,7 @@ export function attributePredicates(x: string, prefix: string, filters: Attribut
     const k = `${prefix}${i}k`;
     const v = `${prefix}${i}v`;
     params[k] = f.attribute;
-    params[v] = f.op === 'contains' ? String(f.value).toLowerCase() : f.value;
+    params[v] = f.op === 'contains' || f.op === 'starts' ? String(f.value).toLowerCase() : f.value;
     switch (f.op) {
       case 'eq':
         return `${x}[$${k}] = $${v}`;
@@ -254,6 +295,8 @@ export function attributePredicates(x: string, prefix: string, filters: Attribut
         return `${x}[$${k}] IN $${v}`;
       case 'contains':
         return `toLower(toString(${x}[$${k}])) CONTAINS $${v}`;
+      case 'starts':
+        return `toLower(toString(${x}[$${k}])) STARTS WITH $${v}`;
       case 'gte':
         return `${x}[$${k}] >= $${v}`;
       case 'lte':
