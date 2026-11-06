@@ -145,6 +145,35 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
   });
 
+  it('filters by inclusion from the Show only panel, with a badge, chips and "x of y" in the summary', () => {
+    const changes: unknown[] = [];
+    const draw = (filter: { nodeTypes: string[]; relationshipTypes: string[] }) => (
+      <GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} filter={filter} onFilterChange={(f) => changes.push(f)} />
+    );
+    let root = render(draw({ nodeTypes: [], relationshipTypes: [] }));
+    const filterButton = () => host.querySelector('button[title="Filter"]') as HTMLButtonElement;
+    expect(filterButton().getAttribute('aria-label')).toBe('Filter');
+    click(filterButton());
+    const panel = host.querySelector('[role="dialog"][aria-label="Show only"]')!;
+    const box = (text: string) => [...panel.querySelectorAll('label')].find((l) => l.textContent!.startsWith(text))!.querySelector('input')!;
+    expect(box('All node types').checked).toBe(true);
+    expect(panel.textContent).toContain('Capability1');
+    expect(panel.textContent).toContain('RUNS ON1');
+    click(box('Capability'));
+    expect(changes).toEqual([{ nodeTypes: ['Capability'], relationshipTypes: [] }]);
+    act(() => root.unmount());
+
+    // Show only Capability: the Server goes, the root stays.
+    root = render(draw({ nodeTypes: ['Capability'], relationshipTypes: [] }));
+    expect(filterButton().getAttribute('aria-label')).toBe('Filter, 1 ticked');
+    expect([...host.querySelectorAll('[data-node-id]')].map((n) => n.getAttribute('data-node-id'))).toEqual(['r1', 'iv']);
+    expect([...host.querySelectorAll('.graph-canvas-summary li')].map((l) => l.textContent)).toEqual(['1 root', '2 of 3 nodes', '0 planned edges']);
+    expect(host.querySelector('.graph-canvas-chips')!.textContent).toContain('Showing only:Capability');
+    click(host.querySelector('button[aria-label="Remove Capability"]')!);
+    expect(changes.at(-1)).toEqual({ nodeTypes: [], relationshipTypes: [] });
+    act(() => root.unmount());
+  });
+
   it('colours nodes by layer token with a fallback for unknown layers', () => {
     const root = render(<GraphCanvas nodes={[{ ...nodes[0]!, layer: 'Moon' }]} edges={[]} rootIds={['r1']} layout="radial" />);
     expect((host.querySelector('.graph-canvas-swatch') as SVGElement).style.fill).toContain('--layer-moon');

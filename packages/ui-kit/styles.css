@@ -542,3 +542,114 @@
   align-items: center;
   gap: 12px;
 }
+.graph-canvas-filter {
+  position: relative;
+}
+.graph-canvas-seg.icon {
+  position: relative;
+}
+.graph-canvas-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: var(--interactive, #0f62fe);
+  color: var(--text-on-color, #ffffff);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+.graph-canvas-filter-panel {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 300px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border-strong, #8d8d8d);
+  border-radius: 8px;
+  background: var(--layer-01, #ffffff);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.graph-canvas-kinds {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.graph-canvas-kinds legend {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-kinds label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  cursor: pointer;
+}
+.graph-canvas-kind-count {
+  margin-left: auto;
+  color: var(--text-secondary, #525252);
+  font-variant-numeric: tabular-nums;
+}
+.graph-canvas-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.graph-canvas-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-subtle, #e0e0e0);
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-chips ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.graph-canvas-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--border-strong, #8d8d8d);
+  border-radius: 12px;
+  color: var(--text-primary, #161616);
+}
+.graph-canvas-chips li button {
+  border: 0;
+  background: none;
+  color: var(--text-secondary, #525252);
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.graph-canvas-chips li button:hover {
+  background: var(--layer-hover, #e8e8e8);
+}

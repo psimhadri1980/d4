@@ -77,6 +77,25 @@ test.describe('graph studio', () => {
     await expect(card(page, name)).toHaveAttribute('aria-pressed', 'true');
   });
 
+  test('Show only narrows both views to the ticked kinds, shown as chips', async ({ page }) => {
+    await findClientMaster(page);
+    const all = await result(page).locator('.graph-canvas-node').count();
+    await result(page).getByRole('button', { name: 'Filter' }).click();
+    const panel = result(page).getByRole('dialog', { name: 'Show only' });
+    await expect(panel.getByLabel('All node types')).toBeChecked();
+    await panel.getByRole('checkbox', { name: /^DataStore/ }).check();
+    await panel.getByRole('button', { name: 'Done' }).click();
+    await expect(result(page).getByRole('button', { name: 'Filter, 1 ticked' })).toBeVisible();
+    await expect(result(page).getByText('Showing only:')).toBeVisible();
+    await expect.poll(() => result(page).locator('.graph-canvas-node').count()).toBeLessThan(all);
+    for (const label of await result(page).locator('.graph-canvas-node').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')!)))
+      expect(label).toMatch(/, DataStore, |, root$/);
+    await expect(result(page).getByLabel('Result summary')).toContainText(` of ${all} nodes`);
+
+    await result(page).getByRole('button', { name: 'Remove DataStore' }).click();
+    await expect(result(page).locator('.graph-canvas-node')).toHaveCount(all);
+  });
+
   test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {
     await page.goto('/');
     await openNav(page, 'Graph Studio');
