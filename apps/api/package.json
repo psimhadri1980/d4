@@ -12,7 +12,7 @@
     "lint": "eslint src test"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "^7.1.1",
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
     "@d4/codecs": "workspace:*",
     "@d4/config": "workspace:*",
     "@d4/connectors": "workspace:*",
