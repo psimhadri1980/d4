@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { type Element, type Relationship, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import { exploreApi } from './api';
-import { ElementDetails, ElementList, ErrorBanner, ExportMenu, GraphCanvas, type GraphLayout, ViewBar, ViewNotice } from '@d4/ui-kit';
+import { ElementDetails, ElementList, ErrorBanner, ExportMenu, CytoscapeGraph, type GraphLayout, ViewBar, ViewNotice } from '@d4/ui-kit';
 
 /**
  * Three panes: find elements (left), see them in context (graph), inspect and change (right).
@@ -101,7 +101,7 @@ export function Explorer() {
         <ViewNotice workspaceId={ws!} />
         {hood.error && <ErrorBanner error={hood.error} />}
         {id ? (
-          <GraphCanvas
+          <CytoscapeGraph
             registry={registry.data}
             elements={view.elements}
             relationships={view.relationships}

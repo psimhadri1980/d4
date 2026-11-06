@@ -12,16 +12,23 @@ separate decision.
 
 | Piece | Home | Why |
 |---|---|---|
-| `GraphView`, `GraphCanvas` (result container), `Inspector` | `packages/ui-kit` | CT-1/CT-5: shared with Ingestion Studio; the host owns all state |
-| Layouts, elbow routing, semantic-zoom levels, tree flattening | new `packages/graph-layout` (pure TS, no DOM) | Unit-testable without a browser; the render package can reuse it |
+| `GraphCanvas`, `GraphSearch`, `GraphInspector` | `packages/ui-kit` | CT-1/CT-5: shared with Ingestion Studio; the host owns all state |
+| Layouts, elbow routing, semantic-zoom levels, tree flattening | `packages/render` (pure TS, no DOM; already a domain package modules may import) | Unit-testable without a browser; no new package or lockfile change |
 | Lens model, lens evaluation, attribute-filter kinds | new `packages/lens` (pure TS) | Same evaluation for preview and search (LE-8) |
 | Lens search, subgraph by roots | API `model` feature + `packages/graph` queries | FB-5: no raw Cypher; only `TenantGraphService` opens connections |
 | Node-type `role` | `packages/metamodel` schema + `starter.yaml` (version bump) | LS-1, CG-2, Q12 |
 | Saved lenses | Postgres (`packages/db` migration) | Session-only in the prototype (LS-7); persisted from phase 6 |
 | Studio page, search bar, lens editor | `apps/web-explore/src/studio/` | Module rules: imports only web-platform, ui-kit, sdk, domain packages |
 
-The existing `GraphCanvas.tsx` in ui-kit (Cytoscape) is used by Explorer. The new canvas is SVG
-(GV-5), so it ships under a new name (`StudioCanvas`/`GraphView`) and the old one is left alone.
+Three components, named after the prototype's panels:
+- **`GraphCanvas`**: the whole result. The prototype's GraphView (graph and table) is merged into it,
+  with the top bar, option bar, status bar and, later, the Overview. One contract: CT-2…CT-4 plus
+  GC-5's view, layout, depth, maxDepth, crumbs and caption.
+- **`GraphSearch`**: the search panel (Layer/Type/Name first, the lens smart bar from phase 5).
+- **`GraphInspector`**: the details panel beside both tabs (DP-1…DP-5).
+
+The Explorer's Cytoscape graph, which held the name `GraphCanvas`, is renamed `CytoscapeGraph`.
+It is deleted once Explorer moves to the new `GraphCanvas`.
 
 ## Phases
 
@@ -44,7 +51,7 @@ depth 6. Above the node limit the endpoint returns `tooLarge` and no nodes. The 
   filters, name text, depth). Zod schema, OpenAPI entry, typed client in `@d4/sdk`/web-platform.
 - Tests: `api:test`, `api:test integration` against Neo4j.
 
-### Phase 1: GraphView, graph tab (ui-kit + graph-layout)
+### Phase 1: GraphCanvas, graph view (ui-kit + render)
 - Contract per CT-2…CT-4: `nodes`, `edges`, `rootIds`, `selectedId`, `view`, `layout`, `expandedIds`,
   `fill`, `loading`, `maxNodes`; events `onSelect`, `onViewChange`, `onDrill`, `onExpandedChange`.
 - SVG cards (GV-2), solid/dashed directed edges with labels (GV-3, GV-3a), five layouts (FB-3):
@@ -52,15 +59,16 @@ depth 6. Above the node limit the endpoint returns `tooLarge` and no nodes. The 
 - Selection, double-click drill (GV-4, GV-5a), too-large state (GV-6), layer colours from tokens (CT-5).
 - Unit tests for every layout and the router (no overlaps, edges end on box edges: ZM-5).
 
-### Phase 2: Table tab and Inspector
+### Phase 2: GraphCanvas table view and GraphInspector
 - Indented tree (TV-1…TV-7): chevrons, expand/collapse all, repeats tagged, cycles stopped, virtual
   scrolling to 1,000 rows, tree keyboard pattern.
-- Inspector (DP-1…DP-5): attributes from the metamodel, dashes for empty, direct relationships,
+- `GraphInspector` (DP-1…DP-5): attributes from the metamodel, dashes for empty, direct relationships,
   link to the element editor.
 
 ### Phase 3: Studio page, first usable slice
-- `GraphCanvas` container (GC-1…GC-5): top bar with breadcrumb, option bar with Graph/Table tabs,
+- `GraphCanvas` bands (GC-1…GC-5): top bar with breadcrumb, option bar with Graph/Table tabs,
   Depth 1–6, Layout icons, Reset layout, Expand/Collapse; status bar with summary chips and legend.
+- `GraphSearch` with Layer, Type and Name (FN-2…FN-4, FB-1, FB-4).
 - Page `/w/:ws/studio`: empty state "Find a node to start" (FN-1), a plain type + name search on the
   phase 0 endpoint, every match a root (FN-5), empty/loading/error states (Q-1), tab switches keep
   state with no refetch (Q-2), tablet layout (Q-4).
@@ -78,7 +86,7 @@ depth 6. Above the node limit the endpoint returns `tooLarge` and no nodes. The 
 
 ### Phase 5: lens search
 - `packages/lens`: lens model (LS-2), evaluation, attribute-filter kinds from the metamodel (LE-8).
-- Smart bar (LS-3…LS-5, the chosen "Lens smart bar" board): lens picker, locked chips, quick filters,
+- `GraphSearch` becomes the smart bar (LS-3…LS-5, the chosen "Lens smart bar" board): lens picker, locked chips, quick filters,
   cross-lens counts only for "Not sure yet" (an API `lens-counts` call), Clear resets everything (LS-8).
 - Lens defaults for depth, layout, view (LS-6); predefined lenses for the starter data.
 
@@ -98,12 +106,12 @@ depth 6. Above the node limit the endpoint returns `tooLarge` and no nodes. The 
   register in `METAMODEL_PACKS`, add the sample and its lenses, run the metamodel tests.
 
 ### Later (not in this plan)
-- Ingestion Studio adopting GraphView: needs a wider `state` input first (CT-6).
+- Ingestion Studio adopting GraphCanvas: needs a wider `state` input first (CT-6).
 - Retiring the Cytoscape Explorer graph.
 
 ## Open points to settle before the phase that needs them
 1. Phase 0: does the API cap stay at 1,000 nodes for every role, or per tenant setting?
 2. Phase 1: is Cytoscape kept for the force layout's maths, or a small force simulation in
-   `graph-layout`? Plan assumes our own (no DOM dependency).
+   `@d4/render`? Plan assumes our own (no DOM dependency).
 3. Phase 6: lens visibility values (private, workspace, published?) and who may publish.
 4. Phase 8: where the credit-graph files are today.

@@ -1,5 +1,5 @@
 export * from './Gantt';
-export * from './GraphCanvas';
+export * from './CytoscapeGraph';
 export * from './ResultTable';
 export * from './AdminGate';
 export * from './AttributeField';
