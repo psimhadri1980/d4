@@ -72,6 +72,43 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
   });
 
+  it('shows the same result as a tree in the table view, expanded to level 1, with the same selection', () => {
+    const events: (string | null)[] = [];
+    const opened: string[][] = [];
+    const root = render(
+      <GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} view="table" selectedId="iv" onSelect={(id) => events.push(id)} onExpandedChange={(p) => opened.push(p)} />,
+    );
+    const rows = () => [...host.querySelectorAll('[role="treeitem"]')];
+    expect(host.querySelector('svg.graph-canvas-svg')).toBeNull();
+    expect(rows().map((r) => r.getAttribute('data-path'))).toEqual(['r1', 'r1/iv']);
+    expect(rows()[0]!.textContent).toContain('Root');
+    expect(rows()[0]!.textContent).toContain('1 dependent');
+    expect(rows()[0]!.getAttribute('aria-expanded')).toBe('true');
+    expect(rows()[1]!.getAttribute('aria-selected')).toBe('true');
+    expect(rows()[1]!.getAttribute('aria-level')).toBe('2');
+
+    click(rows()[0]!);
+    click(rows()[1]!.querySelector('.graph-canvas-chevron')!);
+    const press = (el: Element, key: string) => act(() => el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })));
+    press(rows()[0]!, 'ArrowLeft');
+    press(rows()[0]!, 'Enter');
+    click([...host.querySelectorAll('button')].find((b) => b.textContent!.startsWith('Expand all'))!);
+    click([...host.querySelectorAll('button')].find((b) => b.textContent!.startsWith('Collapse all'))!);
+    expect(events).toEqual(['r1', 'r1']);
+    expect(opened).toEqual([['r1', 'r1/iv'], [], ['r1', 'r1/iv'], []]);
+    act(() => root.unmount());
+  });
+
+  it('moves focus with the arrow keys and expands with Right', () => {
+    const opened: string[][] = [];
+    const root = render(<GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} view="table" expandedIds={[]} onExpandedChange={(p) => opened.push(p)} />);
+    const first = host.querySelector('[role="treeitem"]') as HTMLElement;
+    expect(first.tabIndex).toBe(0);
+    act(() => first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+    expect(opened).toEqual([['r1']]);
+    act(() => root.unmount());
+  });
+
   it('colours nodes by layer token with a fallback for unknown layers', () => {
     const root = render(<GraphCanvas nodes={[{ ...nodes[0]!, layer: 'Moon' }]} edges={[]} rootIds={['r1']} layout="radial" />);
     expect((host.querySelector('.graph-canvas-swatch') as SVGElement).style.fill).toContain('--layer-moon');

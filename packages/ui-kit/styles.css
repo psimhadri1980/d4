@@ -119,6 +119,8 @@
 .graph-canvas {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
   min-height: 320px;
   background: var(--background, #f4f4f4);
   font-family: var(--font-sans, system-ui, sans-serif);
@@ -202,4 +204,157 @@
 .graph-canvas-label {
   font-size: 11px;
   fill: var(--text-secondary, #525252);
+}
+.graph-canvas-table {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--layer-01, #ffffff);
+}
+.graph-canvas-table-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle, #e0e0e0);
+}
+.graph-canvas-table-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 240px;
+}
+.graph-canvas-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  border-bottom: 1px solid var(--border-subtle, #e0e0e0);
+  font-size: 14px;
+  color: var(--text-primary, #161616);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.graph-canvas-row:hover {
+  background: var(--layer-hover, #e8e8e8);
+}
+.graph-canvas-row.selected {
+  background: var(--layer-selected-subtle, rgba(15, 98, 254, 0.06));
+  box-shadow: inset 3px 0 0 var(--interactive, #0f62fe);
+}
+.graph-canvas-row:focus-visible {
+  outline: 2px solid var(--focus, #0f62fe);
+  outline-offset: -2px;
+}
+.graph-canvas-chevron {
+  flex: none;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+}
+.graph-canvas-chevron svg {
+  fill: none;
+  stroke: var(--text-secondary, #525252);
+  stroke-width: 1.5;
+  transition: transform 0.1s;
+}
+.graph-canvas-chevron.open svg {
+  transform: rotate(90deg);
+}
+.graph-canvas-chevron.none svg {
+  visibility: hidden;
+}
+.graph-canvas-row-name {
+  flex: 0 1 auto;
+  min-width: 6em;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.graph-canvas-tag {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.32px;
+  text-transform: uppercase;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong, #8d8d8d);
+  border-radius: 4px;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-row-meta {
+  flex: 0 10 auto;
+  min-width: 0;
+  color: var(--text-secondary, #525252);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.graph-canvas-row-count {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+  font-variant-numeric: tabular-nums;
+}
+
+/* GraphInspector: the details panel beside GraphCanvas. */
+.graph-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: var(--layer-01, #ffffff);
+  color: var(--text-primary, #161616);
+  overflow: auto;
+  font-size: 14px;
+}
+.graph-inspector-head h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+}
+.graph-inspector-head p {
+  margin: 0 0 8px;
+  color: var(--text-secondary, #525252);
+}
+.graph-inspector-attrs {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.graph-inspector-attrs dt {
+  font-size: 12px;
+  letter-spacing: 0.32px;
+  color: var(--text-secondary, #525252);
+}
+.graph-inspector-attrs dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.graph-inspector-extra,
+.graph-inspector-planned,
+.graph-inspector-empty {
+  color: var(--text-secondary, #525252);
+}
+.graph-inspector-links h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.graph-inspector-links ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.graph-inspector-type {
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
 }

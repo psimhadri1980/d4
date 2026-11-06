@@ -1,5 +1,6 @@
 import { useId, useMemo } from 'react';
 import { canvasGeometry, LAYER_COLORS, labelSize, truncate, type CanvasLayout, type Route } from '@d4/render';
+import { GraphCanvasTable } from './GraphCanvasTable';
 
 /** A node as Graph Studio and Ingestion Studio pass it (CT-2). */
 export interface GraphCanvasNode {
@@ -27,6 +28,10 @@ export interface GraphCanvasProps {
   rootIds: string[];
   /** The host owns the selection (CT-5): set it from `onSelect`. */
   selectedId?: string | null;
+  /** Graph or table; both show the same result and the same selection (GV-1). Default graph. */
+  view?: GraphCanvasView;
+  /** Open table rows as paths (r1/iv). Default: the roots, so the tree opens at level 1. */
+  expandedIds?: string[];
   layout?: CanvasLayout;
   /** Metamodel layer order, for the By layer layout. */
   layers?: readonly string[];
@@ -38,7 +43,11 @@ export interface GraphCanvasProps {
   onSelect?(id: string | null): void;
   /** Double-click on a node: drill down to it (GV-5a). */
   onDrill?(id: string): void;
+  /** A chevron, Expand all or Collapse all was used: the full new list of open rows. */
+  onExpandedChange?(paths: string[]): void;
 }
+
+export type GraphCanvasView = 'graph' | 'table';
 
 /**
  * Graph Studio's result canvas (graph view): node cards, labelled directed connectors, solid for
@@ -50,6 +59,8 @@ export function GraphCanvas({
   edges,
   rootIds,
   selectedId = null,
+  view = 'graph',
+  expandedIds,
   layout = 'hier',
   layers = [],
   fill = false,
@@ -57,13 +68,16 @@ export function GraphCanvas({
   maxNodes = 1000,
   onSelect,
   onDrill,
+  onExpandedChange,
 }: GraphCanvasProps) {
   const markerId = useId();
   const tooLarge = nodes.length > maxNodes;
+  const graphShown = view === 'graph' && !loading && !tooLarge;
   const keyed = useMemo(() => edges.map((e, i) => ({ ...e, id: e.id ?? `${e.from}|${e.type}|${e.to}|${i}` })), [edges]);
+  // Laid out only while the graph shows; switching views keeps everything else (Q-2).
   const geometry = useMemo(
     () =>
-      loading || tooLarge
+      !graphShown
         ? null
         : canvasGeometry(
             nodes.map((n) => ({ id: n.id, layer: n.layer })),
@@ -72,7 +86,7 @@ export function GraphCanvas({
             layout,
             layers,
           ),
-    [nodes, keyed, rootIds, layout, layers, loading, tooLarge],
+    [nodes, keyed, rootIds, layout, layers, graphShown],
   );
 
   const cls = `graph-canvas${fill ? ' fill' : ''}`;
@@ -95,10 +109,25 @@ export function GraphCanvas({
       </div>
     );
   }
-  if (!geometry || !nodes.length) {
+  if (!nodes.length) {
     return (
       <div className={cls}>
         <p className="graph-canvas-state">Nothing to show.</p>
+      </div>
+    );
+  }
+  if (view === 'table' || !geometry) {
+    return (
+      <div className={cls}>
+        <GraphCanvasTable
+          nodes={nodes}
+          edges={edges}
+          rootIds={rootIds}
+          selectedId={selectedId}
+          expandedIds={expandedIds ?? rootIds}
+          onSelect={onSelect}
+          onExpandedChange={onExpandedChange}
+        />
       </div>
     );
   }
