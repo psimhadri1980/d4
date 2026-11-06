@@ -14,7 +14,7 @@ export class StudioController {
     const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
     return studio.search(
       scope.workspaceId,
-      { types: b.types, name: b.name, attributes: b.attributes, facets: b.facets, match: b.match },
+      { ids: b.ids, types: b.types, name: b.name, attributes: b.attributes, facets: b.facets, match: b.match },
       { depth: b.depth, maxNodes: b.maxNodes, view },
     );
   }

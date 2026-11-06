@@ -99,7 +99,8 @@ const AttributeFilterBody = z
 export const StudioSearchBody = z
   .object({
     ...View,
-    types: z.array(z.string()).max(50).optional().openapi({ description: 'Contour node types; any type when absent' }),
+    ids: z.array(z.string()).min(1).max(500).optional().openapi({ description: 'Exactly these elements as roots (a drill-down)' }),
+    types: z.array(z.string()).max(200).optional().openapi({ description: 'Contour node types; any type when absent' }),
     name: z.string().max(200).optional().openapi({ description: 'Case-insensitive part of the name' }),
     attributes: z.array(AttributeFilterBody).max(20).optional(),
     facets: z
@@ -121,8 +122,8 @@ export const StudioSearchBody = z
     maxNodes: z.number().int().min(1).max(1000).default(1000),
   })
   .strict()
-  .refine((b) => b.types?.length || b.name?.trim() || b.attributes?.length || b.facets?.length, {
-    message: 'give at least one of types, name, attributes or facets',
+  .refine((b) => b.ids?.length || b.types?.length || b.name?.trim() || b.attributes?.length || b.facets?.length, {
+    message: 'give at least one of ids, types, name, attributes or facets',
   })
   .openapi('StudioSearch');
 

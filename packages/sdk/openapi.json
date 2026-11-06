@@ -544,12 +544,21 @@
             "type": "string",
             "description": "Scenario element id: the baseline plus this scenario"
           },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 500,
+            "description": "Exactly these elements as roots (a drill-down)"
+          },
           "types": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "maxItems": 50,
+            "maxItems": 200,
             "description": "Contour node types; any type when absent"
           },
           "name": {

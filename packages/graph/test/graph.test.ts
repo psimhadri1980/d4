@@ -253,6 +253,9 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
     });
     expect(names(ownedOrHot.roots)).toEqual(['Studio Loans', 'Studio Rates']);
 
+    // A drill-down: exactly the given roots.
+    expect(names((await studio.search(ws, { ids: [store.id] }, { depth: 1 })).elements)).toEqual(['Studio Loans', 'Studio Rates']);
+
     // Attributes the metamodel does not define can be filtered on too.
     const hot = await studio.search(ws, { name: 'studio', attributes: [{ attribute: 'studioTag', op: 'eq', value: 'hot' }] });
     expect(names(hot.roots)).toEqual(['Studio Rates']);
