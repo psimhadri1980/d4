@@ -653,3 +653,43 @@
 .graph-canvas-chips li button:hover {
   background: var(--layer-hover, #e8e8e8);
 }
+.graph-canvas-node.movable {
+  cursor: grab;
+}
+.graph-canvas-svg.dragging,
+.graph-canvas-svg.dragging .graph-canvas-node {
+  cursor: grabbing;
+  user-select: none;
+}
+.graph-canvas-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  pointer-events: stroke;
+}
+.graph-canvas-hit.ns {
+  cursor: ns-resize;
+}
+.graph-canvas-hit.ew {
+  cursor: ew-resize;
+}
+.graph-canvas-hit.move {
+  cursor: move;
+}
+.graph-canvas-label-box {
+  cursor: move;
+}
+.graph-canvas-edge.lit path:first-child {
+  stroke: var(--interactive, #0f62fe);
+  stroke-width: 2;
+}
+.graph-canvas-edge.lit .graph-canvas-label-bg {
+  stroke: var(--interactive, #0f62fe);
+}
+.graph-canvas-tie {
+  fill: none;
+  stroke: var(--interactive, #0f62fe);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  pointer-events: none;
+}

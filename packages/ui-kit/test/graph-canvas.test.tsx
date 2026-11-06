@@ -174,6 +174,60 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
   });
 
+  it('drags nodes, connectors and labels, reporting the adjustments once, on release', () => {
+    const changes: { nodes: Record<string, { x: number; y: number }>; bends: Record<string, number>; labels: Record<string, { x: number; y: number }> }[] = [];
+    const selected: (string | null)[] = [];
+    const root = render(<GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} onAdjustmentsChange={(a) => changes.push(a as never)} onSelect={(id) => selected.push(id)} />);
+    const pointer = (el: Element, type: string, x: number, y: number) => act(() => el.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 })));
+    const transform = () => node('iv').getAttribute('transform');
+    const before = transform();
+
+    pointer(node('iv'), 'pointerdown', 100, 100);
+    pointer(node('iv'), 'pointermove', 140, 130);
+    expect(transform()).not.toBe(before);
+    expect(changes).toEqual([]);
+    pointer(node('iv'), 'pointerup', 140, 130);
+    click(node('iv'));
+    expect(changes).toHaveLength(1);
+    expect(Object.keys(changes[0]!.nodes)).toEqual(['iv']);
+    // The click that ends a drag does not select.
+    expect(selected).toEqual([]);
+
+    const hit = host.querySelector('[data-edge-id] .graph-canvas-hit')!;
+    pointer(hit, 'pointerdown', 0, 0);
+    pointer(hit, 'pointermove', 0, 25);
+    pointer(hit, 'pointerup', 0, 25);
+    expect(Object.keys(changes[1]!.bends)).toHaveLength(1);
+
+    const label = host.querySelector('[data-edge-id] .graph-canvas-label-box')!;
+    pointer(label, 'pointerdown', 0, 0);
+    pointer(label, 'pointermove', 50, 0);
+    pointer(label, 'pointerup', 50, 0);
+    expect(Object.keys(changes[2]!.labels)).toHaveLength(1);
+    act(() => root.unmount());
+  });
+
+  it('moves a selected node with the arrow keys, resets a label on double-click, and Reset layout clears all', () => {
+    const changes: unknown[] = [];
+    const adjustments = { nodes: { iv: { x: 300, y: 300 } }, bends: { 'r1|ENABLED_BY|iv|0': 140 }, labels: { 'r1|ENABLED_BY|iv|0': { x: 10, y: 10 } } };
+    const root = render(<GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} adjustments={adjustments} onAdjustmentsChange={(a) => changes.push(a)} onLayoutChange={() => {}} />);
+    expect(node('iv').getAttribute('transform')).toBe('translate(210,272)');
+    act(() => node('iv').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+    expect(changes.at(-1)).toMatchObject({ nodes: { iv: { x: 310, y: 300 } } });
+
+    // Selecting a label highlights its connector and ties the label to it.
+    const label = host.querySelector('[data-edge-id="r1|ENABLED_BY|iv|0"] .graph-canvas-label-box')!;
+    click(label);
+    expect(host.querySelector('.graph-canvas-edge.lit')).not.toBeNull();
+    expect(host.querySelector('.graph-canvas-tie')).not.toBeNull();
+    click(label, 'dblclick');
+    expect(changes.at(-1)).toEqual({ nodes: adjustments.nodes, bends: {}, labels: {} });
+
+    click(host.querySelector('button[aria-label="Reset layout"]')!);
+    expect(changes.at(-1)).toEqual({ nodes: {}, bends: {}, labels: {} });
+    act(() => root.unmount());
+  });
+
   it('colours nodes by layer token with a fallback for unknown layers', () => {
     const root = render(<GraphCanvas nodes={[{ ...nodes[0]!, layer: 'Moon' }]} edges={[]} rootIds={['r1']} layout="radial" />);
     expect((host.querySelector('.graph-canvas-swatch') as SVGElement).style.fill).toContain('--layer-moon');

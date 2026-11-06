@@ -8,6 +8,7 @@ import {
   GraphInspector,
   GraphSearch,
   typesByLayer,
+  type CanvasAdjustments,
   type CanvasFilter,
   type CanvasLayout,
   type GraphCanvasEdge,
@@ -26,6 +27,8 @@ interface Step {
   selectedId: string | null;
   view: GraphCanvasView;
   expandedIds?: string[];
+  /** Nodes, connectors and labels moved by hand, per layout (GV-5, GV-5b). */
+  adjust?: Partial<Record<CanvasLayout, CanvasAdjustments>>;
 }
 
 const DEFAULT_DEPTH = 2;
@@ -133,6 +136,8 @@ export function GraphStudio() {
             onCrumb={(i) => setSteps((s) => s.slice(0, i + 1))}
             filter={filter}
             onFilterChange={setFilter}
+            adjustments={step?.adjust?.[layout]}
+            onAdjustmentsChange={(a) => step && patch({ adjust: { ...step.adjust, [layout]: a } })}
           />
         </div>
         <GraphInspector

@@ -96,6 +96,37 @@ test.describe('graph studio', () => {
     await expect(result(page).locator('.graph-canvas-node')).toHaveCount(all);
   });
 
+  test('nodes can be dragged and moved with the arrow keys; Reset layout puts them back', async ({ page }) => {
+    await findClientMaster(page);
+    const node = card(page, 'Client Master');
+    const reset = result(page).getByRole('button', { name: 'Reset layout' });
+    await expect(reset).toBeDisabled();
+    const before = await node.getAttribute('transform');
+    await node.scrollIntoViewIfNeeded();
+    const box = (await node.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 60, { steps: 5 });
+    await page.mouse.up();
+    await expect(node).not.toHaveAttribute('transform', before!);
+    // Dragging does not select.
+    await expect(node).toHaveAttribute('aria-pressed', 'false');
+    await expect(reset).toBeEnabled();
+
+    await node.focus();
+    const dragged = await node.getAttribute('transform');
+    await node.press('ArrowDown');
+    await expect(node).not.toHaveAttribute('transform', dragged!);
+
+    // Kept per layout: another layout starts clean, and coming back keeps the move.
+    await result(page).getByRole('button', { name: 'Radial' }).click();
+    await expect(reset).toBeDisabled();
+    await result(page).getByRole('button', { name: 'Hierarchical' }).click();
+    await expect(reset).toBeEnabled();
+    await reset.click();
+    await expect(node).toHaveAttribute('transform', before!);
+  });
+
   test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {
     await page.goto('/');
     await openNav(page, 'Graph Studio');

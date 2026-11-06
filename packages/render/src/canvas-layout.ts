@@ -33,14 +33,45 @@ export interface Route {
   id: string;
   /** From the `from` box edge to the `to` box edge; the arrow tip is the last point. */
   points: Point[];
+  /** Radial and Force: the quadratic curve's control point, once the connector is curved. */
+  control?: Point;
+  /** Elbow layouts: the coordinate of the bend line on `axis` (y for rows, x for columns). */
+  bend?: { axis: 'x' | 'y'; at: number };
+  /** Straight layouts: how far the connector's middle is pushed sideways. */
+  curve?: number;
   label: Point;
+  /** The point on the connector the label belongs to (GV-5b's dotted tie). */
+  anchor: Point;
 }
 
 export interface CanvasGeometry {
   boxes: Map<string, Box>;
   routes: Route[];
+  /** The drawing's extent: a node dragged past the top or left makes these negative. */
+  minX: number;
+  minY: number;
   width: number;
   height: number;
+}
+
+/**
+ * What the user changed by hand, in canvas coordinates (GV-5, GV-5b): node centres, a connector's
+ * bend line (elbow) or curve (straight), and label positions. Kept per layout by the host.
+ */
+export interface CanvasAdjustments {
+  nodes: Readonly<Record<string, Point>>;
+  bends: Readonly<Record<string, number>>;
+  labels: Readonly<Record<string, Point>>;
+}
+
+export const NO_ADJUSTMENTS: CanvasAdjustments = { nodes: {}, bends: {}, labels: {} };
+
+export interface GeometryOptions {
+  /** From `canvasPlacement`, so dragging does not lay everything out again. */
+  placement?: Map<string, Point>;
+  /** Box size per node (semantic zoom draws smaller boxes); default the card. */
+  size?: (id: string) => { w: number; h: number };
+  adjust?: CanvasAdjustments;
 }
 
 /** Node card size and the slot each card sits in (ZM-7). */
@@ -51,37 +82,63 @@ const MARGIN = 40;
 const CHAR_W = 6.2;
 const LABEL_H = 16;
 
-export function canvasGeometry(
+/** Node centres for a layout, with the top-left card at the margin. */
+export function canvasPlacement(
   nodes: LayoutNode[],
   edges: LayoutEdge[],
   rootIds: string[],
   layout: CanvasLayout,
   /** Metamodel layer order, for the By layer layout. */
   layers: readonly string[] = [],
-): CanvasGeometry {
+): Map<string, Point> {
   const ids = new Set(nodes.map((n) => n.id));
-  const valid = edges.filter((e) => ids.has(e.from) && ids.has(e.to) && e.from !== e.to);
-  const centres = place(nodes, valid, rootIds.filter((r) => ids.has(r)), layout, layers);
-
-  // Shift everything so the top-left box sits at MARGIN.
+  const centres = place(nodes, validEdges(edges, ids), rootIds.filter((r) => ids.has(r)), layout, layers);
   const xs = [...centres.values()].map((p) => p.x);
   const ys = [...centres.values()].map((p) => p.y);
   const dx = MARGIN + CARD.w / 2 - (xs.length ? Math.min(...xs) : 0);
   const dy = MARGIN + CARD.h / 2 - (ys.length ? Math.min(...ys) : 0);
-  const boxes = new Map<string, Box>();
-  for (const [id, p] of centres) boxes.set(id, { x: p.x + dx - CARD.w / 2, y: p.y + dy - CARD.h / 2, w: CARD.w, h: CARD.h });
-
-  const routes = elbowLayout(layout) ? elbowRoutes(boxes, valid, layout === 'flow' ? 'x' : 'y') : straightRoutes(boxes, valid);
-  nudgeLabels(routes, valid, boxes);
-
-  let width = 0;
-  let height = 0;
-  for (const b of boxes.values()) {
-    width = Math.max(width, b.x + b.w + MARGIN);
-    height = Math.max(height, b.y + b.h + MARGIN);
-  }
-  return { boxes, routes, width, height };
+  return new Map([...centres].map(([id, p]) => [id, { x: p.x + dx, y: p.y + dy }]));
 }
+
+export function canvasGeometry(
+  nodes: LayoutNode[],
+  edges: LayoutEdge[],
+  rootIds: string[],
+  layout: CanvasLayout,
+  layers: readonly string[] = [],
+  opts: GeometryOptions = {},
+): CanvasGeometry {
+  const ids = new Set(nodes.map((n) => n.id));
+  const valid = validEdges(edges, ids);
+  const placement = opts.placement ?? canvasPlacement(nodes, edges, rootIds, layout, layers);
+  const adjust = opts.adjust ?? NO_ADJUSTMENTS;
+  const boxes = new Map<string, Box>();
+  for (const n of nodes) {
+    const c = adjust.nodes[n.id] ?? placement.get(n.id) ?? { x: 0, y: 0 };
+    const { w, h } = opts.size?.(n.id) ?? CARD;
+    boxes.set(n.id, { x: c.x - w / 2, y: c.y - h / 2, w, h });
+  }
+
+  const routes = elbowLayout(layout) ? elbowRoutes(boxes, valid, layout === 'flow' ? 'x' : 'y', adjust.bends) : straightRoutes(boxes, valid, adjust.bends);
+  nudgeLabels(routes.filter((r) => !adjust.labels[r.id]), valid, boxes);
+  for (const r of routes) if (adjust.labels[r.id]) r.label = adjust.labels[r.id]!;
+
+  let minX = 0;
+  let minY = 0;
+  let maxX = 0;
+  let maxY = 0;
+  const grow = (x: number, y: number, w: number, h: number) => {
+    minX = Math.min(minX, x - MARGIN);
+    minY = Math.min(minY, y - MARGIN);
+    maxX = Math.max(maxX, x + w + MARGIN);
+    maxY = Math.max(maxY, y + h + MARGIN);
+  };
+  for (const b of boxes.values()) grow(b.x, b.y, b.w, b.h);
+  for (const r of routes) grow(r.label.x - 40, r.label.y - LABEL_H / 2, 80, LABEL_H);
+  return { boxes, routes, minX, minY, width: maxX - minX, height: maxY - minY };
+}
+
+const validEdges = (edges: LayoutEdge[], ids: Set<string>) => edges.filter((e) => ids.has(e.from) && ids.has(e.to) && e.from !== e.to);
 
 const elbowLayout = (l: CanvasLayout) => l === 'hier' || l === 'flow' || l === 'layers';
 
@@ -247,7 +304,7 @@ function force(nodes: LayoutNode[], edges: LayoutEdge[], start: Map<string, Poin
  * leaves and enters its box at a port of its own, spread along the facing side in the order of
  * the other ends, and connectors crossing the same gap get bend lines of their own (GV-3a).
  */
-function elbowRoutes(boxes: Map<string, Box>, edges: LayoutEdge[], axis: 'x' | 'y'): Route[] {
+function elbowRoutes(boxes: Map<string, Box>, edges: LayoutEdge[], axis: 'x' | 'y', moved: CanvasAdjustments['bends'] = {}): Route[] {
   const main = (b: Box) => (axis === 'y' ? b.y : b.x);
   const size = (b: Box) => (axis === 'y' ? b.h : b.w);
   const cross = (b: Box) => (axis === 'y' ? b.x + b.w / 2 : b.y + b.h / 2);
@@ -307,25 +364,39 @@ function elbowRoutes(boxes: Map<string, Box>, edges: LayoutEdge[], axis: 'x' | '
     const B = boxes.get(leg.b)!;
     const pa = ports.get(`${leg.e.id}|${leg.a}`)!;
     const pb = ports.get(`${leg.e.id}|${leg.b}`)!;
-    const m = bend.get(leg.e.id)!;
+    // A bend line the user dragged stays where they put it (GV-5b).
+    const m = moved[leg.e.id] ?? bend.get(leg.e.id)!;
     const points = [pt(main(A) + size(A), pa), pt(m, pa), pt(m, pb), pt(main(B) + (leg.same ? size(B) : 0), pb)];
     if (leg.a !== leg.e.from) points.reverse();
     const s1 = points[1]!;
     const s2 = points[2]!;
-    return { id: leg.e.id, points, label: { x: (s1.x + s2.x) / 2, y: (s1.y + s2.y) / 2 } };
+    const mid = { x: (s1.x + s2.x) / 2, y: (s1.y + s2.y) / 2 };
+    return { id: leg.e.id, points, bend: { axis, at: m }, label: { ...mid }, anchor: mid };
   });
 }
 
-/** Straight connectors from box edge to box edge, labelled at the middle (Radial, Force). */
-function straightRoutes(boxes: Map<string, Box>, edges: LayoutEdge[]): Route[] {
+/**
+ * Straight connectors from box edge to box edge, labelled at the middle (Radial, Force). A curved
+ * one (`curves`, the sideways push at its middle) is a quadratic curve that still ends on the
+ * box edges, aimed at its control point.
+ */
+function straightRoutes(boxes: Map<string, Box>, edges: LayoutEdge[], curves: CanvasAdjustments['bends'] = {}): Route[] {
   return edges.map((e) => {
     const a = boxes.get(e.from)!;
     const b = boxes.get(e.to)!;
     const ca = centre(a);
     const cb = centre(b);
-    const p = edgePoint(a, cb);
-    const q = edgePoint(b, ca);
-    return { id: e.id, points: [p, q], label: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } };
+    const curve = curves[e.id] ?? 0;
+    const len = Math.hypot(cb.x - ca.x, cb.y - ca.y) || 1;
+    const normal = { x: -(cb.y - ca.y) / len, y: (cb.x - ca.x) / len };
+    // The curve passes through mid + normal·curve when its control point is twice as far out.
+    const control = curve ? { x: (ca.x + cb.x) / 2 + normal.x * curve * 2, y: (ca.y + cb.y) / 2 + normal.y * curve * 2 } : undefined;
+    const p = edgePoint(a, control ?? cb);
+    const q = edgePoint(b, control ?? ca);
+    const mid = control
+      ? { x: 0.25 * p.x + 0.5 * control.x + 0.25 * q.x, y: 0.25 * p.y + 0.5 * control.y + 0.25 * q.y }
+      : { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+    return { id: e.id, points: [p, q], control, curve, label: { ...mid }, anchor: mid };
   });
 }
 
