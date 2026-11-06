@@ -20,7 +20,7 @@ export const relInView = (r: string) =>
   `${inView(r)} AND NOT ($scenario IS NOT NULL AND ${r}.scenarioId IS NULL AND EXISTS {
      MATCH (rs)-[o]->(re) WHERE rs = startNode(${r}) AND re = endNode(${r})
        AND type(o) = type(${r}) AND o.scenarioId = $scenario AND o.deleted = false })`;
-const viewParams = (v: ModelView = {}) => ({ asOf: v.asOf ?? null, scenario: v.scenarioId ?? null });
+export const viewParams = (v: ModelView = {}) => ({ asOf: v.asOf ?? null, scenario: v.scenarioId ?? null });
 
 export interface ElementFilter {
   /** Node types; supertypes match their subtypes (labels include ancestors). */

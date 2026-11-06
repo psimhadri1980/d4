@@ -267,6 +267,26 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(history.body![1].data.changes['attrs.lifecycle']).toEqual({ from: 'IDEA', to: 'PROPOSED' });
     });
 
+    it('searches Graph Studio roots and loads their neighbourhood', async () => {
+      const found = await call('POST', `${ws()}/studio/search`, token, {
+        types: ['DataProduct'],
+        name: 'custom',
+        facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }],
+        depth: 1,
+      });
+      expect(found.status).toBe(200);
+      expect(found.body!['roots'].map((e: any) => e.attrs.name)).toEqual(['Customer']);
+      expect(found.body!['elements'].map((e: any) => e.attrs.name).sort()).toEqual(['Lake', 'MDM Hub']);
+      expect(found.body).toMatchObject({ tooLarge: false, nodeCount: 3 });
+
+      const tooLarge = await call('POST', `${ws()}/studio/search`, token, { name: 'custom', depth: 1, maxNodes: 1 });
+      expect(tooLarge.body).toMatchObject({ tooLarge: true, elements: [] });
+
+      expect((await call('POST', `${ws()}/studio/search`, token, { depth: 2 })).status).toBe(400);
+      expect((await call('POST', `${ws()}/studio/search`, token, { types: ['Nope'] })).status).toBe(400);
+      expect((await call('POST', `${ws()}/studio/search`, token, { name: 'x', depth: 7 })).status).toBe(400);
+    });
+
     it('soft-deletes elements with their relationships', async () => {
       const store = await call('POST', `${ws()}/elements`, token, { type: 'DataStore', attrs: { name: 'Temp' } });
       const rel = await call('POST', `${ws()}/relationships`, token, {

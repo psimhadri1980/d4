@@ -4,7 +4,7 @@ import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { applyView, DomainError, ModelService, ulid, type CommandContext, type DomainEvent } from '@d4/core';
 import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { checkReadOnly } from '@d4/cypher';
-import { GraphQueries, luceneQuery, Neo4jModelRepository, neo4jExplainer, type EventSink, type SessionProvider } from '../src';
+import { attributePredicates, GraphQueries, luceneQuery, Neo4jModelRepository, neo4jExplainer, StudioQueries, type EventSink, type SessionProvider } from '../src';
 
 const URL = process.env.D4_TEST_NEO4J_URL;
 const PASSWORD = process.env.D4_TEST_NEO4J_PASSWORD ?? 'd4-local-dev';
@@ -15,6 +15,22 @@ describe('luceneQuery', () => {
     expect(luceneQuery('Customer  data')).toBe('+customer* +data*');
     expect(luceneQuery('a:b (c)')).toBe('+a\\:b* +\\(c\\)*');
     expect(luceneQuery('Early cut-over a/b')).toBe('+early* +cut* +over* +a* +b*');
+  });
+});
+
+describe('attributePredicates', () => {
+  it('passes attribute names and values as parameters', () => {
+    const params: Record<string, unknown> = {};
+    const preds = attributePredicates('n', 'a', [
+      { attribute: 'criticality', op: 'in', value: ['HIGH'] },
+      { attribute: 'name', op: 'contains', value: 'Pay' },
+    ], params);
+    expect(preds).toEqual(['n[$a0k] IN $a0v', 'toLower(toString(n[$a1k])) CONTAINS $a1v']);
+    expect(params).toEqual({ a0k: 'criticality', a0v: ['HIGH'], a1k: 'name', a1v: 'pay' });
+  });
+
+  it('rejects names that are not attribute names', () => {
+    expect(() => attributePredicates('n', 'a', [{ attribute: 'x] OR true //', op: 'eq', value: 1 }], {})).toThrow(RangeError);
   });
 });
 
@@ -193,6 +209,57 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
 
     const lonely = await svc.createElement(ctx, { type: 'Division', attrs: { name: 'Empty' } });
     expect(await q.neighbourhood(ctx.workspaceId, lonely.id)).toMatchObject({ elements: [], relationships: [] });
+  });
+
+  it('searches Studio roots by type, name, attributes and facets, and expands them both ways', async () => {
+    const studio = new StudioQueries(reg, sessions);
+    const ws = ctx.workspaceId;
+    const div = await svc.createElement(ctx, { type: 'Division', attrs: { name: 'Studio Lending' } });
+    const [dp1, dp2] = await Promise.all(
+      ['Studio Loans', 'Studio Rates', 'Studio Orphan'].map((name, i) =>
+        svc.createElement(ctx, { type: 'DataProduct', attrs: { name, studioTag: i === 1 ? 'hot' : 'cold' } }),
+      ),
+    );
+    const store = await svc.createElement(ctx, { type: 'DataStore', attrs: { name: 'Studio Ledger' } });
+    await svc.createRelationship(ctx, { type: 'OWNS', fromId: div.id, toId: dp1!.id });
+    await svc.createRelationship(ctx, { type: 'HOLDS', fromId: store.id, toId: dp1!.id, attrs: { role: 'MASTER' } });
+    await svc.createRelationship(ctx, { type: 'HOLDS', fromId: store.id, toId: dp2!.id, attrs: { role: 'MASTER' } });
+    const names = (es: { attrs: Record<string, unknown> }[]) => es.map((e) => e.attrs['name']).sort();
+
+    // Depth follows relationships in both directions: Division → Loans ← Ledger → Rates.
+    const three = await studio.search(ws, { types: ['Division'], name: 'studio' }, { depth: 3 });
+    expect(names(three.roots)).toEqual(['Studio Lending']);
+    expect(names(three.elements)).toEqual(['Studio Ledger', 'Studio Loans', 'Studio Rates']);
+    expect(three.relationships).toHaveLength(3);
+    expect(three).toMatchObject({ tooLarge: false, nodeCount: 4 });
+    expect(names((await studio.search(ws, { types: ['Division'], name: 'studio' }, { depth: 1 })).elements)).toEqual(['Studio Loans']);
+
+    // Every match is a root; links among last-hop nodes are included.
+    const products = await studio.search(ws, { types: ['DataProduct'], name: 'studio' }, { depth: 1 });
+    expect(names(products.roots)).toEqual(['Studio Loans', 'Studio Orphan', 'Studio Rates']);
+    expect(products.relationships).toHaveLength(3);
+
+    const held = { types: ['DataStore'], relationship: 'HOLDS', direction: 'IN', link: 'has' } as const;
+    expect(names((await studio.search(ws, { types: ['DataProduct'], name: 'studio', facets: [held] })).roots)).toEqual(['Studio Loans', 'Studio Rates']);
+    expect(names((await studio.search(ws, { types: ['DataProduct'], name: 'studio', facets: [{ ...held, link: 'none' }] })).roots)).toEqual(['Studio Orphan']);
+    const ownedOrHot = await studio.search(ws, {
+      types: ['DataProduct'],
+      name: 'studio',
+      match: 'any',
+      facets: [
+        { types: ['Division'], direction: 'BOTH', link: 'has' },
+        { types: ['DataStore'], direction: 'IN', link: 'has', attributes: [{ attribute: 'name', op: 'contains', value: 'ledger' }] },
+      ],
+    });
+    expect(names(ownedOrHot.roots)).toEqual(['Studio Loans', 'Studio Rates']);
+
+    // Attributes the metamodel does not define can be filtered on too.
+    const hot = await studio.search(ws, { name: 'studio', attributes: [{ attribute: 'studioTag', op: 'eq', value: 'hot' }] });
+    expect(names(hot.roots)).toEqual(['Studio Rates']);
+
+    // Past the node limit nothing is returned but the fact that it is too large.
+    const big = await studio.search(ws, { types: ['Division'], name: 'studio lending' }, { depth: 3, maxNodes: 2 });
+    expect(big).toMatchObject({ tooLarge: true, elements: [], relationships: [] });
   });
 
   it('filters reads by date and scenario, with scenario relationships replacing the baseline', async () => {

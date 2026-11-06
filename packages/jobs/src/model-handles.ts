@@ -1,6 +1,6 @@
 import { DomainError, ModelService } from '@d4/core';
 import { EventStore, WorkspaceLock, type Db } from '@d4/db';
-import { GraphQueries, Neo4jModelRepository, type EventSink, type SessionProvider } from '@d4/graph';
+import { GraphQueries, Neo4jModelRepository, StudioQueries, type EventSink, type SessionProvider } from '@d4/graph';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import type { GraphQuotaGuard } from '@d4/infra';
 
@@ -9,6 +9,8 @@ export interface ModelHandles {
   /** For whole-change-set writes (imports); single commands go through `service`. */
   repository: Neo4jModelRepository;
   queries: GraphQueries;
+  /** Graph Studio search: lens roots and their neighbourhood. */
+  studio: StudioQueries;
   events: EventStore;
 }
 
@@ -45,6 +47,7 @@ export function modelHandles(db: Db, registry: MetamodelRegistry, sessions: Sess
     service: new ModelService(registry, repository),
     repository,
     queries: new GraphQueries(registry, sessions),
+    studio: new StudioQueries(registry, sessions),
     events: new EventStore(db),
   };
 }

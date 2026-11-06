@@ -1,4 +1,4 @@
-import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
+import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioResultSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
 import { json, errors, writeErrors, ws, id, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
@@ -66,6 +66,17 @@ export function registerModelRoutes(route: ApiRoute) {
     tags: ['Elements'],
     request: { params: z.object({ ws, id }) },
     responses: { 200: json(z.array(EventSchema), 'Change events, oldest first'), ...errors },
+  });
+
+  // Graph Studio
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/studio/search',
+    tags: ['Elements'],
+    description:
+      'Graph Studio search: every element matching the contour types, name, attribute and facet filters is a root, and everything within `depth` hops of the roots (both directions) is loaded. Above `maxNodes` nothing past the roots is returned and `tooLarge` is set.',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioSearchBody } } } },
+    responses: { 200: json(StudioResultSchema, 'Roots and their neighbourhood'), ...errors },
   });
 
   // Roadmaps
