@@ -1,3 +1,4 @@
+export * from './canvas-layout';
 export * from './gantt-geometry';
 export * from './graph';
 export * from './page';
