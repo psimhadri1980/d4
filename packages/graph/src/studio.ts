@@ -87,7 +87,34 @@ export class StudioQueries {
 
   /** At most `limit` roots; `tooMany` when there are more. */
   async findRoots(ws: string, search: RootSearch, limit: number, view?: ModelView): Promise<{ roots: Element[]; tooMany: boolean }> {
-    const params: Row = { ws, limit: limit + 1, ...viewParams(view) };
+    const { where, params } = this.rootWhere(ws, search, view);
+    params['limit'] = limit + 1;
+    const rows = await this.read(
+      `MATCH (n:Element) WHERE ${where}
+       RETURN properties(n) AS p ORDER BY toLower(coalesce(n.name, "")), n.id LIMIT toInteger($limit)`,
+      params,
+    );
+    return { roots: rows.slice(0, limit).map((r) => propsToElement(r['p'] as Row)), tooMany: rows.length > limit };
+  }
+
+  /**
+   * How many roots each search finds, counting at most `cap` (LS-5: the lens list's counts while
+   * the user has not chosen a lens). Nothing is expanded, so this stays cheap.
+   */
+  async countRoots(ws: string, searches: readonly RootSearch[], cap: number, view?: ModelView): Promise<{ count: number; more: boolean }[]> {
+    return Promise.all(
+      searches.map(async (search) => {
+        const { where, params } = this.rootWhere(ws, search, view);
+        params['cap'] = cap + 1;
+        const rows = await this.read(`MATCH (n:Element) WHERE ${where} WITH n LIMIT toInteger($cap) RETURN count(n) AS c`, params);
+        const c = Number(rows[0]?.['c'] ?? 0);
+        return { count: Math.min(c, cap), more: c > cap };
+      }),
+    );
+  }
+
+  private rootWhere(ws: string, search: RootSearch, view?: ModelView): { where: string; params: Row } {
+    const params: Row = { ws, ...viewParams(view) };
     const where = ['n.workspaceId = $ws', 'n.deleted = false', inView('n')];
     if (search.ids?.length) {
       params['ids'] = [...search.ids];
@@ -104,13 +131,7 @@ export class StudioQueries {
     where.push(...attributePredicates('n', 'a', search.attributes ?? [], params));
     const facets = (search.facets ?? []).map((f, i) => this.facetPredicate(f, `f${i}`, params));
     if (facets.length) where.push(`(${facets.join(search.match === 'any' ? ' OR ' : ' AND ')})`);
-
-    const rows = await this.read(
-      `MATCH (n:Element) WHERE ${where.join(' AND ')}
-       RETURN properties(n) AS p ORDER BY toLower(coalesce(n.name, "")), n.id LIMIT toInteger($limit)`,
-      params,
-    );
-    return { roots: rows.slice(0, limit).map((r) => propsToElement(r['p'] as Row)), tooMany: rows.length > limit };
+    return { where: where.join(' AND '), params };
   }
 
   /**

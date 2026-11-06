@@ -867,6 +867,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{ws}/studio/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description How many roots each search finds (counting stops at `cap`), without loading their neighbourhood: the lens list for a user who has not chosen a lens. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioCounts"];
+                };
+            };
+            responses: {
+                /** @description One count per search, in order */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioCountsResult"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{ws}/roadmap": {
         parameters: {
             query?: never;
@@ -7921,6 +7999,52 @@ export interface components {
             depth: number;
             /** @default 1000 */
             maxNodes: number;
+        };
+        StudioCountsResult: {
+            counts: {
+                count: number;
+                more: boolean;
+            }[];
+        };
+        StudioCounts: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            /** @description One per lens; each is counted on its own */
+            searches: {
+                types?: string[];
+                name?: string;
+                attributes?: components["schemas"]["AttributeFilter"][];
+                facets?: {
+                    types: string[];
+                    relationship?: string;
+                    /**
+                     * @default BOTH
+                     * @enum {string}
+                     */
+                    direction: "OUT" | "IN" | "BOTH";
+                    /**
+                     * @default has
+                     * @enum {string}
+                     */
+                    link: "has" | "none";
+                    attributes?: components["schemas"]["AttributeFilter"][];
+                }[];
+                /**
+                 * @default all
+                 * @enum {string}
+                 */
+                match: "all" | "any";
+            }[];
+            /**
+             * @description Counting stops here; `more` says there are more
+             * @default 1000
+             */
+            cap: number;
         };
         Roadmap: {
             order: string[];

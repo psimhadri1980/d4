@@ -1,4 +1,4 @@
-import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioResultSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
+import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioResultSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
 import { json, errors, writeErrors, ws, id, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
@@ -77,6 +77,15 @@ export function registerModelRoutes(route: ApiRoute) {
       'Graph Studio search: every element matching the contour types, name, attribute and facet filters is a root, and everything within `depth` hops of the roots (both directions) is loaded. Above `maxNodes` nothing past the roots is returned and `tooLarge` is set.',
     request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioSearchBody } } } },
     responses: { 200: json(StudioResultSchema, 'Roots and their neighbourhood'), ...errors },
+  });
+
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/studio/counts',
+    tags: ['Elements'],
+    description: 'How many roots each search finds (counting stops at `cap`), without loading their neighbourhood: the lens list for a user who has not chosen a lens.',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioCountsBody } } } },
+    responses: { 200: json(StudioCountsSchema, 'One count per search, in order'), ...errors },
   });
 
   // Roadmaps
