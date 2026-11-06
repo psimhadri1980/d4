@@ -1,3 +1,4 @@
+export * from './canvas-filter';
 export * from './canvas-layout';
 export * from './canvas-tree';
 export * from './gantt-geometry';

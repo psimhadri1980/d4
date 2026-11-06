@@ -1,5 +1,6 @@
 import { useId, useMemo, type ReactNode } from 'react';
-import { CanvasTree, canvasGeometry, LAYER_COLORS, labelSize, truncate, type CanvasLayout, type Route } from '@d4/render';
+import { applyCanvasFilter, CanvasTree, canvasGeometry, filterActive, kindCounts, LAYER_COLORS, labelSize, NO_FILTER, truncate, type CanvasFilter, type CanvasLayout, type Route } from '@d4/render';
+import { GraphCanvasFilterButton, GraphCanvasFilterChips } from './GraphCanvasFilter';
 import { GraphCanvasTable } from './GraphCanvasTable';
 
 /** A node as Graph Studio and Ingestion Studio pass it (CT-2). */
@@ -59,10 +60,14 @@ export interface GraphCanvasProps {
   onDepthChange?(depth: number): void;
   /** An earlier breadcrumb step was chosen, or Back (the step before the last). */
   onCrumb?(index: number): void;
+  /** "Show only": ticked node and relationship types; empty lists show everything (FK-1). */
+  filter?: CanvasFilter;
+  /** The Filter button shows only with this. */
+  onFilterChange?(filter: CanvasFilter): void;
 }
 
 export type GraphCanvasView = 'graph' | 'table';
-export type { CanvasLayout };
+export type { CanvasFilter, CanvasLayout };
 
 const LAYOUTS: { id: CanvasLayout; label: string; icon: string }[] = [
   { id: 'hier', label: 'Hierarchical', icon: 'M8 2v4M8 6L3 10M8 6l5 4M1 10h4v4H1zM11 10h4v4h-4z' },
@@ -96,14 +101,20 @@ export function GraphCanvas(props: GraphCanvasProps) {
     onDepthChange,
     onCrumb,
     onExpandedChange,
+    filter = NO_FILTER,
+    onFilterChange,
   } = props;
   const tabsId = useId();
+  const counts = useMemo(() => kindCounts(nodes, edges), [nodes, edges]);
+  // Both views, and the summary, show the filtered result (FK-2).
+  const shown = useMemo(() => applyCanvasFilter(nodes, edges, rootIds, filter), [nodes, edges, rootIds, filter]);
   const tree = useMemo(
-    () => (view === 'table' ? new CanvasTree({ nodeIds: nodes.map((n) => n.id), edges, rootIds }) : null),
-    [view, nodes, edges, rootIds],
+    () => (view === 'table' ? new CanvasTree({ nodeIds: shown.nodes.map((n) => n.id), edges: shown.edges, rootIds }) : null),
+    [view, shown, rootIds],
   );
   const hasResult = !loading && nodes.length > 0;
-  const planned = edges.filter((e) => e.planned).length;
+  const planned = shown.edges.filter((e) => e.planned).length;
+  const filtered = filterActive(filter);
 
   return (
     <section className={`graph-canvas${fill ? ' fill' : ''}`} aria-labelledby={`${tabsId}-title`}>
@@ -169,7 +180,7 @@ export function GraphCanvas(props: GraphCanvasProps) {
           </div>
         )}
         {view === 'table' && tree && (
-          <div className="graph-canvas-option end">
+          <div className="graph-canvas-option">
             <button type="button" className="button ghost small" disabled={!hasResult} onClick={() => onExpandedChange?.(tree.allExpandable())}>
               Expand all <span aria-hidden="true">+</span>
             </button>
@@ -178,9 +189,15 @@ export function GraphCanvas(props: GraphCanvasProps) {
             </button>
           </div>
         )}
+        {onFilterChange && hasResult && (
+          <div className="graph-canvas-option end">
+            <GraphCanvasFilterButton filter={filter} counts={counts} onChange={onFilterChange} />
+          </div>
+        )}
       </div>
+      {onFilterChange && <GraphCanvasFilterChips filter={filter} onChange={onFilterChange} />}
 
-      <CanvasBody {...props} />
+      <CanvasBody {...props} nodes={shown.nodes} edges={shown.edges} />
 
       <footer className="graph-canvas-status">
         {hasResult && (
@@ -189,7 +206,7 @@ export function GraphCanvas(props: GraphCanvasProps) {
               {rootIds.length} {rootIds.length === 1 ? 'root' : 'roots'}
             </li>
             <li>
-              {nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
+              {filtered ? `${shown.nodes.length} of ${nodes.length}` : nodes.length} {nodes.length === 1 ? 'node' : 'nodes'}
             </li>
             <li>{planned} planned {planned === 1 ? 'edge' : 'edges'}</li>
           </ul>

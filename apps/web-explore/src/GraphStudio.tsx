@@ -8,6 +8,7 @@ import {
   GraphInspector,
   GraphSearch,
   typesByLayer,
+  type CanvasFilter,
   type CanvasLayout,
   type GraphCanvasEdge,
   type GraphCanvasNode,
@@ -46,6 +47,8 @@ export function GraphStudio() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [depth, setDepth] = useState(DEFAULT_DEPTH);
   const [layout, setLayout] = useState<CanvasLayout>('hier');
+  // Filters stay as they are across focus steps (DD-3).
+  const [filter, setFilter] = useState<CanvasFilter>({ nodeTypes: [], relationshipTypes: [] });
   const step = steps.at(-1);
   const patch = (p: Partial<Step>) => setSteps((s) => [...s.slice(0, -1), { ...s.at(-1)!, ...p }]);
 
@@ -75,6 +78,7 @@ export function GraphStudio() {
   const clear = () => {
     setSearch(null);
     setSteps([]);
+    setFilter({ nodeTypes: [], relationshipTypes: [] });
   };
   const drill = (id: string) => {
     const name = graph?.byId.get(id)?.name ?? id;
@@ -127,6 +131,8 @@ export function GraphStudio() {
             onDepthChange={setDepth}
             onDrill={drill}
             onCrumb={(i) => setSteps((s) => s.slice(0, i + 1))}
+            filter={filter}
+            onFilterChange={setFilter}
           />
         </div>
         <GraphInspector
