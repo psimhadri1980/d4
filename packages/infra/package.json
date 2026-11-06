@@ -21,7 +21,7 @@
     "@d4/db": "workspace:*",
     "@d4/graph": "workspace:*",
     "@d4/metamodel": "workspace:*",
-    "bullmq": "^5.13.2",
+    "bullmq": "^6.5.4",
     "neo4j-driver": "catalog:",
     "nodemailer": "catalog:"
   },
