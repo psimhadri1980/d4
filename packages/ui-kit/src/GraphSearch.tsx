@@ -24,6 +24,12 @@ export interface GraphSearchProps {
   /** Root counts per lens id, shown only while no lens is chosen. */
   lensCounts?: ReadonlyMap<string, { count: number; more: boolean }>;
   busy?: boolean;
+  /** Edit the chosen lens (LE-1); the button shows with this. */
+  onEditLens?(lensId: string): void;
+  /** "＋ New lens…" (LE-1). */
+  onNewLens?(): void;
+  /** "Save as lens" after a search (LS-7); shows with this. */
+  onSaveAsLens?(): void;
 }
 
 type Option = { id: string; group: 'lens' | 'filter' | 'name'; text: string; note?: string; pick(): void };
@@ -37,7 +43,7 @@ const MAX_FILTERS = 8;
  * that narrow it. With "Not sure yet", the list shows the lenses that fit the text, with their
  * counts, and choosing one moves into that lens. Nothing runs until Search (or Enter).
  */
-export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSearch, onClear, onUndecidedText, lensCounts, busy = false }: GraphSearchProps) {
+export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSearch, onClear, onUndecidedText, lensCounts, busy = false, onEditLens, onNewLens, onSaveAsLens }: GraphSearchProps) {
   const id = useId();
   const [draft, setDraft] = useState(value);
   const [open, setOpen] = useState(false);
@@ -144,6 +150,20 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
             ))}
           </select>
         </div>
+        {(onEditLens || onNewLens) && (
+          <div className="graph-search-lens-actions">
+            {onEditLens && lens && (
+              <button type="button" className="button ghost" aria-label={`Edit the lens ${lens.name}`} onClick={() => onEditLens(lens.id)}>
+                Edit
+              </button>
+            )}
+            {onNewLens && (
+              <button type="button" className="button ghost" onClick={onNewLens}>
+                ＋ New lens…
+              </button>
+            )}
+          </div>
+        )}
         <div className="graph-search-field grow" ref={box}>
           <label htmlFor={`${id}-q`}>{lens ? `Name or filter in ${lens.name}` : 'Lens, filter or name'}</label>
           <input
@@ -195,6 +215,11 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
           <button type="submit" className="button" disabled={busy}>
             Search
           </button>
+          {onSaveAsLens && (
+            <button type="button" className="button ghost" onClick={onSaveAsLens}>
+              Save as lens
+            </button>
+          )}
           {onClear && (
             <button
               type="button"

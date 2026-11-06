@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openNav } from './helpers';
+import { openNav, RUN } from './helpers';
 
 const search = (page: Page) => page.getByRole('search', { name: 'Find nodes' });
 const result = (page: Page) => page.getByRole('region', { name: 'Result' });
@@ -197,6 +197,60 @@ test.describe('graph studio', () => {
     await search(page).getByRole('button', { name: 'Search' }).click();
     await expect(result(page).getByLabel('Result summary')).toBeVisible();
     await expect(result(page).getByRole('navigation', { name: 'Focus path' })).toContainText('Data products · Lifecycle LIVE');
+  });
+
+  test('a new lens is built in the editor from what the data links, saved, used, edited and deleted', async ({ page }) => {
+    await page.goto('/');
+    await openNav(page, 'Graph Studio');
+    await search(page).getByRole('button', { name: '＋ New lens…' }).click();
+    const editor = page.getByRole('dialog', { name: 'New lens' });
+    await expect(editor.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    await editor.getByRole('button', { name: /Choose a node type/ }).click();
+    await editor.getByRole('searchbox', { name: 'Find a node type', exact: true }).fill('DataProduct');
+    await editor.getByRole('dialog', { name: 'Contour type' }).getByRole('button', { name: 'DataProduct', exact: true }).click();
+    await expect(editor).toContainText('nodes of this type in the data.');
+    // Facets the data actually links, with counts.
+    await editor.getByRole('list', { name: 'Facet suggestions' }).getByRole('button', { name: /HOLDS DataStore/ }).click();
+    await expect(editor.locator('.lens-facet summary')).toHaveText('Linked to DataStore by HOLDS');
+    const preview = editor.getByRole('complementary', { name: 'Preview' });
+    await expect(preview).toContainText('roots');
+    await expect(preview.locator('.lens-sample li').first()).toBeVisible();
+
+    const name = `Held products ${RUN}`;
+    await editor.getByLabel('Name', { exact: true }).fill(name);
+    await editor.getByLabel('Layout').selectOption('flow');
+    await editor.getByRole('button', { name: 'Save' }).click();
+
+    // Back in the Studio with the lens selected and its result, in its layout.
+    await expect(search(page).getByLabel('Lens', { exact: true }).locator('option:checked')).toHaveText(new RegExp(`^${name}`));
+    await expect(result(page).getByRole('button', { name: 'Flow' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(result(page).locator('.graph-canvas-node.root').first()).toBeVisible();
+
+    // It lasts beyond the session.
+    await page.reload();
+    await search(page).getByLabel('Lens', { exact: true }).selectOption({ label: `${name} (DataProduct · 1 facet)` });
+    await search(page).getByRole('button', { name: `Edit the lens ${name}` }).click();
+    const edit = page.getByRole('dialog', { name: `Edit lens: ${name}` });
+    await edit.getByLabel('Depth').selectOption('1');
+    await edit.getByRole('button', { name: 'Save' }).click();
+    await expect(result(page).getByRole('button', { name: 'Depth 1' })).toHaveAttribute('aria-pressed', 'true');
+
+    await search(page).getByRole('button', { name: `Edit the lens ${name}` }).click();
+    page.once('dialog', (d) => void d.accept());
+    await page.getByRole('dialog', { name: `Edit lens: ${name}` }).getByRole('button', { name: 'Delete lens' }).click();
+    await expect(search(page).getByLabel('Lens', { exact: true }).locator('option', { hasText: name })).toHaveCount(0);
+  });
+
+  test('Save as lens opens the editor filled in from the search', async ({ page }) => {
+    await findClientMaster(page);
+    await search(page).getByRole('button', { name: 'Save as lens' }).click();
+    const editor = page.getByRole('dialog', { name: 'New lens' });
+    await expect(editor.getByLabel('Name', { exact: true })).toHaveValue('Client Master');
+    await expect(editor.getByRole('button', { name: /DataProduct/ }).first()).toBeVisible();
+    await expect(editor.getByRole('group', { name: 'Filter on Name' })).toBeVisible();
+    await editor.getByRole('button', { name: 'Cancel' }).click();
+    await expect(card(page, 'Client Master')).toBeVisible();
   });
 
   test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {

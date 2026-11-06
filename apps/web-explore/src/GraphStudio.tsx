@@ -1,13 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { lensSearch, type Lens } from '@d4/core';
-import { type Element, type Relationship, useRegistry, useView, viewQuery } from '@d4/web-platform';
+import { lensSearch, type Lens, type LensAttributeFilter } from '@d4/core';
+import { type Element, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
   GraphCanvas,
   GraphInspector,
   GraphSearch,
+  LensEditor,
   type CanvasAdjustments,
   type CanvasFilter,
   type CanvasLayout,
@@ -16,8 +17,9 @@ import {
   type GraphCanvasNode,
   type GraphCanvasView,
   type GraphSearchValue,
+  type LensDraft,
 } from '@d4/ui-kit';
-import { exploreApi } from './api';
+import { exploreApi, type LensInput } from './api';
 import { PREDEFINED_LENSES } from './lenses';
 
 /** One place on the focus path: the search the user began from, then one step per drill (DD-2). */
@@ -36,6 +38,16 @@ interface Step {
 }
 
 const DEFAULT_DEPTH = 2;
+/** The editor's preview waits this long after the last change. */
+const PREVIEW_DELAY_MS = 400;
+type NodeTypeRole = 'contour' | 'facet' | 'both';
+/** What the editor is open on: a saved lens of the user's, a built-in one, or a new one. */
+interface Editing {
+  initial: LensDraft | null;
+  /** The saved lens being changed; absent for new lenses and built-in ones (saved as a copy). */
+  savedId?: string;
+  builtIn: boolean;
+}
 
 type MetamodelRegistry = NonNullable<ReturnType<typeof useRegistry>['data']>;
 
@@ -67,12 +79,18 @@ export function GraphStudio() {
   const patchAt = (i: number, p: Partial<Step>) => setSteps((s) => (s[i] ? s.map((x, j) => (j === i ? { ...x, ...p } : x)) : s));
   const stepIndex = steps.length - 1;
 
-  // Lenses whose types this workspace's metamodel has.
+  const queryClient = useQueryClient();
+  const me = useMe();
+  // The API decides; this only decides whether to offer "Everyone in the workspace".
+  const canShare = !!me.data?.roles.some((r) => r !== 'viewer');
+  const saved = useQuery({ queryKey: ['studio-lenses', ws], enabled: !!ws, queryFn: () => exploreApi.lenses(ws!) });
+  // Built-in lenses whose types this workspace's metamodel has, then the saved ones.
   const lenses = useMemo(() => {
     const reg = registry.data;
     if (!reg) return [];
-    return PREDEFINED_LENSES.filter((l) => [l.contour.type, ...l.facets.flatMap((f) => f.types)].every((t) => reg.nodeType(t)));
-  }, [registry.data]);
+    const fits = (l: Lens) => [l.contour.type, ...l.facets.flatMap((f) => f.types)].every((t) => reg.nodeType(t));
+    return [...PREDEFINED_LENSES.filter(fits), ...((saved.data ?? []) as Lens[])];
+  }, [registry.data, saved.data]);
   const lensOf = (v: { lensId: string } | null) => (v ? (lenses.find((l) => l.id === v.lensId) ?? null) : null);
 
   const focusId = step?.focusId;
@@ -104,19 +122,94 @@ export function GraphStudio() {
     [counts.data, countText, lenses],
   );
 
+  // ── Lens editor ──
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [roles, setRoles] = useState<Record<string, NodeTypeRole>>({});
+  const [draft, setDraft] = useState<LensDraft | null>(null);
+  const [editorError, setEditorError] = useState<unknown>(null);
+  const onDraftChange = useCallback((d: LensDraft) => setDraft(d), []);
+  const contourType = editing ? draft?.contour?.type : undefined;
+  const profileAttributes = useMemo(() => (contourType && registry.data ? registry.data.attributesFor(contourType).map((d) => d.name).slice(0, 20) : []), [contourType, registry.data]);
+  const profile = useQuery({
+    queryKey: ['studio-profile', ws, contourType, profileAttributes, vq],
+    enabled: !!ws && !!contourType,
+    queryFn: () => exploreApi.studioProfile(ws!, contourType!, profileAttributes, vq),
+  });
+  const [previewOf, setPreviewOf] = useState<LensDraft | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => setPreviewOf(editing ? draft : null), PREVIEW_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [draft, editing]);
+  // The funnel: the contour alone, then one facet more at a time (LE-6).
+  const preview = useQuery({
+    queryKey: ['studio-preview', ws, previewOf?.contour, previewOf?.facets, previewOf?.match, vq],
+    enabled: !!ws && !!previewOf?.contour,
+    queryFn: async () => {
+      const d = previewOf!;
+      const lens = { ...d, id: '', contour: d.contour! } as Lens;
+      const steps = [0, ...d.facets.map((_, i) => i + 1)].map((n) => lensSearch({ ...lens, facets: d.facets.slice(0, n) }, [], ''));
+      const r = await exploreApi.studioCounts(ws!, steps, vq, 5);
+      return { funnel: r.counts.map((c) => c.count), sample: r.counts.at(-1)?.sample ?? [] };
+    },
+  });
+
+  const openEditor = (e: Editing) => {
+    setEditorError(null);
+    setDraft(e.initial);
+    setEditing(e);
+  };
+  const saveLens = async (d: LensDraft & { contour: Lens['contour'] }) => {
+    const body: LensInput = {
+      name: d.name,
+      description: d.description || undefined,
+      visibility: d.visibility ?? 'private',
+      contour: { type: d.contour.type, attributes: d.contour.attributes ?? [] },
+      facets: d.facets,
+      match: d.match,
+      depth: d.depth,
+      layout: d.layout,
+      view: d.view,
+      follow: !!d.follow,
+    };
+    try {
+      setEditorError(null);
+      const lens = (editing?.savedId ? await exploreApi.updateLens(ws!, editing.savedId, body) : await exploreApi.createLens(ws!, body)) as Lens;
+      // In the list at once, so the search below finds it.
+      queryClient.setQueryData(['studio-lenses', ws], (old: Lens[] | undefined) => [...(old ?? []).filter((l) => l.id !== lens.id), lens]);
+      void queryClient.invalidateQueries({ queryKey: ['studio-lenses', ws] });
+      setEditing(null);
+      // Back in the Studio with the lens selected, and its result.
+      run({ lensId: lens.id, name: '', filters: [] }, lens);
+    } catch (e) {
+      setEditorError(e);
+    }
+  };
+  const deleteLens = async (id: string) => {
+    if (!window.confirm('Delete this lens? This cannot be undone.')) return;
+    try {
+      await exploreApi.deleteLens(ws!, id);
+      queryClient.setQueryData(['studio-lenses', ws], (old: Lens[] | undefined) => (old ?? []).filter((l) => l.id !== id));
+      setEditing(null);
+      if (search?.lensId === id) clear();
+    } catch (e) {
+      setEditorError(e);
+    }
+  };
+
   const graph = useMemo(() => (result.data && registry.data ? toCanvas(registry.data, result.data, modelView.asOf) : null), [result.data, registry.data, modelView.asOf]);
 
   if (registry.error) return <ErrorBanner error={registry.error} />;
   if (!registry.data) return <div className="splash">Loading metamodel…</div>;
   const reg = registry.data;
 
-  const run = (v: GraphSearchValue) => {
-    const lens = lensOf(v);
+  const run = (v: GraphSearchValue, known?: Lens) => {
+    const lens = known ?? lensOf(v);
     setSearch(v);
     // A lens opens with its own depth, layout and view (LS-6).
     if (lens) {
       setDepth(lens.depth);
       setLayout(lens.layout);
+      setFollow(!!lens.follow);
     }
     // A new Search starts a new focus path (DD-3).
     setSteps([{ label: describe(lens, v), selectedId: null, view: lens?.view ?? step?.view ?? 'graph' }]);
@@ -126,6 +219,43 @@ export function GraphStudio() {
     setSteps([]);
     setFilter({ nodeTypes: [], relationshipTypes: [] });
   };
+  /** "Save as lens" (LS-7): the editor, filled in from the search that ran. */
+  const saveAsLens = () => {
+    if (!search) return;
+    const lens = lensOf(search);
+    const extra: LensAttributeFilter[] = [
+      ...search.filters.map(({ attribute, op, value }) => ({ attribute, op, value })),
+      ...(search.name ? [{ attribute: 'name', op: 'contains' as const, value: search.name }] : []),
+    ];
+    // With no lens, the contour is the roots' type when they all share one.
+    const rootTypes = new Set(graph?.rootIds.map((r) => graph.byId.get(r)?.type));
+    const type = lens?.contour.type ?? (rootTypes.size === 1 ? [...rootTypes][0] : undefined);
+    openEditor({
+      builtIn: false,
+      initial: {
+        name: search.name || (lens ? `${lens.name} (copy)` : ''),
+        contour: type ? { type, attributes: [...(lens?.contour.attributes ?? []), ...extra] } : null,
+        facets: lens?.facets ?? [],
+        match: lens?.match ?? 'all',
+        depth,
+        layout,
+        view: step?.view ?? 'graph',
+        follow,
+        visibility: 'private',
+      },
+    });
+  };
+  const editLens = (id: string) => {
+    const lens = lenses.find((l) => l.id === id);
+    if (!lens) return;
+    const mine = !!lens.owner && lens.owner === me.data?.userId;
+    openEditor({
+      initial: mine ? lens : { ...lens, id: undefined, name: lens.owner ? `${lens.name} (copy)` : lens.name, visibility: 'private' },
+      savedId: mine ? lens.id : undefined,
+      builtIn: !lens.owner,
+    });
+  };
+
   const drill = (id: string) => {
     const name = graph?.byId.get(id)?.name ?? id;
     setSteps((s) => [...s, { label: name, focusId: id, selectedId: id, view: s.at(-1)?.view ?? 'graph' }]);
@@ -148,6 +278,33 @@ export function GraphStudio() {
     </div>
   );
 
+  if (editing) {
+    return (
+      <>
+        {editorError ? (
+          <div className="graph-studio-editor-error">
+            <ErrorBanner error={editorError} />
+          </div>
+        ) : null}
+        <LensEditor
+          registry={reg}
+          initial={editing.initial}
+          lenses={lenses}
+          profile={profile.data}
+          preview={preview.data}
+          roles={roles}
+          onRolesChange={setRoles}
+          onDraftChange={onDraftChange}
+          canShare={canShare}
+          builtIn={editing.builtIn}
+          onSave={saveLens}
+          onCancel={() => setEditing(null)}
+          onDelete={editing.savedId ? () => void deleteLens(editing.savedId!) : undefined}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="graph-studio">
       <div className="graph-studio-search">
@@ -160,6 +317,9 @@ export function GraphStudio() {
           onUndecidedText={setUndecided}
           lensCounts={lensCounts}
           busy={result.isFetching}
+          onEditLens={editLens}
+          onNewLens={() => openEditor({ initial: null, builtIn: false })}
+          onSaveAsLens={search ? saveAsLens : undefined}
         />
       </div>
       {result.error && <ErrorBanner error={result.error} />}
