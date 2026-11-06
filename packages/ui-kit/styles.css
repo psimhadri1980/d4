@@ -1259,3 +1259,98 @@
   display: flex;
   gap: 4px;
 }
+.graph-canvas-overview {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.graph-canvas-overview .graph-canvas-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+.graph-canvas-overview-svg {
+  /* Its own height attribute holds: height: auto collapses an SVG in a flex column. */
+  flex: none;
+  max-width: 100%;
+}
+.graph-canvas-bubble {
+  cursor: pointer;
+  outline: none;
+}
+.graph-canvas-bubble circle {
+  fill-opacity: 0.85;
+  stroke: var(--layer-01, #ffffff);
+  stroke-width: 2;
+}
+.graph-canvas-bubble:hover circle,
+.graph-canvas-bubble:focus-visible circle {
+  stroke: var(--focus, #0f62fe);
+  stroke-width: 4;
+}
+.graph-canvas-bubble.dim circle {
+  fill-opacity: 0.25;
+}
+.graph-canvas-bubble text {
+  fill: var(--text-on-color, #ffffff);
+  pointer-events: none;
+}
+.graph-canvas-bubble-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+.graph-canvas-bubble-count {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.graph-canvas-overview-link line,
+.graph-canvas-overview-link path {
+  fill: none;
+  stroke: var(--border-strong, #8d8d8d);
+  stroke-opacity: 0.7;
+}
+.graph-canvas-overview-link text {
+  font-size: 11px;
+  fill: var(--text-secondary, #525252);
+}
+.graph-canvas-overview-table {
+  width: 100%;
+  max-width: 880px;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: var(--layer-01, #ffffff);
+}
+.graph-canvas-overview-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 0 0 6px;
+}
+.graph-canvas-overview-table th,
+.graph-canvas-overview-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-subtle, #e0e0e0);
+  text-align: left;
+  font-weight: normal;
+}
+.graph-canvas-overview-table thead th {
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+}
+.graph-canvas-overview-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* The shared th is a sticky column header; row headers here must not stick. */
+.graph-canvas-overview-table tbody th,
+.lens-roles tbody th {
+  position: static;
+  background: none;
+}
+.graph-canvas-overview-table th,
+.graph-canvas-overview-table td,
+.lens-roles th,
+.lens-roles td {
+  height: 32px;
+}

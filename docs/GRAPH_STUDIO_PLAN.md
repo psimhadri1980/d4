@@ -131,7 +131,14 @@ Deploying it needs the control-plane migration: `run/run.sh ops:exec -- migrate`
   preview with funnel and load meter, Start from…
 - Persist lenses (Postgres table per workspace, owner and visibility; API CRUD), Save as lens (LS-7).
 
-### Phase 7: large results
+### Phase 7: large results: done
+`canvasOverview` (`packages/render/src/canvas-overview.ts`) lays one bubble per type on rings by
+size, the largest in the middle; `GraphCanvasOverview` draws it with a table of the same facts
+(Q-3). Isolate ticks just that type and switches to the graph. A step whose result has more than
+150 nodes opens in the Overview once; after that the view is the user's. Dense results use the Dot
+and Label levels through Fit's floor (phase 4). Not done: ZM-7's tighter 26 px spacing for compact
+nodes, since spacing that depends on the level would lay the graph out again on every zoom step.
+The automatic Overview is not covered by a browser spec: the sample model has fewer than 150 nodes.
 - Overview tab: one bubble per type sized by count, type-to-type edges, opens above 150 nodes, Isolate
   (OV-1, OV-2); compact nodes for dense results (OV-3, ZM-7).
 

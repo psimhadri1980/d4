@@ -257,6 +257,23 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
   });
 
+  it('summarises the result in the Overview, and isolating a type filters to it in the graph', () => {
+    const calls: unknown[] = [];
+    const root = render(
+      <GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} view="overview" onFilterChange={(f) => calls.push(f)} onViewChange={(v) => calls.push(v)} />,
+    );
+    expect(host.querySelector('[role="tab"][aria-selected="true"]')!.textContent).toBe('Overview');
+    expect(host.querySelector('svg.graph-canvas-svg')).toBeNull();
+    const bubbles = [...host.querySelectorAll('.graph-canvas-bubble')];
+    expect(bubbles.map((b) => b.getAttribute('aria-label'))).toEqual(['BusinessService, Strategy: 1 node. Isolate', 'Capability, Business: 1 node. Isolate', 'Server, Technology: 1 node. Isolate']);
+    // The table says the same, with what each type is linked to.
+    const rows = [...host.querySelectorAll('.graph-canvas-overview-table tbody tr')].map((r) => [...r.children].slice(0, 4).map((c) => c.textContent));
+    expect(rows).toContainEqual(['Capability', 'Business', '1', 'BusinessService, Server']);
+    click(host.querySelector('button[aria-label="Isolate Server"]')!);
+    expect(calls).toEqual([{ nodeTypes: ['Server'], relationshipTypes: [] }, 'graph']);
+    act(() => root.unmount());
+  });
+
   it('colours nodes by layer token with a fallback for unknown layers', () => {
     const root = render(<GraphCanvas nodes={[{ ...nodes[0]!, layer: 'Moon' }]} edges={[]} rootIds={['r1']} layout="radial" />);
     expect((host.querySelector('.graph-canvas-swatch') as SVGElement).style.fill).toContain('--layer-moon');

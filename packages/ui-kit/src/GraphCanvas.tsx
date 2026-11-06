@@ -1,6 +1,7 @@
 import { useId, useMemo, type ReactNode } from 'react';
 import { applyCanvasFilter, CanvasTree, filterActive, kindCounts, NO_ADJUSTMENTS, NO_FILTER, type CanvasAdjustments, type CanvasFilter, type CanvasLayout } from '@d4/render';
 import { GraphCanvasGraph, type CanvasViewport } from './GraphCanvasGraph';
+import { GraphCanvasOverview } from './GraphCanvasOverview';
 import { GraphCanvasFilterButton, GraphCanvasFilterChips } from './GraphCanvasFilter';
 import { GraphCanvasTable } from './GraphCanvasTable';
 
@@ -81,7 +82,8 @@ export interface GraphCanvasProps {
   onFollowSelectionChange?(follow: boolean): void;
 }
 
-export type GraphCanvasView = 'graph' | 'table';
+/** Overview (OV-1), graph or table. */
+export type GraphCanvasView = 'overview' | 'graph' | 'table';
 export type { CanvasAdjustments, CanvasFilter, CanvasLayout, CanvasViewport };
 
 const LAYOUTS: { id: CanvasLayout; label: string; icon: string }[] = [
@@ -165,9 +167,9 @@ export function GraphCanvas(props: GraphCanvasProps) {
 
       <div className="graph-canvas-options">
         <div role="tablist" aria-label="Result view" className="graph-canvas-tabs">
-          {(['graph', 'table'] as const).map((v) => (
+          {(['overview', 'graph', 'table'] as const).map((v) => (
             <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'active' : ''} onClick={() => onViewChange?.(v)}>
-              {v === 'graph' ? 'Graph' : 'Table'}
+              {{ overview: 'Overview', graph: 'Graph', table: 'Table' }[v]}
             </button>
           ))}
         </div>
@@ -229,7 +231,23 @@ export function GraphCanvas(props: GraphCanvasProps) {
       </div>
       {onFilterChange && <GraphCanvasFilterChips filter={filter} onChange={onFilterChange} />}
 
-      <CanvasBody {...props} nodes={shown.nodes} edges={shown.edges} />
+      {view === 'overview' && hasResult && nodes.length <= (props.maxNodes ?? 1000) ? (
+        <div className="graph-canvas-body">
+          {/* The whole result, so any type can be isolated; the filter only dims. */}
+          <GraphCanvasOverview
+            nodes={nodes}
+            edges={edges}
+            ticked={filter.nodeTypes}
+            onIsolate={(type) => {
+              // Isolate is ticking just that type (FK-2), in the graph (OV-2).
+              onFilterChange?.({ nodeTypes: [type], relationshipTypes: [] });
+              onViewChange?.('graph');
+            }}
+          />
+        </div>
+      ) : (
+        <CanvasBody {...props} view={view === 'overview' ? 'graph' : view} nodes={shown.nodes} edges={shown.edges} />
+      )}
 
       <footer className="graph-canvas-status">
         {hasResult && (

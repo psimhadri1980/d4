@@ -30,6 +30,8 @@ interface Step {
   // What the user had here, restored when they go back (DD-3).
   selectedId: string | null;
   view: GraphCanvasView;
+  /** The view was set, by the user or by opening a large result in the Overview; leave it be. */
+  viewChosen?: boolean;
   expandedIds?: string[];
   /** Nodes, connectors and labels moved by hand, per layout (GV-5, GV-5b). */
   adjust?: Partial<Record<CanvasLayout, CanvasAdjustments>>;
@@ -38,6 +40,8 @@ interface Step {
 }
 
 const DEFAULT_DEPTH = 2;
+/** Results with more nodes than this open in the Overview (OV-1, LS-6). */
+const OVERVIEW_ABOVE = 150;
 /** The editor's preview waits this long after the last change. */
 const PREVIEW_DELAY_MS = 400;
 type NodeTypeRole = 'contour' | 'facet' | 'both';
@@ -198,6 +202,11 @@ export function GraphStudio() {
 
   const graph = useMemo(() => (result.data && registry.data ? toCanvas(registry.data, result.data, modelView.asOf) : null), [result.data, registry.data, modelView.asOf]);
 
+  // A large result opens in the Overview, once per step; after that the view is the user's.
+  useEffect(() => {
+    if (graph && step && !step.viewChosen && graph.nodes.length > OVERVIEW_ABOVE) patch({ view: 'overview', viewChosen: true });
+  }, [graph]);
+
   if (registry.error) return <ErrorBanner error={registry.error} />;
   if (!registry.data) return <div className="splash">Loading metamodel…</div>;
   const reg = registry.data;
@@ -212,7 +221,7 @@ export function GraphStudio() {
       setFollow(!!lens.follow);
     }
     // A new Search starts a new focus path (DD-3).
-    setSteps([{ label: describe(lens, v), selectedId: null, view: lens?.view ?? step?.view ?? 'graph' }]);
+    setSteps([{ label: describe(lens, v), selectedId: null, view: lens?.view ?? carried(step?.view) }]);
   };
   const clear = () => {
     setSearch(null);
@@ -239,7 +248,7 @@ export function GraphStudio() {
         match: lens?.match ?? 'all',
         depth,
         layout,
-        view: step?.view ?? 'graph',
+        view: carried(step?.view),
         follow,
         visibility: 'private',
       },
@@ -258,7 +267,7 @@ export function GraphStudio() {
 
   const drill = (id: string) => {
     const name = graph?.byId.get(id)?.name ?? id;
-    setSteps((s) => [...s, { label: name, focusId: id, selectedId: id, view: s.at(-1)?.view ?? 'graph' }]);
+    setSteps((s) => [...s, { label: name, focusId: id, selectedId: id, view: carried(s.at(-1)?.view) }]);
   };
 
   const selected = step?.selectedId ? (graph?.byId.get(step.selectedId) ?? null) : null;
@@ -340,7 +349,7 @@ export function GraphStudio() {
             depth={depth}
             crumbs={steps.map((s) => ({ label: s.label }))}
             onSelect={(id) => step && patch({ selectedId: id })}
-            onViewChange={(v) => (step ? patch({ view: v }) : undefined)}
+            onViewChange={(v) => (step ? patch({ view: v, viewChosen: true }) : undefined)}
             onExpandedChange={(paths) => patch({ expandedIds: paths })}
             // A new layout or depth opens fitted again.
             onLayoutChange={(l) => {
@@ -377,6 +386,12 @@ export function GraphStudio() {
     </div>
   );
 }
+
+/**
+ * The view a new step starts in: graph or table as before, but not the Overview, which a step
+ * opens in only when its own result is large.
+ */
+const carried = (v: GraphCanvasView | undefined): 'graph' | 'table' => (v === 'table' ? 'table' : 'graph');
 
 /** "Data products · "client" · Lifecycle LIVE", for the breadcrumb and the empty state. */
 function describe(lens: Lens | null, v: GraphSearchValue): string {
