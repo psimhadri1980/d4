@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ErrorBanner, GraphCanvas, ResultTable } from '@d4/ui-kit';
+import { ErrorBanner, CytoscapeGraph, ResultTable } from '@d4/ui-kit';
 import { type Element, type Relationship, useRegistry } from '@d4/web-platform';
 import { type RunResult } from './api';
 
@@ -145,7 +145,7 @@ export function QueryResultView({
           {registry.error && <ErrorBanner error={registry.error} />}
           {registry.data && graph.elements.length > 0 ? (
             <div className="result-graph">
-              <GraphCanvas
+              <CytoscapeGraph
                 registry={registry.data}
                 elements={graph.elements}
                 relationships={graph.relationships}

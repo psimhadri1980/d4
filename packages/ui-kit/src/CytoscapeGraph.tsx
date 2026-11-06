@@ -163,7 +163,7 @@ function graphStyle(): GraphStyle {
 }
 
 /** Graph of the current view; nodes are coloured by metamodel layer. */
-export function GraphCanvas({
+export function CytoscapeGraph({
   registry,
   elements,
   relationships,
