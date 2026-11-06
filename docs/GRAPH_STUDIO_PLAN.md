@@ -91,7 +91,14 @@ layout and the Overview tab come with phases 4 and 7. Specs: `apps/e2e/tests/gra
 
 **Milestone A:** a user can search, see graph and table, select, inspect and drill. Demo here.
 
-### Phase 4: canvas interaction
+### Phase 4: canvas interaction: done
+In three commits: Show only (`applyCanvasFilter` in `packages/render/src/canvas-filter.ts`; roots
+always stay), dragging (`canvasPlacement` split from `canvasGeometry`, which applies adjustments in
+one stable coordinate space), and zoom (`GraphCanvasGraph`: the SVG is drawn at zoom × size inside a
+scroll pane, so the scrollbars stay real; box sizes follow the level, so connectors keep touching).
+A result opens fitted, but never below the Dot level (35 %); wider ones centre on the first root.
+The page keeps adjustments per layout and step, and the viewport per step (closes DD-4); a new
+layout or depth opens fitted again.
 - Drag nodes, arrow keys, reset layout (GV-5); connector bend and label drag (GV-5b), kept per layout
   and per focus step.
 - Zoom and pan (ZM-1, ZM-2, ZM-6), semantic zoom levels Dot/Label/Card/Detail with direct jump

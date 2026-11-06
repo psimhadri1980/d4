@@ -693,3 +693,85 @@
   stroke-dasharray: 2 3;
   pointer-events: none;
 }
+.graph-canvas-graph {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.graph-canvas-scroll {
+  scrollbar-color: var(--border-strong, #8d8d8d) var(--background, #f4f4f4);
+  scrollbar-width: thin;
+}
+.graph-canvas-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.graph-canvas-scroll::-webkit-scrollbar-track {
+  background: var(--background, #f4f4f4);
+}
+.graph-canvas-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-strong, #8d8d8d);
+  border: 3px solid var(--background, #f4f4f4);
+  border-radius: 6px;
+}
+.graph-canvas-svg {
+  cursor: grab;
+  touch-action: none;
+}
+.graph-canvas-dot {
+  stroke: var(--layer-01, #ffffff);
+  stroke-width: 2;
+}
+.graph-canvas-node.selected .graph-canvas-dot {
+  stroke: var(--interactive, #0f62fe);
+  stroke-width: 6;
+}
+/* The zoom box sits 5px in from the scrollbars (ZM-2). */
+.graph-canvas-zoom {
+  position: absolute;
+  right: 17px;
+  bottom: 17px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-subtle, #e0e0e0);
+  border-radius: 6px;
+  background: var(--layer-01, #ffffff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+}
+.graph-canvas-zoom button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-primary, #161616);
+  font: inherit;
+  cursor: pointer;
+}
+.graph-canvas-zoom button:hover {
+  background: var(--layer-hover, #e8e8e8);
+}
+.graph-canvas-zoom button[aria-pressed='true'] {
+  background: var(--interactive, #0f62fe);
+  color: var(--text-on-color, #ffffff);
+}
+.graph-canvas-zoom button:focus-visible {
+  outline: 2px solid var(--focus, #0f62fe);
+  outline-offset: -2px;
+}
+.graph-canvas-zoom-value {
+  min-width: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.graph-canvas-zoom-sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--border-subtle, #e0e0e0);
+}

@@ -33,6 +33,8 @@ test.describe('graph studio', () => {
     const two = await result(page).locator('.graph-canvas-node').count();
     await result(page).getByRole('button', { name: 'Depth 1' }).click();
     await expect.poll(() => result(page).locator('.graph-canvas-node').count()).toBeLessThan(two);
+    // Labels show from the Label level up; a wide result opens fitted, maybe at Dot.
+    await result(page).getByRole('toolbar', { name: 'Zoom' }).getByRole('button', { name: 'Card' }).click();
     await expect(result(page).locator('.graph-canvas-label').first()).toBeVisible();
   });
 
@@ -125,6 +127,38 @@ test.describe('graph studio', () => {
     await expect(reset).toBeEnabled();
     await reset.click();
     await expect(node).toHaveAttribute('transform', before!);
+  });
+
+  test('opens fitted; zooms with the wheel and the zoom box through four levels; the view is kept per step', async ({ page }) => {
+    await findClientMaster(page);
+    const zoombox = result(page).getByRole('toolbar', { name: 'Zoom' });
+    const percent = async () => Number((await zoombox.locator('.graph-canvas-zoom-value').innerText()).replace('%', ''));
+    // A wide result opens fitted, below 100 %, with the root on screen.
+    expect(await percent()).toBeLessThanOrEqual(100);
+    await expect(card(page, 'Client Master')).toBeInViewport();
+
+    await zoombox.getByRole('button', { name: 'Card' }).click();
+    await expect(zoombox.getByRole('button', { name: 'Card' })).toHaveAttribute('aria-pressed', 'true');
+    const svg = result(page).locator('svg.graph-canvas-svg');
+    const box = (await result(page).locator('.graph-canvas-scroll').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 600);
+    await expect.poll(percent).toBeLessThan(50);
+    await expect(svg).toHaveClass(/level-dot/);
+    await expect(result(page).locator('.graph-canvas-dot').first()).toBeVisible();
+
+    await zoombox.getByRole('button', { name: 'Detail' }).click();
+    await expect(card(page, 'Client Master')).toContainText('rel.');
+
+    // Drill and come back: the zoom of the first step returns.
+    await card(page, 'Client Master').click();
+    await page.getByRole('button', { name: 'Focus on this node' }).click();
+    await expect(zoombox.getByRole('button', { name: 'Detail' })).toHaveAttribute('aria-pressed', 'false');
+    await result(page).getByRole('button', { name: 'Back' }).click();
+    await expect(zoombox.getByRole('button', { name: 'Detail' })).toHaveAttribute('aria-pressed', 'true');
+
+    await zoombox.getByRole('button', { name: 'Fit' }).click();
+    await expect.poll(percent).toBeLessThanOrEqual(100);
   });
 
   test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {

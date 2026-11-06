@@ -1,6 +1,6 @@
 import { useId, useMemo, type ReactNode } from 'react';
 import { applyCanvasFilter, CanvasTree, filterActive, kindCounts, NO_ADJUSTMENTS, NO_FILTER, type CanvasAdjustments, type CanvasFilter, type CanvasLayout } from '@d4/render';
-import { GraphCanvasGraph } from './GraphCanvasGraph';
+import { GraphCanvasGraph, type CanvasViewport } from './GraphCanvasGraph';
 import { GraphCanvasFilterButton, GraphCanvasFilterChips } from './GraphCanvasFilter';
 import { GraphCanvasTable } from './GraphCanvasTable';
 
@@ -12,6 +12,9 @@ export interface GraphCanvasNode {
   layer: string;
   recordId?: string;
   state: 'in-graph' | 'planned';
+  /** Shown at the Detail level (ZM-3). */
+  owner?: string;
+  changedAt?: string;
 }
 
 /** A relationship; the arrow points from `from` to `to` (CT-2). */
@@ -69,10 +72,17 @@ export interface GraphCanvasProps {
   adjustments?: CanvasAdjustments;
   /** Dragging, arrow keys and Reset layout work only with this. */
   onAdjustmentsChange?(adjustments: CanvasAdjustments): void;
+  /** Zoom and scroll of the graph view; absent, it fits the result to the pane (ZM-6). */
+  viewport?: CanvasViewport | null;
+  /** Where the view settled after a scroll, pan or zoom, so the host can keep it per step (DD-4). */
+  onViewportChange?(viewport: CanvasViewport): void;
+  /** Keep the selected node centred as the zoom changes (ZM-4). */
+  followSelection?: boolean;
+  onFollowSelectionChange?(follow: boolean): void;
 }
 
 export type GraphCanvasView = 'graph' | 'table';
-export type { CanvasAdjustments, CanvasFilter, CanvasLayout };
+export type { CanvasAdjustments, CanvasFilter, CanvasLayout, CanvasViewport };
 
 const LAYOUTS: { id: CanvasLayout; label: string; icon: string }[] = [
   { id: 'hier', label: 'Hierarchical', icon: 'M8 2v4M8 6L3 10M8 6l5 4M1 10h4v4H1zM11 10h4v4h-4z' },
@@ -272,6 +282,10 @@ function CanvasBody({
   onExpandedChange,
   adjustments = NO_ADJUSTMENTS,
   onAdjustmentsChange,
+  viewport,
+  onViewportChange,
+  followSelection,
+  onFollowSelectionChange,
 }: GraphCanvasProps) {
   const tooLarge = nodes.length > maxNodes;
   const keyed = useMemo(() => edges.map((e, i) => ({ ...e, id: e.id ?? `${e.from}|${e.type}|${e.to}|${i}` })), [edges]);
@@ -333,6 +347,10 @@ function CanvasBody({
         onAdjustmentsChange={onAdjustmentsChange}
         onSelect={onSelect}
         onDrill={onDrill}
+        viewport={viewport}
+        onViewportChange={onViewportChange}
+        follow={followSelection}
+        onFollowChange={onFollowSelectionChange}
       />
     </div>
   );
