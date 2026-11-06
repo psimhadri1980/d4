@@ -33,7 +33,7 @@ describe('d4 validate', () => {
   it('accepts the UBS sample', async () => {
     const h = harness();
     expect(await runCli(['validate', SAMPLE], h.io)).toBe(0);
-    expect(h.out.join('')).toMatch(/is valid for d4-starter@0\.2\.0/);
+    expect(h.out.join('')).toMatch(/is valid for d4-starter@0\.3\.0/);
   });
 
   it('fails with issues for a broken document', async () => {
