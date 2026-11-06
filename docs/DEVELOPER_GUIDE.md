@@ -64,7 +64,7 @@ packages/
   web-platform/ what every web module shares: sign-in, typed API client, query keys, current user and view, the lifecycle contract (`lifecycleProblems`), `ModuleRoot`, and `/shared` (the shared-package list for build configs)
   infra/      tenant graphs, queue, S3 artefact store, mail, usage (api, worker, renderer, ops)
   runtime/    process start-up for the backend apps: telemetry, queue service
-samples/      ubs-banking.yaml (illustrative sample model)
+samples/      ubs-banking.yaml, credit-graph.yaml (illustrative sample models; the second needs the d4-credit-graph pack and goes in a workspace of its own)
 infra/        one folder per infra component (component.yaml + its config): gateway (nginx, one origin),
               postgres, neo4j, redis, s3, smtp, keycloak (realm), otel-collector, tempo, prometheus, grafana
 run/          run.sh and its orchestrator, the component.yaml schema, shared settings (env/),
@@ -370,7 +370,7 @@ Draft **test runs** (`testDraft`) skip the grant and published checks. Instead t
 ### Add a node or relationship type, or an attribute
 
 1. Edit `packages/metamodel/starter.yaml`:
-   - node types: `name` (PascalCase), `layer`, optional `extends`, and `attributes` (camelCase, not reserved)
+   - node types: `name` (PascalCase), `layer`, optional `extends`, optional `role` (`contour`, `facet` or `both`: how lens search may use the type; unset means the role of the type it extends, else `both`), and `attributes` (camelCase, not reserved)
    - relationship types: `name` (UPPER_SNAKE), `from`/`to` (types or `*`) and `attributes`
    - enums go under `enums`
 2. **Bump `version`.** The local seed registers it and repoints the `default` workspace. Production needs a migration plan.

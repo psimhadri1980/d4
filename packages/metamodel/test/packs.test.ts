@@ -3,12 +3,12 @@ import { composePack, describeMetamodelPacks, loadMetamodelPack, loadStarterMeta
 
 describe('industry packs', () => {
   it('compose into complete, valid metamodels with their own id', () => {
-    for (const id of ['d4-banking', 'd4-insurance'] as const) {
+    for (const id of ['d4-banking', 'd4-insurance', 'd4-credit-graph'] as const) {
       const mm = loadMetamodelPack(id);
       expect(mm.id).toBe(id);
       expect(mm.nodeTypes.length).toBeGreaterThan(loadStarterMetamodel().nodeTypes.length);
     }
-    expect(describeMetamodelPacks().map((p) => p.id)).toEqual(['d4-starter', 'd4-banking', 'd4-insurance']);
+    expect(describeMetamodelPacks().map((p) => p.id)).toEqual(['d4-starter', 'd4-banking', 'd4-insurance', 'd4-credit-graph']);
   });
 
   it('pack types inherit from starter types and connect as the pack says', () => {
@@ -38,5 +38,18 @@ describe('industry packs', () => {
     expect(() => composePack(starter, parsePack(JSON.stringify({ ...base, relationshipTypes: [{ name: 'X_TO', from: ['Nope'], to: ['*'] }] })))).toThrow(MetamodelError);
     expect(() => composePack(starter, parsePack(JSON.stringify({ ...base, extendRelationships: [{ name: 'NOPE', to: ['Application'] }] })))).toThrow(/unknown 'NOPE'/);
     expect(() => parsePack(JSON.stringify({ ...base, extends: 'other' }))).toThrow(MetamodelError);
+  });
+
+  it('the credit graph pack composes on the starter, with lens roles, and connects collateral to facilities', () => {
+    const mm = loadMetamodelPack('d4-credit-graph');
+    const reg = new MetamodelRegistry(mm);
+    expect(mm.id).toBe('d4-credit-graph');
+    // Roles from the pack; a starter type the pack does not touch keeps the starter's (both).
+    expect(Object.fromEntries(['CreditFacility', 'Issuer', 'Client', 'Person'].map((t) => [t, reg.roleOf(t)]))).toEqual({ CreditFacility: 'contour', Issuer: 'facet', Client: 'both', Person: 'both' });
+    expect(reg.lineage('Property')).toEqual(['Property', 'CollateralAsset']);
+    expect(reg.canConnect('SECURED_BY', 'CreditFacility', 'CollateralAgreement')).toBe(true);
+    expect(reg.canConnect('PLEDGES', 'CollateralAgreement', 'Property')).toBe(true); // Property is also a CollateralAsset
+    expect(reg.canConnect('DECIDES', 'CreditApproval', 'CreditFacility')).toBe(true); // inherited from Decision
+    expect(reg.validateNodeAttributes('CreditFacility', { name: 'F', status: 'NOPE' })[0]).toMatch(/must be one of/);
   });
 });

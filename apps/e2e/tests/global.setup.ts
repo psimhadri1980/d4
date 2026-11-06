@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test as setup } from '@playwright/test';
 import { parse } from 'yaml';
-import { api, defaultWorkspaceId, signIn, USERS } from './helpers';
+import { api, creditWorkspace, defaultWorkspaceId, signIn, USERS } from './helpers';
 
 setup('import the sample model', async () => {
   // Idempotent: re-importing the sample changes nothing when it is already there.
@@ -13,6 +13,16 @@ setup('import the sample model', async () => {
     body: JSON.stringify(doc),
   });
   if (!res.ok) throw new Error(`sample import failed: ${JSON.stringify(res.issues)}`);
+});
+
+setup('import the credit sample into its own workspace', async () => {
+  // The credit graph (838 nodes) runs on the d4-credit-graph pack, so it gets a workspace of its own,
+  // imported into once, when the workspace is made.
+  const { id: ws, created } = await creditWorkspace();
+  if (!created) return;
+  const doc = parse(readFileSync(join(__dirname, '..', '..', '..', 'samples', 'credit-graph.yaml'), 'utf8'));
+  const res = await api<{ ok: boolean; issues: unknown[] }>(`/v1/workspaces/${ws}/import`, { method: 'POST', body: JSON.stringify(doc) });
+  if (!res.ok) throw new Error(`credit sample import failed: ${JSON.stringify(res.issues).slice(0, 2000)}`);
 });
 
 setup('provision every dev user', async () => {

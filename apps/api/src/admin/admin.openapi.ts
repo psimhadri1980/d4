@@ -1,6 +1,7 @@
 import { JobSchema } from '../jobs/jobs.openapi';
 import { json, errors, ws, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
+import { METAMODEL_PACKS } from '@d4/metamodel';
 
 /** OpenAPI paths for administration, usage and backups. */
 export function registerAdminRoutes(route: ApiRoute) {
@@ -9,7 +10,7 @@ export function registerAdminRoutes(route: ApiRoute) {
   const BindingBody = z.object({ principalType: z.enum(['user', 'group']).optional(), principalId: z.string(), role: z.string() });
   const wsOrTenant = z.string().openapi({ param: { name: 'ws', in: 'path' }, description: 'Workspace id, or "tenant" for tenant-wide roles' });
   route({ method: 'get', path: '/v1/admin/workspaces', tags: ['Administration'], summary: 'Workspaces (?archived=true to include archived)', request: { query: z.object({ archived: z.enum(['true', 'false']).optional() }) }, responses: { 200: json(z.array(AdminWorkspace), 'Workspaces'), ...errors } });
-  route({ method: 'post', path: '/v1/admin/workspaces', tags: ['Administration'], summary: 'Create a workspace on the active metamodel, or on an industry pack', request: { body: { content: { 'application/json': { schema: z.object({ slug: z.string(), name: z.string(), description: z.string().optional(), metamodel: z.enum(['d4-starter', 'd4-banking', 'd4-insurance']).optional() }) } } } }, responses: { 201: json(AdminWorkspace, 'Created'), ...errors } });
+  route({ method: 'post', path: '/v1/admin/workspaces', tags: ['Administration'], summary: 'Create a workspace on the active metamodel, or on an industry pack', request: { body: { content: { 'application/json': { schema: z.object({ slug: z.string(), name: z.string(), description: z.string().optional(), metamodel: z.enum(METAMODEL_PACKS).optional() }) } } } }, responses: { 201: json(AdminWorkspace, 'Created'), ...errors } });
   route({ method: 'patch', path: '/v1/admin/workspaces/{ws}', tags: ['Administration'], request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: z.object({ name: z.string().optional(), description: z.string().nullable().optional() }) } } } }, responses: { 200: json(AdminWorkspace, 'Updated'), ...errors } });
   route({ method: 'post', path: '/v1/admin/workspaces/{ws}/archive', tags: ['Administration'], request: { params: z.object({ ws }) }, responses: { 204: { description: 'Archived' }, ...errors } });
   route({ method: 'post', path: '/v1/admin/workspaces/{ws}/restore', tags: ['Administration'], request: { params: z.object({ ws }) }, responses: { 204: { description: 'Restored' }, ...errors } });

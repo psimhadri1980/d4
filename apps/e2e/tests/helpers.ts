@@ -51,6 +51,24 @@ export async function defaultWorkspaceId(): Promise<string> {
   return ws.id;
 }
 
+/**
+ * The `credit` workspace on the d4-credit-graph pack. `created` says whether this call made it,
+ * so the sample is imported once: its names repeat (two clients called Hugo Roth), which makes a
+ * second import, matched by name, ambiguous.
+ */
+export async function creditWorkspace(): Promise<{ id: string; created: boolean }> {
+  const list = await api<{ id: string; slug: string }[]>('/v1/workspaces');
+  const found = list.find((w) => w.slug === 'credit');
+  if (found) return { id: found.id, created: false };
+  const made = await api<{ id: string }>('/v1/admin/workspaces', {
+    method: 'POST',
+    body: JSON.stringify({ slug: 'credit', name: 'Credit graph', metamodel: 'd4-credit-graph' }),
+  });
+  return { id: made.id, created: true };
+}
+
+export const creditWorkspaceId = async () => (await creditWorkspace()).id;
+
 /** Opens a page from the left navigation: an item, or one of its sub-items through the icon rail's flyout. */
 export async function openNav(page: Page, item: string, sub?: string) {
   const nav = page.getByRole('navigation', { name: 'Main' });

@@ -142,10 +142,12 @@ The automatic Overview is not covered by a browser spec: the sample model has fe
 - Overview tab: one bubble per type sized by count, type-to-type edges, opens above 150 nodes, Isolate
   (OV-1, OV-2); compact nodes for dense results (OV-3, ZM-7).
 
-### Phase 8: credit graph (section N)
-- The `d4-credit-graph` pack, `samples/credit-graph.yaml` and the 11 credit lenses are **not in this
-  repository** (CG-5 mentions another worktree). Bring them in as `packages/metamodel/packs/credit-graph.yaml`,
-  register in `METAMODEL_PACKS`, add the sample and its lenses, run the metamodel tests.
+### Phase 8: credit graph (section N): done
+The pack and sample came from the `prototype-requirements` worktree (D83). The pack is registered;
+its types carry the roles from the requirements (CG-2). The 11 credit lenses are built in and show
+only on credit workspaces; four are checked in the browser against the root counts the
+requirements give (8, 23, 10, 2). Built-in lenses now say which metamodels they belong to. Open:
+the sample needs `externalKey`s to be re-importable (its names repeat).
 
 ### Later (not in this plan)
 - Ingestion Studio adopting GraphCanvas: needs a wider `state` input first (CT-6).
@@ -156,4 +158,4 @@ The automatic Overview is not covered by a browser spec: the sample model has fe
 2. Phase 1: is Cytoscape kept for the force layout's maths, or a small force simulation in
    `@d4/render`? Plan assumes our own (no DOM dependency).
 3. ~~Phase 6: lens visibility values and who may publish.~~ Private or workspace; sharing needs write access (D82).
-4. Phase 8: where the credit-graph files are today.
+4. ~~Phase 8: where the credit-graph files are today.~~ The `prototype-requirements` worktree.

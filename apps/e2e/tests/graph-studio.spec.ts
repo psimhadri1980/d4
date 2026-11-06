@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openNav, RUN } from './helpers';
+import { creditWorkspaceId, openNav, RUN } from './helpers';
 
 const search = (page: Page) => page.getByRole('search', { name: 'Find nodes' });
 const result = (page: Page) => page.getByRole('region', { name: 'Result' });
@@ -277,5 +277,32 @@ test.describe('graph studio', () => {
     await result(page).getByRole('button', { name: 'Clear the search' }).click();
     await expect(result(page)).toContainText('Find a node to start.');
     await expect(nameBox(page)).toHaveValue('');
+  });
+
+  test.describe('credit graph', () => {
+    // The lens and its root count from the requirements (CG-4).
+    for (const [id, lens, roots] of [
+      ['credit-margin-calls', 'Facilities with margin calls', 8],
+      ['credit-ifrs-stage-2-3', 'Facilities in IFRS stage 2 or 3', 23],
+      ['credit-breached-covenants', 'Facilities with a breached covenant', 10],
+      ['credit-large-facilities', 'Large facilities (10m and over)', 2],
+    ] as const) {
+      test(`${lens} finds ${roots} roots`, async ({ page }) => {
+        await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+        await search(page).getByLabel('Lens', { exact: true }).selectOption(id);
+        await search(page).getByRole('button', { name: 'Search' }).click();
+        await expect(result(page).getByLabel('Result summary')).toContainText(`${roots} roots`);
+      });
+    }
+
+    test('only credit lenses show on the credit workspace, and none on the default one', async ({ page }) => {
+      await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+      const options = search(page).getByLabel('Lens', { exact: true }).locator('option');
+      await expect(options.filter({ hasText: 'Facilities with margin calls' })).toHaveCount(1);
+      await expect(options.filter({ hasText: 'Data products' })).toHaveCount(0);
+      await page.goto('/');
+      await openNav(page, 'Graph Studio');
+      await expect(search(page).getByLabel('Lens', { exact: true }).locator('option', { hasText: 'Facilities with margin calls' })).toHaveCount(0);
+    });
   });
 });
