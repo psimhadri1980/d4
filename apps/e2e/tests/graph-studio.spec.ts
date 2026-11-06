@@ -253,6 +253,20 @@ test.describe('graph studio', () => {
     await expect(card(page, 'Client Master')).toBeVisible();
   });
 
+  test('the Overview shows one bubble per type; isolating one shows only it in the graph', async ({ page }) => {
+    await findClientMaster(page);
+    await result(page).getByRole('button', { name: 'Depth 2' }).click();
+    await result(page).getByRole('tab', { name: 'Overview' }).click();
+    const bubbles = result(page).locator('.graph-canvas-bubble');
+    await expect(bubbles.first()).toBeVisible();
+    await expect(result(page).getByRole('table', { name: 'Node types in this result' })).toContainText('DataProduct');
+    await result(page).getByRole('button', { name: /^DataStore, Data: \d+ nodes?\. Isolate$/ }).click();
+    await expect(result(page).getByRole('tab', { name: 'Graph' })).toHaveAttribute('aria-selected', 'true');
+    await expect(result(page).getByRole('button', { name: 'Remove DataStore' })).toBeVisible();
+    for (const label of await result(page).locator('.graph-canvas-node').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')!)))
+      expect(label).toMatch(/, DataStore, |, root$/);
+  });
+
   test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {
     await page.goto('/');
     await openNav(page, 'Graph Studio');
