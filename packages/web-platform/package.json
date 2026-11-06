@@ -20,14 +20,14 @@
     "@d4/sdk": "workspace:*"
   },
   "peerDependencies": {
-    "@tabler/icons-react": "3.19.0",
+    "@tabler/icons-react": "3.50.0",
     "@tanstack/react-query": "catalog:",
     "oidc-client-ts": "catalog:",
     "react": "catalog:",
     "react-router-dom": "catalog:"
   },
   "devDependencies": {
-    "@tabler/icons-react": "3.19.0",
+    "@tabler/icons-react": "3.50.0",
     "@tanstack/react-query": "catalog:",
     "@types/react": "catalog:",
     "jsdom": "catalog:",
