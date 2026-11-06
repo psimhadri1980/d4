@@ -1,6 +1,10 @@
-import type { AttributeDef, Metamodel, NodeTypeDef, RelationshipTypeDef } from './schema';
+import { RESERVED_ATTRIBUTE_NAMES, type AttributeDef, type Metamodel, type NodeTypeDef, type RelationshipTypeDef } from './schema';
 
 export type AttributeValues = Record<string, unknown>;
+
+const isScalar = (v: unknown) => typeof v === 'string' || typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v));
+/** What Neo4j can store as a property: a scalar or a list of scalars. */
+const isPropertyValue = (v: unknown) => isScalar(v) || (Array.isArray(v) && v.every(isScalar));
 
 export const layerLabel = (layer: string) => `${layer}Layer`;
 
@@ -100,7 +104,12 @@ export class MetamodelRegistry {
     for (const [k, v] of Object.entries(values)) {
       const d = known.get(k);
       if (!d) {
-        issues.push(`${owner}.${k} is not a defined attribute`);
+        // Attributes the metamodel does not define are allowed, unless they clash with a system
+        // field or hold a value Neo4j cannot store as a property.
+        if (RESERVED_ATTRIBUTE_NAMES.has(k)) issues.push(`${owner}.${k} is a reserved name`);
+        else if (v !== undefined && v !== null && !isPropertyValue(v)) {
+          issues.push(`${owner}.${k} must be a string, number, boolean or a list of them`);
+        }
         continue;
       }
       if (v === undefined || v === null) continue;

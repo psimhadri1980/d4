@@ -1,5 +1,24 @@
 import { z } from 'zod';
 
+/**
+ * Property names the platform stores on every node and relationship. Attributes, defined or not,
+ * are stored as sibling properties, so they must not reuse these.
+ */
+export const RESERVED_ATTRIBUTE_NAMES = new Set([
+  'id',
+  'type',
+  'workspaceId',
+  'version',
+  'validFrom',
+  'validTo',
+  'scenarioId',
+  'deleted',
+  'createdAt',
+  'createdBy',
+  'updatedAt',
+  'updatedBy',
+]);
+
 /** PascalCase for node types, UPPER_SNAKE for relationship types (Neo4j conventions). */
 const NodeTypeName = z.string().regex(/^[A-Z][A-Za-z0-9]*$/, 'node type must be PascalCase');
 const RelTypeName = z.string().regex(/^[A-Z][A-Z0-9_]*$/, 'relationship type must be UPPER_SNAKE');

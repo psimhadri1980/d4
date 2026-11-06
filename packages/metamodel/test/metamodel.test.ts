@@ -41,9 +41,18 @@ describe('starter metamodel', () => {
       expect.arrayContaining([
         'DataProduct.name is required',
         expect.stringMatching(/classification must be one of/),
-        'DataProduct.bogus is not a defined attribute',
       ]),
     );
+    expect(issues).toHaveLength(2);
+  });
+
+  it('accepts attributes the metamodel does not define, except reserved names and unstorable values', () => {
+    expect(reg.validateNodeAttributes('DataProduct', { name: 'Customer', costCentre: 'CC-12', tags: ['a', 'b'], score: 3 })).toEqual([]);
+    expect(reg.validateRelationship('OWNS', 'Division', 'DataProduct', { since: '2024' })).toEqual([]);
+    expect(reg.validateNodeAttributes('DataProduct', { name: 'Customer', deleted: true, meta: { a: 1 } })).toEqual([
+      'DataProduct.deleted is a reserved name',
+      'DataProduct.meta must be a string, number, boolean or a list of them',
+    ]);
   });
 });
 
