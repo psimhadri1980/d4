@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { lensSearch, type Lens } from '@d4/core';
 import { type Element, type Relationship, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
   GraphCanvas,
   GraphInspector,
   GraphSearch,
-  typesByLayer,
   type CanvasAdjustments,
   type CanvasFilter,
   type CanvasLayout,
@@ -18,6 +18,7 @@ import {
   type GraphSearchValue,
 } from '@d4/ui-kit';
 import { exploreApi } from './api';
+import { PREDEFINED_LENSES } from './lenses';
 
 /** One place on the focus path: the search the user began from, then one step per drill (DD-2). */
 interface Step {
@@ -38,9 +39,12 @@ const DEFAULT_DEPTH = 2;
 
 type MetamodelRegistry = NonNullable<ReturnType<typeof useRegistry>['data']>;
 
+/** Typing pauses this long before the lens list's counts are fetched. */
+const COUNT_DELAY_MS = 300;
+
 /**
- * Graph Studio, first slice: find nodes by Layer, Type and Name, see every match as a root with
- * its neighbourhood as a graph or a tree, inspect a node, and drill down along a focus path.
+ * Graph Studio: pick a lens (or none) and search inside it, see every match as a root with its
+ * neighbourhood as a graph or a tree, inspect a node, and drill down along a focus path.
  * The page owns all state; GraphCanvas, GraphSearch and GraphInspector only draw it.
  */
 export function GraphStudio() {
@@ -63,17 +67,42 @@ export function GraphStudio() {
   const patchAt = (i: number, p: Partial<Step>) => setSteps((s) => (s[i] ? s.map((x, j) => (j === i ? { ...x, ...p } : x)) : s));
   const stepIndex = steps.length - 1;
 
+  // Lenses whose types this workspace's metamodel has.
+  const lenses = useMemo(() => {
+    const reg = registry.data;
+    if (!reg) return [];
+    return PREDEFINED_LENSES.filter((l) => [l.contour.type, ...l.facets.flatMap((f) => f.types)].every((t) => reg.nodeType(t)));
+  }, [registry.data]);
+  const lensOf = (v: { lensId: string } | null) => (v ? (lenses.find((l) => l.id === v.lensId) ?? null) : null);
+
   const focusId = step?.focusId;
   const started = !!step;
   const body = useMemo(
-    () => (search && registry.data && started ? searchBody(registry.data, search, focusId, depth) : null),
-    [search, registry.data, started, focusId, depth],
+    () => (search && started ? searchBody(lensOf(search), search, focusId, depth) : null),
+    [search, lenses, started, focusId, depth],
   );
   const result = useQuery({
     queryKey: ['studio', ws, body, vq],
     enabled: !!ws && !!body,
     queryFn: () => exploreApi.studioSearch(ws!, body!, vq),
   });
+
+  // "Not sure yet": how many roots each lens finds for the text being typed (LS-5).
+  const [undecided, setUndecided] = useState('');
+  const [countText, setCountText] = useState<string | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => setCountText(undecided || null), COUNT_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [undecided]);
+  const counts = useQuery({
+    queryKey: ['studio-counts', ws, countText, lenses.map((l) => l.id), vq],
+    enabled: !!ws && !!countText && lenses.length > 0,
+    queryFn: () => exploreApi.studioCounts(ws!, lenses.map((l) => lensSearch(l, [], countText!)), vq),
+  });
+  const lensCounts = useMemo(
+    () => (counts.data && countText ? new Map(lenses.map((l, i) => [l.id, counts.data.counts[i]!])) : undefined),
+    [counts.data, countText, lenses],
+  );
 
   const graph = useMemo(() => (result.data && registry.data ? toCanvas(registry.data, result.data, modelView.asOf) : null), [result.data, registry.data, modelView.asOf]);
 
@@ -82,9 +111,15 @@ export function GraphStudio() {
   const reg = registry.data;
 
   const run = (v: GraphSearchValue) => {
+    const lens = lensOf(v);
     setSearch(v);
+    // A lens opens with its own depth, layout and view (LS-6).
+    if (lens) {
+      setDepth(lens.depth);
+      setLayout(lens.layout);
+    }
     // A new Search starts a new focus path (DD-3).
-    setSteps([{ label: describe(v), selectedId: null, view: step?.view ?? 'graph' }]);
+    setSteps([{ label: describe(lens, v), selectedId: null, view: lens?.view ?? step?.view ?? 'graph' }]);
   };
   const clear = () => {
     setSearch(null);
@@ -106,7 +141,7 @@ export function GraphStudio() {
     </p>
   ) : (
     <div>
-      <p>No nodes match {describe(search)}.</p>
+      <p>No nodes match {describe(lensOf(search), search)}.</p>
       <button type="button" className="button ghost small" onClick={clear}>
         Clear the search
       </button>
@@ -116,7 +151,16 @@ export function GraphStudio() {
   return (
     <div className="graph-studio">
       <div className="graph-studio-search">
-        <GraphSearch registry={reg} value={search ?? undefined} onSearch={run} onClear={clear} busy={result.isFetching} />
+        <GraphSearch
+          registry={reg}
+          lenses={lenses}
+          value={search ?? undefined}
+          onSearch={run}
+          onClear={clear}
+          onUndecidedText={setUndecided}
+          lensCounts={lensCounts}
+          busy={result.isFetching}
+        />
       </div>
       {result.error && <ErrorBanner error={result.error} />}
       <div className="graph-studio-main">
@@ -174,28 +218,26 @@ export function GraphStudio() {
   );
 }
 
-/** "Name contains "pay" · Application", for the breadcrumb and the empty state. */
-function describe(v: GraphSearchValue): string {
-  const parts = [v.name && `"${v.name}"`, v.type || (v.layer && `${v.layer} layer`)].filter(Boolean);
+/** "Data products · "client" · Lifecycle LIVE", for the breadcrumb and the empty state. */
+function describe(lens: Lens | null, v: GraphSearchValue): string {
+  const parts = [lens?.name, v.name && `"${v.name}"`, ...v.filters.map((f) => f.label)].filter(Boolean);
   return parts.join(' · ') || 'everything';
 }
 
-function searchBody(reg: MetamodelRegistry, v: GraphSearchValue, focusId: string | undefined, depth: number) {
+function searchBody(lens: Lens | null, v: GraphSearchValue, focusId: string | undefined, depth: number) {
   const base = { depth, match: 'all' as const, maxNodes: 1000 };
   if (focusId) return { ...base, ids: [focusId] };
-  // A Layer without a Type means every type in that layer.
-  const types = v.type ? [v.type] : v.layer ? (typesByLayer(reg).find(([l]) => l === v.layer)?.[1] ?? []) : undefined;
-  return { ...base, types, name: v.name || undefined };
+  return { ...base, ...lensSearch(lens, v.filters, v.name) };
 }
 
 type StudioResult = Awaited<ReturnType<typeof exploreApi.studioSearch>>;
+
+const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 
 /**
  * API result → GraphCanvas input. A node or relationship counts as planned when it only starts
  * after the date being viewed (today by default), as in the Explorer.
  */
-const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
-
 function toCanvas(reg: MetamodelRegistry, r: StudioResult, asOf?: string) {
   const today = asOf || new Date().toISOString().slice(0, 10);
   const planned = (x: Element | Relationship) => !!x.validFrom && x.validFrom > today;

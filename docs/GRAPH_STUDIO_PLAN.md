@@ -105,7 +105,15 @@ layout or depth opens fitted again.
   (ZM-3), Follow selection (ZM-4); pan/zoom stored per focus step (closes DD-4).
 - "Show only" inclusion filter with counts, badge and chips (FK-1, FK-2).
 
-### Phase 5: lens search
+### Phase 5: lens search: done
+The lens model is in `@d4/core` (`packages/core/src/lens.ts`) rather than a new `packages/lens`:
+core is already a domain package every module may import, so no new package or lockfile change.
+`GraphSearch` is the smart bar; five predefined lenses for the starter metamodel are in
+`apps/web-explore/src/lenses.ts` (a lens whose types the metamodel lacks is left out). Counts for
+"Not sure yet" come from `POST /v1/workspaces/{ws}/studio/counts` (roots only, capped at 1,000).
+Quick filters offered are the contour's pick-list attributes, values taken in turn from each.
+Not yet: the Connections quick filter (needs a degree count in the query), docking the search
+panel left (LS-8, Should), and opening large results in the Overview (LS-6, with phase 7).
 - `packages/lens`: lens model (LS-2), evaluation, attribute-filter kinds from the metamodel (LE-8).
 - `GraphSearch` becomes the smart bar (LS-3…LS-5, the chosen "Lens smart bar" board): lens picker, locked chips, quick filters,
   cross-lens counts only for "Not sure yet" (an API `lens-counts` call), Clear resets everything (LS-8).
