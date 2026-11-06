@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { GraphqlService } from '../graphql/graphql.service';
 import { DiffController } from './diff.controller';
 import { ElementsController } from './elements.controller';
+import { StudioController } from './studio.controller';
 import { InsightsController } from './insights.controller';
 import { ProposalsController } from './proposals.controller';
 import { RelationshipsController } from './relationships.controller';
@@ -11,7 +12,7 @@ import { TransferController } from './transfer.controller';
 
 /** The workspace model: elements, relationships, proposals, views (roadmap, diff, matrices), import and export, GraphQL reads. */
 @Module({
-  controllers: [ElementsController, RelationshipsController, ProposalsController, RoadmapController, DiffController, InsightsController, TransferController, TabularController],
+  controllers: [ElementsController, RelationshipsController, ProposalsController, RoadmapController, DiffController, InsightsController, TransferController, TabularController, StudioController],
   providers: [GraphqlService],
 })
 export class ModelModule {}

@@ -789,6 +789,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{ws}/studio/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Graph Studio search: every element matching the contour types, name, attribute and facet filters is a root, and everything within `depth` hops of the roots (both directions) is loaded. Above `maxNodes` nothing past the roots is returned and `tooLarge` is set. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioSearch"];
+                };
+            };
+            responses: {
+                /** @description Roots and their neighbourhood */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioResult"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{ws}/roadmap": {
         parameters: {
             query?: never;
@@ -7784,6 +7862,63 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+        };
+        StudioResult: {
+            roots: components["schemas"]["Element"][];
+            /** @description Everything reached from the roots, roots excluded */
+            elements: components["schemas"]["Element"][];
+            relationships: components["schemas"]["Relationship"][];
+            /** @description Past maxNodes, or too many roots: only roots (or nothing) and nodeCount are returned */
+            tooLarge: boolean;
+            nodeCount: number;
+        };
+        AttributeFilter: {
+            /** @example criticality */
+            attribute: string;
+            /** @enum {string} */
+            op: "eq" | "in" | "contains" | "gte" | "lte";
+            value: string | number | boolean | (string | number | boolean)[];
+        };
+        StudioSearch: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            /** @description Contour node types; any type when absent */
+            types?: string[];
+            /** @description Case-insensitive part of the name */
+            name?: string;
+            attributes?: components["schemas"]["AttributeFilter"][];
+            facets?: {
+                types: string[];
+                relationship?: string;
+                /**
+                 * @default BOTH
+                 * @enum {string}
+                 */
+                direction: "OUT" | "IN" | "BOTH";
+                /**
+                 * @default has
+                 * @enum {string}
+                 */
+                link: "has" | "none";
+                attributes?: components["schemas"]["AttributeFilter"][];
+            }[];
+            /**
+             * @default all
+             * @enum {string}
+             */
+            match: "all" | "any";
+            /**
+             * @description Hops from each root, both directions
+             * @default 2
+             */
+            depth: number;
+            /** @default 1000 */
+            maxNodes: number;
         };
         Roadmap: {
             order: string[];

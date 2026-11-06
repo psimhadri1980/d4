@@ -87,6 +87,45 @@ export const NeighbourhoodQuery = z.object({
   limit: z.coerce.number().int().min(1).max(2000).optional(),
 });
 
+const AttributeFilterBody = z
+  .object({
+    attribute: z.string().regex(/^[a-z][A-Za-z0-9]*$/).openapi({ example: 'criticality' }),
+    op: z.enum(['eq', 'in', 'contains', 'gte', 'lte']),
+    value: z.union([z.string(), z.number(), z.boolean(), z.array(z.union([z.string(), z.number(), z.boolean()])).max(100)]),
+  })
+  .strict()
+  .openapi('AttributeFilter');
+
+export const StudioSearchBody = z
+  .object({
+    ...View,
+    types: z.array(z.string()).max(50).optional().openapi({ description: 'Contour node types; any type when absent' }),
+    name: z.string().max(200).optional().openapi({ description: 'Case-insensitive part of the name' }),
+    attributes: z.array(AttributeFilterBody).max(20).optional(),
+    facets: z
+      .array(
+        z
+          .object({
+            types: z.array(z.string()).min(1).max(50),
+            relationship: z.string().optional(),
+            direction: z.enum(['OUT', 'IN', 'BOTH']).default('BOTH'),
+            link: z.enum(['has', 'none']).default('has'),
+            attributes: z.array(AttributeFilterBody).max(20).optional(),
+          })
+          .strict(),
+      )
+      .max(10)
+      .optional(),
+    match: z.enum(['all', 'any']).default('all'),
+    depth: z.number().int().min(1).max(6).default(2).openapi({ description: 'Hops from each root, both directions' }),
+    maxNodes: z.number().int().min(1).max(1000).default(1000),
+  })
+  .strict()
+  .refine((b) => b.types?.length || b.name?.trim() || b.attributes?.length || b.facets?.length, {
+    message: 'give at least one of types, name, attributes or facets',
+  })
+  .openapi('StudioSearch');
+
 export const ExportQuery = z.object({
   ...View,
   format: z.enum(EXPORT_FORMATS).optional().openapi({
@@ -192,6 +231,16 @@ export const SubgraphSchema = z
     truncated: z.boolean(),
   })
   .openapi('Subgraph');
+
+export const StudioResultSchema = z
+  .object({
+    roots: z.array(ElementSchema),
+    elements: z.array(ElementSchema).openapi({ description: 'Everything reached from the roots, roots excluded' }),
+    relationships: z.array(RelationshipSchema),
+    tooLarge: z.boolean().openapi({ description: 'Past maxNodes, or too many roots: only roots (or nothing) and nodeCount are returned' }),
+    nodeCount: z.number().int(),
+  })
+  .openapi('StudioResult');
 
 export const EventSchema = z
   .object({

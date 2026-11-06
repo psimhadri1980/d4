@@ -28,7 +28,12 @@ The existing `GraphCanvas.tsx` in ui-kit (Cytoscape) is used by Explorer. The ne
 Each phase is one or more commits that build, test and deploy on their own (CLAUDE.md: local tests,
 then `podman:<app>:deploy` and its e2e specs).
 
-### Phase 0: groundwork (API and metamodel)
+### Phase 0: groundwork (API and metamodel): done
+Done as planned with one change: the subgraph is expanded one hop per query (`StudioQueries` in
+`packages/graph/src/studio.ts`) rather than with a variable-length path, whose cost explodes at
+depth 6. Above the node limit the endpoint returns `tooLarge` and no nodes. The endpoint is
+`POST /v1/workspaces/{ws}/studio/search`; the explore client is `exploreApi.studioSearch`.
+
 - Metamodel: optional `role: contour | facet | both` (default `both`) on node types; schema, registry
   accessor, `starter.yaml` roles for the obvious contours (ApplicationComponent, Capability, Server…),
   version bump to 0.3.0. Tests in `packages/metamodel/test`.

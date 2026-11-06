@@ -437,6 +437,205 @@
           "data"
         ]
       },
+      "StudioResult": {
+        "type": "object",
+        "properties": {
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Element"
+            }
+          },
+          "elements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Element"
+            },
+            "description": "Everything reached from the roots, roots excluded"
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            }
+          },
+          "tooLarge": {
+            "type": "boolean",
+            "description": "Past maxNodes, or too many roots: only roots (or nothing) and nodeCount are returned"
+          },
+          "nodeCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "roots",
+          "elements",
+          "relationships",
+          "tooLarge",
+          "nodeCount"
+        ]
+      },
+      "AttributeFilter": {
+        "type": "object",
+        "properties": {
+          "attribute": {
+            "type": "string",
+            "pattern": "^[a-z][A-Za-z0-9]*$",
+            "example": "criticality"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "eq",
+              "in",
+              "contains",
+              "gte",
+              "lte"
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "maxItems": 100
+              }
+            ]
+          }
+        },
+        "required": [
+          "attribute",
+          "op",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "StudioSearch": {
+        "type": "object",
+        "properties": {
+          "asOf": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Only items valid on this date",
+            "example": "2026-10-17"
+          },
+          "scenario": {
+            "type": "string",
+            "description": "Scenario element id: the baseline plus this scenario"
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Contour node types; any type when absent"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Case-insensitive part of the name"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributeFilter"
+            },
+            "maxItems": 20
+          },
+          "facets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "maxItems": 50
+                },
+                "relationship": {
+                  "type": "string"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "OUT",
+                    "IN",
+                    "BOTH"
+                  ],
+                  "default": "BOTH"
+                },
+                "link": {
+                  "type": "string",
+                  "enum": [
+                    "has",
+                    "none"
+                  ],
+                  "default": "has"
+                },
+                "attributes": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AttributeFilter"
+                  },
+                  "maxItems": 20
+                }
+              },
+              "required": [
+                "types"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 10
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "all",
+              "any"
+            ],
+            "default": "all"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "default": 2,
+            "description": "Hops from each root, both directions"
+          },
+          "maxNodes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 1000
+          }
+        },
+        "additionalProperties": false
+      },
       "Roadmap": {
         "type": "object",
         "properties": {
@@ -3879,6 +4078,90 @@
                   "items": {
                     "$ref": "#/components/schemas/Event"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{ws}/studio/search": {
+      "post": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Elements"
+        ],
+        "description": "Graph Studio search: every element matching the contour types, name, attribute and facet filters is a root, and everything within `depth` hops of the roots (both directions) is loaded. Above `maxNodes` nothing past the roots is returned and `tooLarge` is set.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "ws",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioSearch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Roots and their neighbourhood",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioResult"
                 }
               }
             }

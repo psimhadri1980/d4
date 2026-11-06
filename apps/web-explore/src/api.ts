@@ -1,5 +1,8 @@
 import type { MatrixKind } from '@d4/core';
-import { d4, type ViewParams } from '@d4/web-platform';
+import { d4, type Schemas, type ViewParams } from '@d4/web-platform';
+
+/** A Graph Studio search without the view, which comes from the page's view picker. */
+type StudioSearch = Omit<Schemas['StudioSearch'], 'asOf' | 'scenario'>;
 
 const text = (v: string | undefined) => v || undefined;
 const view = (v: ViewParams) => ({ asOf: text(v.asOf), scenario: text(v.scenario) });
@@ -10,6 +13,9 @@ export const exploreApi = {
       path: { ws, id },
       query: { depth, limit: 800, ...view(v) },
     }),
+  /** Graph Studio: every element the search matches is a root, loaded with its neighbourhood. */
+  studioSearch: (ws: string, search: StudioSearch, v: ViewParams = {}) =>
+    d4().post('/v1/workspaces/{ws}/studio/search', { path: { ws }, body: { ...search, ...view(v) } }),
   matrix: (ws: string, kind: MatrixKind, v: ViewParams = {}) =>
     d4().get('/v1/workspaces/{ws}/matrix/{kind}', { path: { ws, kind }, query: view(v) }),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>
