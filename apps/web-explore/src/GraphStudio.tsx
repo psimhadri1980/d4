@@ -11,6 +11,7 @@ import {
   type CanvasAdjustments,
   type CanvasFilter,
   type CanvasLayout,
+  type CanvasViewport,
   type GraphCanvasEdge,
   type GraphCanvasNode,
   type GraphCanvasView,
@@ -29,6 +30,8 @@ interface Step {
   expandedIds?: string[];
   /** Nodes, connectors and labels moved by hand, per layout (GV-5, GV-5b). */
   adjust?: Partial<Record<CanvasLayout, CanvasAdjustments>>;
+  /** Zoom and scroll; absent, the graph fits the pane (DD-4). */
+  viewport?: CanvasViewport;
 }
 
 const DEFAULT_DEPTH = 2;
@@ -52,8 +55,13 @@ export function GraphStudio() {
   const [layout, setLayout] = useState<CanvasLayout>('hier');
   // Filters stay as they are across focus steps (DD-3).
   const [filter, setFilter] = useState<CanvasFilter>({ nodeTypes: [], relationshipTypes: [] });
+  const [follow, setFollow] = useState(false);
   const step = steps.at(-1);
   const patch = (p: Partial<Step>) => setSteps((s) => [...s.slice(0, -1), { ...s.at(-1)!, ...p }]);
+  // For reports that arrive later (the viewport settles after a delay): they belong to the step
+  // that was showing when they were made, even if the user has drilled on since.
+  const patchAt = (i: number, p: Partial<Step>) => setSteps((s) => (s[i] ? s.map((x, j) => (j === i ? { ...x, ...p } : x)) : s));
+  const stepIndex = steps.length - 1;
 
   const focusId = step?.focusId;
   const started = !!step;
@@ -130,14 +138,25 @@ export function GraphStudio() {
             onSelect={(id) => step && patch({ selectedId: id })}
             onViewChange={(v) => (step ? patch({ view: v }) : undefined)}
             onExpandedChange={(paths) => patch({ expandedIds: paths })}
-            onLayoutChange={setLayout}
-            onDepthChange={setDepth}
+            // A new layout or depth opens fitted again.
+            onLayoutChange={(l) => {
+              setLayout(l);
+              if (step) patch({ viewport: undefined });
+            }}
+            onDepthChange={(d) => {
+              setDepth(d);
+              if (step) patch({ viewport: undefined });
+            }}
             onDrill={drill}
             onCrumb={(i) => setSteps((s) => s.slice(0, i + 1))}
             filter={filter}
             onFilterChange={setFilter}
             adjustments={step?.adjust?.[layout]}
             onAdjustmentsChange={(a) => step && patch({ adjust: { ...step.adjust, [layout]: a } })}
+            viewport={step?.viewport}
+            onViewportChange={(v) => patchAt(stepIndex, { viewport: v })}
+            followSelection={follow}
+            onFollowSelectionChange={setFollow}
           />
         </div>
         <GraphInspector
@@ -175,13 +194,23 @@ type StudioResult = Awaited<ReturnType<typeof exploreApi.studioSearch>>;
  * API result → GraphCanvas input. A node or relationship counts as planned when it only starts
  * after the date being viewed (today by default), as in the Explorer.
  */
+const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+
 function toCanvas(reg: MetamodelRegistry, r: StudioResult, asOf?: string) {
   const today = asOf || new Date().toISOString().slice(0, 10);
   const planned = (x: Element | Relationship) => !!x.validFrom && x.validFrom > today;
   const nameOf = (e: Element) => (typeof e.attrs['name'] === 'string' ? e.attrs['name'] : e.id);
   const all = [...r.roots, ...r.elements];
   const nodes: GraphCanvasNode[] = all
-    .map((e) => ({ id: e.id, name: nameOf(e), type: e.type, layer: reg.nodeType(e.type)?.layer ?? 'System', state: planned(e) ? ('planned' as const) : ('in-graph' as const) }))
+    .map((e) => ({
+      id: e.id,
+      name: nameOf(e),
+      type: e.type,
+      layer: reg.nodeType(e.type)?.layer ?? 'System',
+      state: planned(e) ? ('planned' as const) : ('in-graph' as const),
+      owner: text(e.attrs['owner'] ?? e.attrs['ownerId']),
+      changedAt: e.updatedAt ?? undefined,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x) }));
   return {

@@ -228,6 +228,35 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
   });
 
+  it('zooms between four levels of detail from the zoom box, and toggles Follow selection', () => {
+    const follows: boolean[] = [];
+    const root = render(<GraphCanvas nodes={nodes} edges={edges} rootIds={['r1']} viewport={{ zoom: 1, left: 0, top: 0 }} onFollowSelectionChange={(f) => follows.push(f)} />);
+    const zoombox = host.querySelector('[role="toolbar"][aria-label="Zoom"]')!;
+    const button = (name: string) => [...zoombox.querySelectorAll('button')].find((b) => (b.getAttribute('aria-label') ?? b.textContent) === name)!;
+    const svg = () => host.querySelector('svg.graph-canvas-svg')!;
+    expect(zoombox.textContent).toContain('100%');
+    expect(button('Card').getAttribute('aria-pressed')).toBe('true');
+    const width = Number(svg().getAttribute('width'));
+
+    click(button('Dot'));
+    expect(zoombox.textContent).toContain('35%');
+    expect(svg().classList.contains('level-dot')).toBe(true);
+    expect(host.querySelectorAll('.graph-canvas-dot')).toHaveLength(3);
+    expect(host.querySelector('.graph-canvas-label')).toBeNull();
+    // The drawing scales with the zoom (and its boxes shrink to dots).
+    expect(Number(svg().getAttribute('width'))).toBeLessThan(width * 0.4);
+
+    click(button('Detail'));
+    expect(node('iv').textContent).toContain('Owner: –');
+    expect(node('iv').textContent).toContain('2 rel.');
+    click(button('Zoom in'));
+    expect(zoombox.textContent).toContain('188%');
+
+    click(button('Follow selection'));
+    expect(follows).toEqual([true]);
+    act(() => root.unmount());
+  });
+
   it('colours nodes by layer token with a fallback for unknown layers', () => {
     const root = render(<GraphCanvas nodes={[{ ...nodes[0]!, layer: 'Moon' }]} edges={[]} rootIds={['r1']} layout="radial" />);
     expect((host.querySelector('.graph-canvas-swatch') as SVGElement).style.fill).toContain('--layer-moon');
