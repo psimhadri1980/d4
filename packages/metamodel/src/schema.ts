@@ -57,10 +57,16 @@ export const NodeTypeDef = z.object({
   /** Inherit attributes and relationship eligibility from another node type. */
   extends: NodeTypeName.optional(),
   attributes: z.array(AttributeDef).default([]),
+  /**
+   * How lens search may use the type: as the focus of a search (`contour`), as an aspect linked to
+   * it (`facet`), or `both`. Unset means the role of the type it extends, else `both`.
+   */
+  role: z.enum(['contour', 'facet', 'both']).optional(),
   /** Internal types are hidden from end-user pickers. */
   internal: z.boolean().default(false),
 });
 export type NodeTypeDef = z.infer<typeof NodeTypeDef>;
+export type NodeTypeRole = NonNullable<NodeTypeDef['role']>;
 
 /** `*` means any element type. */
 const Endpoint = z.union([NodeTypeName, z.literal('*')]);

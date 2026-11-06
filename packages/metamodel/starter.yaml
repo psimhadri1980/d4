@@ -1,6 +1,6 @@
 # D4 starter metamodel. Tenants copy and extend this; it is versioned like code.
 id: d4-starter
-version: 0.2.0
+version: 0.3.0
 description: Default enterprise design-to-delivery metamodel.
 
 layers: [Strategy, Organisation, Business, Data, Application, Technology, Governance, Design, Planning, System]
@@ -57,6 +57,7 @@ nodeTypes:
   - { name: Principle, layer: Strategy, attributes: [{ name: rationale, type: text }] }
   - { name: Outcome, layer: Strategy, attributes: [{ name: valueEstimate, type: number }] }
   - name: KPI
+    role: facet
     layer: Strategy
     attributes:
       - { name: unit, type: string }
@@ -84,6 +85,7 @@ nodeTypes:
   - { name: Role, layer: Organisation, description: e.g. Data Owner, Data Steward, Process Owner }
   - { name: Person, layer: Organisation, attributes: [{ name: emailRef, type: string }] }
   - name: Location
+    role: facet
     layer: Organisation
     attributes:
       - { name: country, type: string }
@@ -101,6 +103,7 @@ nodeTypes:
 
   # ── Business ──────────────────────────────────────────────────────────
   - name: Capability
+    role: contour
     layer: Business
     attributes:
       - { name: level, type: integer }
@@ -115,6 +118,7 @@ nodeTypes:
       - { name: bpmnRef, type: url }
   - { name: SubProcess, layer: Business, extends: BusinessProcess }
   - name: ProcessStep
+    role: facet
     layer: Business
     attributes:
       - { name: seq, type: integer }
@@ -130,6 +134,7 @@ nodeTypes:
   - { name: DataDomain, layer: Data }
   - { name: SubDomain, layer: Data, extends: DataDomain }
   - name: DataProduct
+    role: contour
     layer: Data
     attributes:
       - { name: productType, type: enum, enum: DataProductType }
@@ -137,6 +142,7 @@ nodeTypes:
       - { name: qualityScore, type: number }
       - { name: classification, type: enum, enum: Classification }
   - name: DataContract
+    role: facet
     layer: Data
     attributes:
       - { name: schemaRef, type: url }
@@ -149,6 +155,7 @@ nodeTypes:
   - { name: ApiResource, layer: Data, extends: DataSet }
   - { name: DataEntity, layer: Data, attributes: [{ name: keyAttributes, type: 'string[]' }] }
   - name: DataAttribute
+    role: facet
     layer: Data
     attributes:
       - { name: dataType, type: string }
@@ -172,6 +179,7 @@ nodeTypes:
 
   # ── Application ───────────────────────────────────────────────────────
   - name: Application
+    role: contour
     layer: Application
     attributes:
       - { name: appId, type: string }
@@ -199,6 +207,7 @@ nodeTypes:
   - { name: Platform, layer: Technology, attributes: [{ name: platformType, type: string }] }
   - { name: PlatformService, layer: Technology }
   - name: Environment
+    role: facet
     layer: Technology
     attributes:
       - { name: environmentType, type: enum, enum: EnvironmentType }
@@ -263,6 +272,7 @@ nodeTypes:
   - { name: Portfolio, layer: Planning, attributes: [{ name: budget, type: number }] }
   - { name: Program, layer: Planning, attributes: [{ name: budget, type: number }] }
   - name: Initiative
+    role: contour
     layer: Planning
     attributes:
       - { name: startDate, type: date }

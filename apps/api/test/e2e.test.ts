@@ -906,7 +906,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);
       expect(exported.status).toBe(200);
-      expect(exported.body!['metadata']).toMatchObject({ name: 'Default', metamodel: 'd4-starter@0.2.0' });
+      expect(exported.body!['metadata']).toMatchObject({ name: 'Default', metamodel: 'd4-starter@0.3.0' });
       expect(exported.body!['elements'].length).toBeGreaterThanOrEqual(sample.elements.length);
 
       const writer = await sign('importer-3', ['architect']);

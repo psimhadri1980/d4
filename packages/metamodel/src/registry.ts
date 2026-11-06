@@ -1,4 +1,4 @@
-import { RESERVED_ATTRIBUTE_NAMES, type AttributeDef, type Metamodel, type NodeTypeDef, type RelationshipTypeDef } from './schema';
+import { RESERVED_ATTRIBUTE_NAMES, type AttributeDef, type Metamodel, type NodeTypeDef, type NodeTypeRole, type RelationshipTypeDef } from './schema';
 
 export type AttributeValues = Record<string, unknown>;
 
@@ -32,6 +32,15 @@ export class MetamodelRegistry {
 
   relationshipTypes(): RelationshipTypeDef[] {
     return [...this.rels.values()];
+  }
+
+  /** The type's lens role: its own, else the nearest ancestor's, else `both`. */
+  roleOf(name: string): NodeTypeRole {
+    for (const t of this.lineage(name)) {
+      const role = this.nodes.get(t)?.role;
+      if (role) return role;
+    }
+    return 'both';
   }
 
   /** The type itself followed by its ancestors via `extends`. */
