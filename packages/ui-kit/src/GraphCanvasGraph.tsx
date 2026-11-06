@@ -149,9 +149,7 @@ export function GraphCanvasGraph({ nodes, edges, rootIds, selectedId, layout, la
               setLabelId(r.id === labelId ? null : r.id);
             }}
             onLabelReset={() => {
-              const { [r.id]: _l, ...labels } = adjust.labels;
-              const { [r.id]: _b, ...bends } = adjust.bends;
-              commit({ ...adjust, labels, bends });
+              commit({ ...adjust, labels: without(adjust.labels, r.id), bends: without(adjust.bends, r.id) });
             }}
           />
         ))}
@@ -263,8 +261,10 @@ function Connector({ route, edge, marker, lit, onLinePointerDown, onLabelPointer
   );
 }
 
+const without = <T,>(rec: Readonly<Record<string, T>>, key: string) => Object.fromEntries(Object.entries(rec).filter(([k]) => k !== key));
+
 /** ENABLED_BY → ENABLED BY (GV-3a). */
-export const edgeLabel = (type: string) => type.replace(/_/g, ' ');
+const edgeLabel = (type: string) => type.replace(/_/g, ' ');
 
 /** The layer's theme token, with the fixed palette, then the System colour, as fallbacks (CT-5). */
 const layerColor = (layer: string) => `var(--layer-${layer.toLowerCase()}, ${LAYER_COLORS[layer] ?? 'var(--layer-system, #8d8d8d)'})`;
