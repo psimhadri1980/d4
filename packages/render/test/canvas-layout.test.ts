@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CANVAS_LAYOUTS, canvasGeometry, hops, overlaps, type Box, type LayoutEdge, type LayoutNode } from '../src';
+import { CANVAS_LAYOUTS, canvasGeometry, canvasPlacement, hops, overlaps, type Box, type LayoutEdge, type LayoutNode } from '../src';
 
 // Two roots sharing a service, a chain below one of them, and a planned server off to the side.
 const nodes: LayoutNode[] = [
@@ -104,6 +104,47 @@ describe('canvasGeometry', () => {
     expect(one.boxes.get('a')).toMatchObject({ x: 40, y: 40 });
     const lonely = hops([...nodes, { id: 'z', layer: 'Data' }], edges, ['r1']);
     expect(lonely.get('z')).toBe(Math.max(...[...lonely.values()].filter((_, i, a) => i < a.length - 1)) + 1);
+  });
+
+  it('keeps dragged nodes, bend lines, curves and labels where the user put them (GV-5, GV-5b)', () => {
+    const placement = canvasPlacement(nodes, edges, ['r1', 'r2'], 'hier');
+    const base = canvasGeometry(nodes, edges, ['r1', 'r2'], 'hier', [], { placement });
+    expect(base).toEqual(canvasGeometry(nodes, edges, ['r1', 'r2'], 'hier'));
+    const moved = canvasGeometry(nodes, edges, ['r1', 'r2'], 'hier', [], {
+      placement,
+      adjust: { nodes: { sv: { x: -200, y: 600 } }, bends: { e1: 130 }, labels: { e2: { x: 500, y: 20 } } },
+    });
+    expect(moved.boxes.get('sv')).toMatchObject({ x: -290, y: 572 });
+    // The canvas grows to the left so the dragged node stays reachable (ZM-6).
+    expect(moved.minX).toBeLessThan(-290);
+    expect(moved.boxes.get('iv')).toEqual(base.boxes.get('iv'));
+    const e1 = moved.routes.find((r) => r.id === 'e1')!;
+    expect(e1.bend).toEqual({ axis: 'y', at: 130 });
+    expect(e1.points[1]!.y).toBe(130);
+    const e2 = moved.routes.find((r) => r.id === 'e2')!;
+    expect(e2.label).toEqual({ x: 500, y: 20 });
+    expect(e2.anchor).toEqual(base.routes.find((r) => r.id === 'e2')!.anchor);
+    // The connector into the dragged node still ends on its box.
+    expect(onBorder(moved.boxes.get('sv')!, moved.routes.find((r) => r.id === 'e6')!.points.at(-1)!)).toBe(true);
+  });
+
+  it('curves straight connectors, still ending on the boxes, with the label on the curve', () => {
+    const g = canvasGeometry(nodes, edges, ['r1', 'r2'], 'radial', [], { adjust: { nodes: {}, bends: { e1: 60 }, labels: {} } });
+    const r = g.routes.find((x) => x.id === 'e1')!;
+    expect(r.control).toBeDefined();
+    expect(onBorder(g.boxes.get('r1')!, r.points[0]!)).toBe(true);
+    expect(onBorder(g.boxes.get('iv')!, r.points[1]!)).toBe(true);
+    const straight = canvasGeometry(nodes, edges, ['r1', 'r2'], 'radial').routes.find((x) => x.id === 'e1')!;
+    expect(Math.hypot(r.anchor.x - straight.anchor.x, r.anchor.y - straight.anchor.y)).toBeGreaterThan(40);
+  });
+
+  it('draws boxes at the size asked for, with connectors ending on them', () => {
+    const g = canvasGeometry(nodes, edges, ['r1', 'r2'], 'hier', [], { size: () => ({ w: 16, h: 16 }) });
+    for (const b of g.boxes.values()) expect(b).toMatchObject({ w: 16, h: 16 });
+    for (const r of g.routes) {
+      const e = edges.find((x) => x.id === r.id)!;
+      expect(onBorder(g.boxes.get(e.to)!, r.points.at(-1)!)).toBe(true);
+    }
   });
 
   it('lays out 1,000 nodes quickly', () => {
