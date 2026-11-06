@@ -18,8 +18,8 @@ export const exploreApi = {
   studioSearch: (ws: string, search: StudioSearch, v: ViewParams = {}) =>
     d4().post('/v1/workspaces/{ws}/studio/search', { path: { ws }, body: { ...search, ...view(v) } }),
   /** How many roots each search finds, for the lens list while no lens is chosen. */
-  studioCounts: (ws: string, searches: StudioCountSearch[], v: ViewParams = {}) =>
-    d4().post('/v1/workspaces/{ws}/studio/counts', { path: { ws }, body: { searches, cap: 1000, ...view(v) } }),
+  studioCounts: (ws: string, searches: StudioCountSearch[], v: ViewParams = {}, sample = 0) =>
+    d4().post('/v1/workspaces/{ws}/studio/counts', { path: { ws }, body: { searches, cap: 1000, sample, ...view(v) } }),
   matrix: (ws: string, kind: MatrixKind, v: ViewParams = {}) =>
     d4().get('/v1/workspaces/{ws}/matrix/{kind}', { path: { ws, kind }, query: view(v) }),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>

@@ -90,7 +90,7 @@ export const NeighbourhoodQuery = z.object({
 const AttributeFilterBody = z
   .object({
     attribute: z.string().regex(/^[a-z][A-Za-z0-9]*$/).openapi({ example: 'criticality' }),
-    op: z.enum(['eq', 'in', 'contains', 'gte', 'lte']),
+    op: z.enum(['eq', 'in', 'contains', 'starts', 'gte', 'lte']),
     value: z.union([z.string(), z.number(), z.boolean(), z.array(z.union([z.string(), z.number(), z.boolean()])).max(100)]),
   })
   .strict()
@@ -142,13 +142,55 @@ export const StudioCountsBody = z
     ...View,
     searches: z.array(CountSearch).min(1).max(30).openapi({ description: 'One per lens; each is counted on its own' }),
     cap: z.number().int().min(1).max(10_000).default(1000).openapi({ description: 'Counting stops here; `more` says there are more' }),
+    sample: z.number().int().min(0).max(20).default(0).openapi({ description: 'Names of the first roots to return with each count' }),
   })
   .strict()
   .openapi('StudioCounts');
 
 export const StudioCountsSchema = z
-  .object({ counts: z.array(z.object({ count: z.number().int(), more: z.boolean() })) })
+  .object({ counts: z.array(z.object({ count: z.number().int(), more: z.boolean(), sample: z.array(z.string()) })) })
   .openapi('StudioCountsResult');
+
+const Facet = z
+  .object({
+    types: z.array(z.string()).min(1).max(50),
+    relationship: z.string().optional(),
+    direction: z.enum(['OUT', 'IN', 'BOTH']).default('BOTH'),
+    link: z.enum(['has', 'none']).default('has'),
+    attributes: z.array(AttributeFilterBody).max(20).optional(),
+  })
+  .strict();
+
+export const StudioLensBody = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    description: z.string().trim().max(2000).optional(),
+    visibility: z.enum(['private', 'workspace']).default('private').openapi({ description: 'Workspace lenses need write access to the workspace' }),
+    contour: z.object({ type: z.string(), attributes: z.array(AttributeFilterBody).max(20).optional() }).strict(),
+    facets: z.array(Facet).max(10).default([]),
+    match: z.enum(['all', 'any']).default('all'),
+    depth: z.number().int().min(1).max(6).default(2),
+    layout: z.enum(['hier', 'flow', 'layers', 'radial', 'force']).default('hier'),
+    view: z.enum(['graph', 'table']).default('graph'),
+    follow: z.boolean().default(false),
+  })
+  .strict()
+  .openapi('StudioLensInput');
+
+export const StudioLensSchema = StudioLensBody.extend({ id: z.string(), owner: z.string(), updatedAt: z.string() }).openapi('StudioLens');
+
+export const StudioProfileBody = z
+  .object({ ...View, type: z.string(), attributes: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).default([]) })
+  .strict()
+  .openapi('StudioProfileQuery');
+
+export const StudioProfileSchema = z
+  .object({
+    count: z.number().int(),
+    links: z.array(z.object({ relationship: z.string(), direction: z.enum(['OUT', 'IN']), type: z.string(), count: z.number().int() })),
+    values: z.record(z.array(z.object({ value: z.unknown(), count: z.number().int() }))),
+  })
+  .openapi('StudioProfile');
 
 export const ExportQuery = z.object({
   ...View,

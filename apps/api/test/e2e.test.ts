@@ -38,7 +38,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
   let sign: (sub: string, roles: string[], tenant?: string) => Promise<string>;
 
   const call = async (
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     url: string,
     token?: string,
     payload?: unknown,
@@ -283,11 +283,41 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(tooLarge.body).toMatchObject({ tooLarge: true, elements: [] });
 
       const counts = await call('POST', `${ws()}/studio/counts`, token, { searches: [{ types: ['DataProduct'], name: 'custom' }, { name: 'zz-none' }] });
-      expect(counts.body).toEqual({ counts: [{ count: 1, more: false }, { count: 0, more: false }] });
+      expect(counts.body).toEqual({ counts: [{ count: 1, more: false, sample: [] }, { count: 0, more: false, sample: [] }] });
 
       expect((await call('POST', `${ws()}/studio/search`, token, { depth: 2 })).status).toBe(400);
       expect((await call('POST', `${ws()}/studio/search`, token, { types: ['Nope'] })).status).toBe(400);
       expect((await call('POST', `${ws()}/studio/search`, token, { name: 'x', depth: 7 })).status).toBe(400);
+    });
+
+    it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
+      const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
+      const created = await call('POST', `${ws()}/studio/lenses`, token, lens);
+      expect(created.status).toBe(201);
+      expect(created.body).toMatchObject({ name: 'Held products', visibility: 'private', depth: 2, layout: 'hier', facets: [{ link: 'has' }] });
+      const id = created.body!['id'];
+
+      const viewer = await sign('viewer-lens', ['viewer']);
+      // A viewer sees no one else's private lens, may save their own, but may not share one.
+      expect((await call('GET', `${ws()}/studio/lenses`, viewer)).body!.map((l: any) => l.id)).not.toContain(id);
+      expect((await call('POST', `${ws()}/studio/lenses`, viewer, { ...lens, name: 'Mine' })).status).toBe(201);
+      expect((await call('POST', `${ws()}/studio/lenses`, viewer, { ...lens, visibility: 'workspace' })).status).toBe(403);
+      expect((await call('PUT', `${ws()}/studio/lenses/${id}`, viewer, lens)).status).toBe(404);
+
+      const shared = await call('PUT', `${ws()}/studio/lenses/${id}`, token, { ...lens, visibility: 'workspace', depth: 1 });
+      expect(shared.body).toMatchObject({ visibility: 'workspace', depth: 1 });
+      expect((await call('GET', `${ws()}/studio/lenses`, viewer)).body!.map((l: any) => l.id)).toContain(id);
+      expect((await call('PUT', `${ws()}/studio/lenses/${id}`, viewer, lens)).status).toBe(403);
+      expect((await call('DELETE', `${ws()}/studio/lenses/${id}`, viewer)).status).toBe(403);
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, contour: { type: 'Nope' } })).status).toBe(400);
+      expect((await call('DELETE', `${ws()}/studio/lenses/${id}`, token)).status).toBe(204);
+
+      const profile = await call('POST', `${ws()}/studio/profile`, token, { type: 'DataProduct', attributes: ['classification'] });
+      expect(profile.body!['count']).toBeGreaterThan(0);
+      expect(profile.body!['links']).toEqual(expect.arrayContaining([expect.objectContaining({ relationship: 'HOLDS', direction: 'IN', type: 'DataStore' })]));
+      expect(profile.body!['values']['classification'][0]).toEqual({ value: expect.any(String), count: expect.any(Number) });
+      const sampled = await call('POST', `${ws()}/studio/counts`, token, { searches: [{ types: ['DataProduct'], name: 'custom' }], sample: 3 });
+      expect(sampled.body).toEqual({ counts: [{ count: 1, more: false, sample: ['Customer'] }] });
     });
 
     it('soft-deletes elements with their relationships', async () => {

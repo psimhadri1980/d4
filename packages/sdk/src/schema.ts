@@ -945,6 +945,356 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{ws}/studio/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description For the lens editor: how many elements of a type there are, the types linked to them by relationship and direction (with counts), and the most common values of the asked attributes. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioProfileQuery"];
+                };
+            };
+            responses: {
+                /** @description The profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioProfile"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{ws}/studio/lenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saved Graph Studio lenses: the caller's own and every workspace lens */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Lenses by name */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioLens"][];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Save a lens */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioLensInput"];
+                };
+            };
+            responses: {
+                /** @description The saved lens */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioLens"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{ws}/studio/lenses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a lens (its owner only) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioLensInput"];
+                };
+            };
+            responses: {
+                /** @description The changed lens */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioLens"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Delete a lens (its owner only) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{ws}/roadmap": {
         parameters: {
             query?: never;
@@ -7954,7 +8304,7 @@ export interface components {
             /** @example criticality */
             attribute: string;
             /** @enum {string} */
-            op: "eq" | "in" | "contains" | "gte" | "lte";
+            op: "eq" | "in" | "contains" | "starts" | "gte" | "lte";
             value: string | number | boolean | (string | number | boolean)[];
         };
         StudioSearch: {
@@ -8004,6 +8354,7 @@ export interface components {
             counts: {
                 count: number;
                 more: boolean;
+                sample: string[];
             }[];
         };
         StudioCounts: {
@@ -8045,6 +8396,93 @@ export interface components {
              * @default 1000
              */
             cap: number;
+            /**
+             * @description Names of the first roots to return with each count
+             * @default 0
+             */
+            sample: number;
+        };
+        StudioProfile: {
+            count: number;
+            links: {
+                relationship: string;
+                /** @enum {string} */
+                direction: "OUT" | "IN";
+                type: string;
+                count: number;
+            }[];
+            values: {
+                [key: string]: {
+                    value?: unknown;
+                    count: number;
+                }[];
+            };
+        };
+        StudioProfileQuery: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            type: string;
+            /** @default [] */
+            attributes: string[];
+        };
+        StudioLensInput: {
+            name: string;
+            description?: string;
+            /**
+             * @description Workspace lenses need write access to the workspace
+             * @default private
+             * @enum {string}
+             */
+            visibility: "private" | "workspace";
+            contour: {
+                type: string;
+                attributes?: components["schemas"]["AttributeFilter"][];
+            };
+            /** @default [] */
+            facets: {
+                types: string[];
+                relationship?: string;
+                /**
+                 * @default BOTH
+                 * @enum {string}
+                 */
+                direction: "OUT" | "IN" | "BOTH";
+                /**
+                 * @default has
+                 * @enum {string}
+                 */
+                link: "has" | "none";
+                attributes?: components["schemas"]["AttributeFilter"][];
+            }[];
+            /**
+             * @default all
+             * @enum {string}
+             */
+            match: "all" | "any";
+            /** @default 2 */
+            depth: number;
+            /**
+             * @default hier
+             * @enum {string}
+             */
+            layout: "hier" | "flow" | "layers" | "radial" | "force";
+            /**
+             * @default graph
+             * @enum {string}
+             */
+            view: "graph" | "table";
+            /** @default false */
+            follow: boolean;
+        };
+        StudioLens: components["schemas"]["StudioLensInput"] & {
+            id: string;
+            owner: string;
+            updatedAt: string;
         };
         Roadmap: {
             order: string[];

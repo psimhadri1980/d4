@@ -606,3 +606,26 @@ export const webModules = pgTable(
   },
   (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.name] }) }),
 );
+
+/**
+ * Graph Studio lenses people saved (D82): a contour, facets and how the result opens, as one
+ * document in `body`. Private lenses show only to their owner; workspace lenses to everyone who
+ * can read the workspace.
+ */
+export const studioLenses = pgTable(
+  'studio_lenses',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id').notNull(),
+    workspaceId: text('workspace_id').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    visibility: text('visibility', { enum: ['private', 'workspace'] }).notNull().default('private'),
+    /** Contour, facets, match, depth, layout and view (the Lens type of @d4/core, without its id and name). */
+    body: jsonb('body').notNull(),
+    createdBy: text('created_by').notNull(),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ byWorkspace: index('studio_lenses_workspace').on(t.tenantId, t.workspaceId) }),
+);

@@ -142,5 +142,5 @@ panel left (LS-8, Should), and opening large results in the Overview (LS-6, with
 1. Phase 0: does the API cap stay at 1,000 nodes for every role, or per tenant setting?
 2. Phase 1: is Cytoscape kept for the force layout's maths, or a small force simulation in
    `@d4/render`? Plan assumes our own (no DOM dependency).
-3. Phase 6: lens visibility values (private, workspace, published?) and who may publish.
+3. ~~Phase 6: lens visibility values and who may publish.~~ Private or workspace; sharing needs write access (D82).
 4. Phase 8: where the credit-graph files are today.
