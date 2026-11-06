@@ -249,52 +249,76 @@ function radial(nodes: LayoutNode[], edges: LayoutEdge[], rootIds: string[]): Ma
 const scale = (pos: Map<string, Point>) => new Map([...pos].map(([id, p]) => [id, { x: p.x * 1.9, y: p.y * 1.2 }]));
 
 /**
- * Force-directed: spring forces along connectors, repulsion between all pairs, started from the
- * radial layout and cooled over a fixed number of steps, so it is deterministic.
+ * Force-directed: spring forces along connectors, repulsion between nearby nodes, started from the
+ * radial layout and cooled over a fixed number of steps, so it is deterministic. Repulsion counts
+ * only nodes within CUTOFF (beyond it the push is under a sixteenth of that at one slot), found
+ * through a grid of CUTOFF-sized cells, so a step costs about n rather than n² (1,000 nodes in well
+ * under a second on a slow machine).
  */
 function force(nodes: LayoutNode[], edges: LayoutEdge[], start: Map<string, Point>): Map<string, Point> {
-  const ids = nodes.map((n) => n.id);
-  const pos = new Map(ids.map((id) => [id, { ...(start.get(id) ?? { x: 0, y: 0 }) }]));
+  const n = nodes.length;
+  const index = new Map(nodes.map((nd, i) => [nd.id, i]));
+  const x = new Float64Array(n);
+  const y = new Float64Array(n);
+  nodes.forEach((nd, i) => {
+    const p = start.get(nd.id) ?? { x: 0, y: 0 };
+    x[i] = p.x;
+    y[i] = p.y;
+  });
+  const links = edges.map((e) => [index.get(e.from)!, index.get(e.to)!] as const);
   const k = SLOT.w;
-  const steps = ids.length > 300 ? 30 : 80;
+  const CUTOFF = 4 * k;
+  const steps = n > 300 ? 30 : 80;
+  const sx = new Float64Array(n);
+  const sy = new Float64Array(n);
+  const push = (i: number, j: number) => {
+    const dx = x[i]! - x[j]! || 0.01;
+    const dy = (y[i]! - y[j]!) * 1.6 || 0.01;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > CUTOFF * CUTOFF) return;
+    const f = (k * k) / d2;
+    sx[i]! += dx * f;
+    sy[i]! += dy * f;
+    sx[j]! -= dx * f;
+    sy[j]! -= dy * f;
+  };
   for (let s = 0; s < steps; s++) {
     const temp = k * (1 - s / steps);
-    const shift = new Map(ids.map((id) => [id, { x: 0, y: 0 }]));
-    for (let i = 0; i < ids.length; i++) {
-      const a = pos.get(ids[i]!)!;
-      for (let j = i + 1; j < ids.length; j++) {
-        const b = pos.get(ids[j]!)!;
-        const dx = a.x - b.x || 0.01;
-        const dy = (a.y - b.y) * 1.6 || 0.01;
-        const d2 = dx * dx + dy * dy;
-        const f = (k * k) / d2;
-        shift.get(ids[i]!)!.x += dx * f;
-        shift.get(ids[i]!)!.y += dy * f;
-        shift.get(ids[j]!)!.x -= dx * f;
-        shift.get(ids[j]!)!.y -= dy * f;
+    sx.fill(0);
+    sy.fill(0);
+    // Nodes by grid cell; each pair is met once, from the cell that comes first.
+    const cells = new Map<string, number[]>();
+    for (let i = 0; i < n; i++) {
+      const key = `${Math.floor(x[i]! / CUTOFF)},${Math.floor((y[i]! * 1.6) / CUTOFF)}`;
+      const list = cells.get(key);
+      if (list) list.push(i);
+      else cells.set(key, [i]);
+    }
+    for (const [key, list] of cells) {
+      const [cx, cy] = key.split(',').map(Number) as [number, number];
+      for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) push(list[a]!, list[b]!);
+      for (const [ox, oy] of [[1, -1], [1, 0], [1, 1], [0, 1]] as const) {
+        const other = cells.get(`${cx + ox},${cy + oy}`);
+        if (other) for (const i of list) for (const j of other) push(i, j);
       }
     }
-    for (const e of edges) {
-      const a = pos.get(e.from)!;
-      const b = pos.get(e.to)!;
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
-      const d = Math.hypot(dx, dy) || 0.01;
-      const f = d / k;
-      shift.get(e.from)!.x -= dx * f;
-      shift.get(e.from)!.y -= dy * f;
-      shift.get(e.to)!.x += dx * f;
-      shift.get(e.to)!.y += dy * f;
+    for (const [a, b] of links) {
+      const dx = x[a]! - x[b]!;
+      const dy = y[a]! - y[b]!;
+      const f = (Math.hypot(dx, dy) || 0.01) / k;
+      sx[a]! -= dx * f;
+      sy[a]! -= dy * f;
+      sx[b]! += dx * f;
+      sy[b]! += dy * f;
     }
-    for (const id of ids) {
-      const v = shift.get(id)!;
-      const len = Math.hypot(v.x, v.y) || 1;
-      const p = pos.get(id)!;
-      p.x += (v.x / len) * Math.min(len, temp);
-      p.y += (v.y / len) * Math.min(len, temp);
+    for (let i = 0; i < n; i++) {
+      const len = Math.hypot(sx[i]!, sy[i]!) || 1;
+      const step = Math.min(len, temp) / len;
+      x[i]! += sx[i]! * step;
+      y[i]! += sy[i]! * step;
     }
   }
-  return pos;
+  return new Map(nodes.map((nd, i) => [nd.id, { x: x[i]!, y: y[i]! }]));
 }
 
 // ── Connectors ───────────────────────────────────────────────────────────
