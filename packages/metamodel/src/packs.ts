@@ -76,10 +76,10 @@ export function parsePack(text: string): MetamodelPack {
 }
 
 /** The metamodels a workspace can start from: the starter, and each industry pack composed on it. */
-export const METAMODEL_PACKS = ['d4-starter', 'd4-banking', 'd4-insurance'] as const;
+export const METAMODEL_PACKS = ['d4-starter', 'd4-banking', 'd4-insurance', 'd4-credit-graph'] as const;
 export type MetamodelPackId = (typeof METAMODEL_PACKS)[number];
 
-const PACK_FILES: Record<Exclude<MetamodelPackId, 'd4-starter'>, string> = { 'd4-banking': 'banking.yaml', 'd4-insurance': 'insurance.yaml' };
+const PACK_FILES: Record<Exclude<MetamodelPackId, 'd4-starter'>, string> = { 'd4-banking': 'banking.yaml', 'd4-insurance': 'insurance.yaml', 'd4-credit-graph': 'credit-graph.yaml' };
 
 export function loadMetamodelPack(id: MetamodelPackId): Metamodel {
   const starter = loadStarterMetamodel();

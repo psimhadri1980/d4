@@ -20,7 +20,7 @@ import {
   type LensDraft,
 } from '@d4/ui-kit';
 import { exploreApi, type LensInput } from './api';
-import { PREDEFINED_LENSES } from './lenses';
+import { offeredOn, PREDEFINED_LENSES, type BuiltInLens } from './lenses';
 
 /** One place on the focus path: the search the user began from, then one step per drill (DD-2). */
 interface Step {
@@ -92,7 +92,7 @@ export function GraphStudio() {
   const lenses = useMemo(() => {
     const reg = registry.data;
     if (!reg) return [];
-    const fits = (l: Lens) => [l.contour.type, ...l.facets.flatMap((f) => f.types)].every((t) => reg.nodeType(t));
+    const fits = (l: BuiltInLens) => offeredOn(l, reg.metamodel.id) && [l.contour.type, ...l.facets.flatMap((f) => f.types)].every((t) => reg.nodeType(t));
     return [...PREDEFINED_LENSES.filter(fits), ...((saved.data ?? []) as Lens[])];
   }, [registry.data, saved.data]);
   const lensOf = (v: { lensId: string } | null) => (v ? (lenses.find((l) => l.id === v.lensId) ?? null) : null);

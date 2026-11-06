@@ -8655,7 +8655,8 @@
                     "enum": [
                       "d4-starter",
                       "d4-banking",
-                      "d4-insurance"
+                      "d4-insurance",
+                      "d4-credit-graph"
                     ]
                   }
                 },

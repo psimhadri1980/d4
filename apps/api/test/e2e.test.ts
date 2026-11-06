@@ -695,7 +695,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
 
     it('creates workspaces on industry metamodel packs, with their types and indexes ready', async () => {
       const admin = await sign('tenant-admin', ['admin']);
-      expect((await call('GET', '/v1/admin/metamodel-packs', admin)).body!.map((p: any) => p.id)).toEqual(['d4-starter', 'd4-banking', 'd4-insurance']);
+      expect((await call('GET', '/v1/admin/metamodel-packs', admin)).body!.map((p: any) => p.id)).toEqual(['d4-starter', 'd4-banking', 'd4-insurance', 'd4-credit-graph']);
       expect((await call('POST', '/v1/admin/workspaces', admin, { slug: 'x-pack', name: 'x', metamodel: 'd4-unknown' })).status).toBe(400);
       const created = await call('POST', '/v1/admin/workspaces', admin, { slug: 'bank-lab', name: 'Bank lab', metamodel: 'd4-banking' });
       expect(created).toMatchObject({ status: 201, body: { metamodel: 'd4-banking@0.1.0' } });

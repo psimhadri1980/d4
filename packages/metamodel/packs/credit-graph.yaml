@@ -1,0 +1,338 @@
+# D4 credit graph pack: extends the starter metamodel for credit in a private / wealth-management bank —
+# Lombard and securities-backed lending, mortgages, structured and specialty finance, with collateral,
+# covenants, margin calls, limits and the approval trail. Versioned like code.
+#
+# Every type carries a lens `role`: contour = a type a search can centre on, facet = a type that qualifies
+# a contour through a relationship, both = either. Starter types the pack does not touch are `both`.
+id: d4-credit-graph
+version: 0.1.1
+extends: d4-starter
+description: Credit in a wealth-management bank — clients and client groups, credit facilities and drawdowns, collateral (securities portfolios, property), covenants and margin calls, limits, approvals and exposure.
+
+enums:
+  ClientSegment: [UHNW, HNW, AFFLUENT, FAMILY_OFFICE, CORPORATE_WEALTH, EXTERNAL_ASSET_MANAGER]
+  KycStatus: [PENDING, APPROVED, ENHANCED_DUE_DILIGENCE, EXPIRED, REJECTED]
+  ClientRating: [R1, R2, R3, R4, R5, R6, R7, R8, DEFAULT]
+  CreditProductFamily: [LOMBARD, MORTGAGE, MARGIN, STRUCTURED, SBLC_GUARANTEE, ART_FINANCE, PREMIUM_FINANCING, BRIDGING, OVERDRAFT, ASSET_FINANCE]
+  FacilityStatus: [PROPOSED, APPROVED, ACTIVE, ON_WATCH, IN_DEFAULT, MATURED, CLOSED]
+  PricingBasis: [FIXED, SARON, SOFR, EURIBOR, SONIA]
+  IfrsStage: [STAGE_1, STAGE_2, STAGE_3]
+  CollateralClass: [CASH, GOVERNMENT_BOND, CORPORATE_BOND, EQUITY, FUND, STRUCTURED_NOTE, REAL_ESTATE, LIFE_POLICY, PRECIOUS_METAL, ART, OTHER]
+  LiquidityBucket: [HIGH, MEDIUM, LOW, ILLIQUID]
+  AccountType: [CUSTODY, CURRENT, SAVINGS, MORTGAGE_LOAN]
+  PropertyType: [RESIDENTIAL, COMMERCIAL, LAND, HOLIDAY_HOME]
+  PledgeRank: [FIRST, SECOND, PARI_PASSU]
+  ApplicationStatus: [DRAFT, SUBMITTED, IN_REVIEW, APPROVED, DECLINED, WITHDRAWN]
+  ApprovalAuthority: [RELATIONSHIP_MANAGER, CREDIT_OFFICER, REGIONAL_CREDIT_HEAD, CREDIT_COMMITTEE, BOARD]
+  CovenantType: [LTV_MAX, CONCENTRATION_MAX, MIN_LIQUIDITY, MIN_NET_WORTH, REPORTING]
+  CovenantStatus: [COMPLIANT, WARNING, BREACHED, WAIVED]
+  MarginCallStatus: [OPEN, CURED_TOPUP, CURED_REPAYMENT, LIQUIDATED, WAIVED]
+  LimitType: [COUNTRY, ISSUER, SECTOR, CLIENT_GROUP, PRODUCT, CURRENCY]
+  ReviewOutcome: [CONFIRMED, UPGRADED, DOWNGRADED, WATCH, EXIT]
+  WealthSource: [EMPLOYMENT, BUSINESS_SALE, INHERITANCE, INVESTMENTS, REAL_ESTATE, OTHER]
+
+nodeTypes:
+  # ── Organisation: who borrows, who is exposed ─────────────────────────
+  - name: ClientGroup
+    layer: Organisation
+    role: both
+    description: Connected clients treated as one risk (family, holding structure).
+    attributes:
+      - { name: groupType, type: string, description: Family, holding structure, family office }
+      - { name: groupLimit, type: number, description: Aggregate credit limit for the whole group }
+      - { name: currency, type: string }
+  - name: Client
+    layer: Organisation
+    role: both
+    description: A private individual or wealth structure the bank lends to or takes collateral from.
+    attributes:
+      - { name: segment, type: enum, enum: ClientSegment }
+      - { name: domicile, type: string }
+      - { name: rating, type: enum, enum: ClientRating }
+      - { name: kycStatus, type: enum, enum: KycStatus }
+      - { name: netWorth, type: number, description: Verified net worth in reporting currency }
+      - { name: onboardedOn, type: date }
+      - { name: pep, type: boolean, description: Politically exposed person }
+  - name: Issuer
+    layer: Organisation
+    role: facet
+    description: Issuer of securities held as collateral (government, corporate, fund house).
+    attributes:
+      - { name: country, type: string }
+      - { name: sector, type: string }
+      - { name: externalRating, type: string, description: e.g. AA-, BBB+ }
+  - name: CreditCommittee
+    layer: Organisation
+    role: facet
+    extends: Team
+    description: Body that approves credit above individual authority.
+    attributes:
+      - { name: authorityLimit, type: number }
+
+  # ── Strategy: what the bank offers ────────────────────────────────────
+  - name: CreditProduct
+    layer: Strategy
+    role: both
+    extends: Product
+    description: A lending product the bank offers.
+    attributes:
+      - { name: productFamily, type: enum, enum: CreditProductFamily }
+      - { name: maxTenorMonths, type: integer }
+      - { name: collateralRequired, type: boolean }
+
+  # ── Business: facilities, loans, collateral ───────────────────────────
+  - name: CreditFacility
+    layer: Business
+    role: contour
+    description: A committed or uncommitted credit line granted to one or more clients.
+    attributes:
+      - { name: facilityType, type: enum, enum: CreditProductFamily }
+      - { name: status, type: enum, enum: FacilityStatus }
+      - { name: currency, type: string }
+      - { name: limitAmount, type: number }
+      - { name: drawnAmount, type: number }
+      - { name: committed, type: boolean }
+      - { name: startDate, type: date }
+      - { name: maturityDate, type: date }
+      - { name: pricingBasis, type: enum, enum: PricingBasis }
+      - { name: spreadBps, type: integer }
+      - { name: ifrsStage, type: enum, enum: IfrsStage }
+      - { name: pdPct, type: number, description: Probability of default, percent }
+      - { name: lgdPct, type: number, description: Loss given default, percent }
+  - name: Drawdown
+    layer: Business
+    role: facet
+    description: A single use of a facility (a loan tranche).
+    attributes:
+      - { name: amount, type: number }
+      - { name: currency, type: string }
+      - { name: drawnOn, type: date }
+      - { name: maturityDate, type: date }
+      - { name: ratePct, type: number }
+      - { name: outstanding, type: number }
+  - name: CreditApplication
+    layer: Business
+    role: both
+    description: A request for credit, from the relationship manager to decision.
+    attributes:
+      - { name: status, type: enum, enum: ApplicationStatus }
+      - { name: requestedAmount, type: number }
+      - { name: currency, type: string }
+      - { name: purpose, type: string }
+      - { name: submittedOn, type: date }
+  - name: SourceOfWealth
+    layer: Business
+    role: facet
+    description: Evidence of where a client's wealth comes from; required for approval.
+    attributes:
+      - { name: source, type: enum, enum: WealthSource }
+      - { name: verified, type: boolean }
+      - { name: amount, type: number }
+  - name: CollateralAgreement
+    layer: Business
+    role: both
+    description: Pledge or charge agreement that secures one or more facilities.
+    attributes:
+      - { name: governingLaw, type: string }
+      - { name: signedOn, type: date }
+      - { name: maxLtvPct, type: number, description: Highest loan-to-value the agreement allows }
+      - { name: marginCallLtvPct, type: number }
+      - { name: liquidationLtvPct, type: number }
+  - name: Account
+    layer: Business
+    role: facet
+    description: Custody, current or loan account at the bank.
+    attributes:
+      - { name: accountNumber, type: string }
+      - { name: accountType, type: enum, enum: AccountType }
+      - { name: currency, type: string }
+      - { name: bookingCentre, type: string }
+  - name: Instrument
+    layer: Business
+    role: facet
+    description: A security or fund that can be pledged.
+    attributes:
+      - { name: isin, type: string }
+      - { name: assetClass, type: enum, enum: CollateralClass }
+      - { name: liquidity, type: enum, enum: LiquidityBucket }
+      - { name: advanceRatePct, type: number, description: Lending value as percent of market value }
+      - { name: currency, type: string }
+  - name: CollateralAsset
+    layer: Business
+    role: facet
+    description: Non-securities collateral (cash, policy, art, metals).
+    attributes:
+      - { name: assetClass, type: enum, enum: CollateralClass }
+      - { name: marketValue, type: number }
+      - { name: lendingValue, type: number }
+      - { name: haircutPct, type: number }
+      - { name: valuationDate, type: date }
+      - { name: currency, type: string }
+  - name: Property
+    layer: Business
+    role: both
+    extends: CollateralAsset
+    description: Real estate pledged or financed.
+    attributes:
+      - { name: propertyType, type: enum, enum: PropertyType }
+      - { name: country, type: string }
+      - { name: lastAppraisalOn, type: date }
+      - { name: loanToValuePct, type: number }
+
+  # ── Governance: limits, covenants, events, decisions ──────────────────
+  - name: CreditPolicy
+    layer: Governance
+    role: facet
+    extends: Policy
+    description: Credit policy that sets advance rates, limits and authorities.
+    attributes:
+      - { name: scope, type: string }
+  - name: CreditLimit
+    layer: Governance
+    role: both
+    description: A ceiling on exposure to a country, issuer, sector, client group, product or currency.
+    attributes:
+      - { name: limitType, type: enum, enum: LimitType }
+      - { name: amount, type: number }
+      - { name: utilised, type: number }
+      - { name: currency, type: string }
+  - name: Covenant
+    layer: Governance
+    role: facet
+    description: A condition a borrower must keep (maximum LTV, minimum liquidity, concentration).
+    attributes:
+      - { name: covenantType, type: enum, enum: CovenantType }
+      - { name: status, type: enum, enum: CovenantStatus }
+      - { name: threshold, type: number }
+      - { name: currentValue, type: number }
+      - { name: testFrequency, type: string }
+  - name: MarginCall
+    layer: Governance
+    role: both
+    description: Request for more collateral or repayment after a covenant or LTV breach.
+    attributes:
+      - { name: status, type: enum, enum: MarginCallStatus }
+      - { name: shortfall, type: number }
+      - { name: currency, type: string }
+      - { name: triggeredOn, type: date }
+      - { name: cureDeadline, type: date }
+  - name: CreditApproval
+    layer: Governance
+    role: facet
+    extends: Decision
+    description: The recorded credit decision for an application.
+    attributes:
+      - { name: authority, type: enum, enum: ApprovalAuthority }
+      - { name: approvedAmount, type: number }
+      - { name: conditions, type: text }
+  - name: CreditReview
+    layer: Governance
+    role: facet
+    description: Periodic or event-driven review of a client or facility.
+    attributes:
+      - { name: reviewDate, type: date }
+      - { name: outcome, type: enum, enum: ReviewOutcome }
+      - { name: nextReviewDate, type: date }
+  - name: CreditExposure
+    layer: Governance
+    role: facet
+    description: Exposure of a facility at a date, for limits and reporting.
+    attributes:
+      - { name: asOf, type: date }
+      - { name: exposureAtDefault, type: number }
+      - { name: collateralValue, type: number }
+      - { name: netExposure, type: number }
+      - { name: expectedLoss, type: number }
+      - { name: currency, type: string }
+
+relationshipTypes:
+  # Clients and groups
+  - name: MEMBER_OF_GROUP
+    from: [Client]
+    to: [ClientGroup]
+    attributes: [{ name: relation, type: string, description: e.g. head of family, spouse, holding company }]
+  - name: CONNECTED_WITH
+    from: [Client]
+    to: [Client]
+    description: Connected-party link used for group limits and large-exposure aggregation.
+    attributes: [{ name: relation, type: string }]
+  - name: BENEFICIAL_OWNER_OF
+    from: [Client]
+    to: [Client]
+    attributes: [{ name: ownershipPct, type: number }]
+  - { name: RM_FOR, from: [Person], to: [Client, ClientGroup], description: Relationship manager }
+  - { name: CREDIT_OFFICER_FOR, from: [Person], to: [Client, CreditFacility] }
+
+  # Facilities and products
+  - name: BORROWS
+    from: [Client, ClientGroup]
+    to: [CreditFacility]
+    attributes: [{ name: share, type: string, description: Sole, joint or percentage }]
+  - { name: GUARANTEES, from: [Client, ClientGroup], to: [CreditFacility] }
+  - { name: OFFERED_UNDER, from: [CreditFacility], to: [CreditProduct] }
+  - { name: HAS_DRAWDOWN, from: [CreditFacility], to: [Drawdown] }
+  - { name: BOOKED_AT, from: [CreditFacility, Account], to: [OrgUnit, LegalEntity] }
+  - { name: FINANCES, from: [CreditFacility], to: [Property], description: Mortgage or property bridging }
+
+  # Collateral
+  - name: SECURED_BY
+    from: [CreditFacility]
+    to: [CollateralAgreement]
+    attributes: [{ name: rank, type: enum, enum: PledgeRank, required: true }]
+  - { name: PLEDGED_BY, from: [CollateralAgreement], to: [Client, ClientGroup] }
+  - name: PLEDGES
+    from: [CollateralAgreement]
+    to: [Account, CollateralAsset, Property]
+    attributes: [{ name: pledgedValue, type: number }]
+  - name: HOLDS_INSTRUMENT
+    from: [Account]
+    to: [Instrument]
+    attributes:
+      - { name: quantity, type: number }
+      - { name: marketValue, type: number }
+  - { name: ISSUED_BY, from: [Instrument], to: [Issuer] }
+  - { name: OWNED_BY, from: [Account, CollateralAsset, Property], to: [Client, ClientGroup] }
+  - { name: VALUED_BY, from: [Account, Instrument, CollateralAsset, Property], to: [Application] }
+
+  # Origination and approval
+  - { name: REQUESTED_BY, from: [CreditApplication], to: [Client, ClientGroup] }
+  - { name: APPLIES_FOR, from: [CreditApplication], to: [CreditProduct] }
+  - { name: SUPPORTED_BY, from: [CreditApplication], to: [SourceOfWealth] }
+  - { name: WEALTH_OF, from: [SourceOfWealth], to: [Client] }
+  - { name: RESULTS_IN, from: [CreditApplication], to: [CreditFacility] }
+  - { name: ASSESSED_IN, from: [CreditApplication], to: [CreditApproval] }
+  - name: APPROVED_BY
+    from: [CreditApproval]
+    to: [CreditCommittee, Person]
+    attributes: [{ name: authority, type: enum, enum: ApprovalAuthority }]
+  - { name: ORIGINATED_IN, from: [CreditFacility, CreditApplication], to: [Application] }
+
+  # Control and monitoring
+  - { name: HAS_COVENANT, from: [CreditFacility, CollateralAgreement], to: [Covenant] }
+  - { name: RAISED_ON, from: [MarginCall], to: [CreditFacility] }
+  - { name: TRIGGERED_BY_COVENANT, from: [MarginCall], to: [Covenant] }
+  - { name: ISSUED_TO, from: [MarginCall], to: [Client, ClientGroup] }
+  - { name: HAS_EXPOSURE, from: [CreditFacility], to: [CreditExposure] }
+  - { name: AGGREGATES_TO, from: [CreditExposure], to: [ClientGroup] }
+  - { name: REPORTED_IN, from: [CreditExposure], to: [Report] }
+  - { name: REVIEWS, from: [CreditReview], to: [Client, ClientGroup, CreditFacility] }
+  - { name: REVIEWED_BY, from: [CreditReview], to: [Person, CreditCommittee] }
+  - { name: GOVERNED_BY_POLICY, from: [CreditFacility, CreditProduct, CollateralAgreement], to: [CreditPolicy] }
+  - { name: DEFINES_LIMIT, from: [CreditPolicy], to: [CreditLimit] }
+  - name: LIMITS
+    from: [CreditLimit]
+    to: [Issuer, Client, ClientGroup, CreditProduct, Location]
+  - name: CONSUMES_LIMIT
+    from: [CreditFacility]
+    to: [CreditLimit]
+    attributes: [{ name: amount, type: number }]
+  - { name: MONITORED_BY, from: [CreditFacility, CollateralAgreement, Covenant], to: [Application] }
+
+rules:
+  - id: single-first-rank-pledge
+    kind: uniqueValuePerTarget
+    relationship: SECURED_BY
+    attribute: rank
+    values: [FIRST]
+    description: A collateral agreement secures at most one facility at first rank.
+  - { id: no-beneficial-ownership-cycles, kind: acyclic, relationship: BENEFICIAL_OWNER_OF }

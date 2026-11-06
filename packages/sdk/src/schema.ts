@@ -4053,7 +4053,7 @@ export interface paths {
                         name: string;
                         description?: string;
                         /** @enum {string} */
-                        metamodel?: "d4-starter" | "d4-banking" | "d4-insurance";
+                        metamodel?: "d4-starter" | "d4-banking" | "d4-insurance" | "d4-credit-graph";
                     };
                 };
             };
