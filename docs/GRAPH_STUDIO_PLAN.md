@@ -64,7 +64,12 @@ The table view, `view` and `expandedIds` come with phase 2; the legend with the 
 - Selection, double-click drill (GV-4, GV-5a), too-large state (GV-6), layer colours from tokens (CT-5).
 - Unit tests for every layout and the router (no overlaps, edges end on box edges: ZM-5).
 
-### Phase 2: GraphCanvas table view and GraphInspector
+### Phase 2: GraphCanvas table view and GraphInspector: done
+The tree (`CanvasTree` in `packages/render/src/canvas-tree.ts`) gives a node, under each root, the
+neighbours one hop further from that root, so cycles end by themselves and rows are built only
+under open paths. Another root reached from a root shows there too, tagged Root. Expand all opens
+at most 5,000 paths. Expand all and Collapse all sit above the tree for now; phase 3 moves them to
+the option bar (GC-2). `GraphInspector` also lists attributes the metamodel does not define (D80).
 - Indented tree (TV-1…TV-7): chevrons, expand/collapse all, repeats tagged, cycles stopped, virtual
   scrolling to 1,000 rows, tree keyboard pattern.
 - `GraphInspector` (DP-1…DP-5): attributes from the metamodel, dashes for empty, direct relationships,
