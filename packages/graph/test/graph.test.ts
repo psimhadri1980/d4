@@ -253,6 +253,13 @@ describe.skipIf(!URL)('Neo4j repository and queries', () => {
     });
     expect(names(ownedOrHot.roots)).toEqual(['Studio Loans', 'Studio Rates']);
 
+    // Counts for the lens list: roots only, capped.
+    expect(await studio.countRoots(ws, [{ types: ['DataProduct'], name: 'studio' }, { name: 'studio', facets: [held] }, { name: 'no-such-studio' }], 2)).toEqual([
+      { count: 2, more: true },
+      { count: 2, more: false },
+      { count: 0, more: false },
+    ]);
+
     // A drill-down: exactly the given roots.
     expect(names((await studio.search(ws, { ids: [store.id] }, { depth: 1 })).elements)).toEqual(['Studio Loans', 'Studio Rates']);
 

@@ -282,6 +282,9 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const tooLarge = await call('POST', `${ws()}/studio/search`, token, { name: 'custom', depth: 1, maxNodes: 1 });
       expect(tooLarge.body).toMatchObject({ tooLarge: true, elements: [] });
 
+      const counts = await call('POST', `${ws()}/studio/counts`, token, { searches: [{ types: ['DataProduct'], name: 'custom' }, { name: 'zz-none' }] });
+      expect(counts.body).toEqual({ counts: [{ count: 1, more: false }, { count: 0, more: false }] });
+
       expect((await call('POST', `${ws()}/studio/search`, token, { depth: 2 })).status).toBe(400);
       expect((await call('POST', `${ws()}/studio/search`, token, { types: ['Nope'] })).status).toBe(400);
       expect((await call('POST', `${ws()}/studio/search`, token, { name: 'x', depth: 7 })).status).toBe(400);

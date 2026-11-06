@@ -127,6 +127,29 @@ export const StudioSearchBody = z
   })
   .openapi('StudioSearch');
 
+const CountSearch = z
+  .object({
+    types: z.array(z.string()).max(200).optional(),
+    name: z.string().max(200).optional(),
+    attributes: z.array(AttributeFilterBody).max(20).optional(),
+    facets: z.array(z.object({ types: z.array(z.string()).min(1).max(50), relationship: z.string().optional(), direction: z.enum(['OUT', 'IN', 'BOTH']).default('BOTH'), link: z.enum(['has', 'none']).default('has'), attributes: z.array(AttributeFilterBody).max(20).optional() }).strict()).max(10).optional(),
+    match: z.enum(['all', 'any']).default('all'),
+  })
+  .strict();
+
+export const StudioCountsBody = z
+  .object({
+    ...View,
+    searches: z.array(CountSearch).min(1).max(30).openapi({ description: 'One per lens; each is counted on its own' }),
+    cap: z.number().int().min(1).max(10_000).default(1000).openapi({ description: 'Counting stops here; `more` says there are more' }),
+  })
+  .strict()
+  .openapi('StudioCounts');
+
+export const StudioCountsSchema = z
+  .object({ counts: z.array(z.object({ count: z.number().int(), more: z.boolean() })) })
+  .openapi('StudioCountsResult');
+
 export const ExportQuery = z.object({
   ...View,
   format: z.enum(EXPORT_FORMATS).optional().openapi({

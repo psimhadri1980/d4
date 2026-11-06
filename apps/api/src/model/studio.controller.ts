@@ -1,5 +1,5 @@
 import { Controller, HttpCode, Post } from '@nestjs/common';
-import { StudioSearchBody } from './model.schemas';
+import { StudioCountsBody, StudioSearchBody } from './model.schemas';
 import { resolveView } from './view';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 import { z } from '../http/zod';
@@ -17,5 +17,13 @@ export class StudioController {
       { ids: b.ids, types: b.types, name: b.name, attributes: b.attributes, facets: b.facets, match: b.match },
       { depth: b.depth, maxNodes: b.maxNodes, view },
     );
+  }
+
+  /** Root counts per search, for the lens list while the user has not chosen a lens (LS-5). */
+  @Post('counts')
+  @HttpCode(200)
+  async counts(@Workspace('read') { queries, studio, scope }: OpenWorkspace, @ValidBody(StudioCountsBody) b: z.output<typeof StudioCountsBody>) {
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
+    return { counts: await studio.countRoots(scope.workspaceId, b.searches, b.cap, view) };
   }
 }
