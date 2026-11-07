@@ -2,7 +2,7 @@ import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFound
 import { DomainError, lensSpec, ulid } from '@d4/core';
 import { queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
 import { StudioLensStore, type StudioLensRow } from '@d4/db';
-import { StudioCountsBody, StudioImpactBody, StudioLensBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
+import { StudioCountsBody, StudioImpactBody, StudioLensBody, StudioPathsBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
@@ -69,6 +69,14 @@ export class StudioController {
     const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
     const found = await studio.findRoots(scope.workspaceId, { ids: b.ids }, STUDIO_MAX_ROOTS, view);
     return studio.impact(scope.workspaceId, found.roots, b.steps, { maxNodes: b.maxNodes, view });
+  }
+
+  /** How two elements are connected (D89). */
+  @Post('paths')
+  @HttpCode(200)
+  async paths(@Workspace('read') { queries, studio, scope }: OpenWorkspace, @ValidBody(StudioPathsBody) b: z.output<typeof StudioPathsBody>) {
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
+    return studio.paths(scope.workspaceId, b.from, b.to, { maxLength: b.maxLength, limit: b.limit, kind: b.kind, view });
   }
 
   /** Root counts per search, for the lens list while the user has not chosen a lens (LS-5). */

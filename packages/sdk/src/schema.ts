@@ -1023,6 +1023,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{ws}/studio/paths": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description How two elements are connected (D89): the shortest paths between them, up to six links, shortest first. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioPathsInput"];
+                };
+            };
+            responses: {
+                /** @description The shortest paths, with their elements and relationships */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioPaths"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{ws}/studio/counts": {
         parameters: {
             query?: never;
@@ -8774,6 +8852,40 @@ export interface components {
             steps: components["schemas"]["LensStep"][];
             /** @default 5000 */
             maxNodes: number;
+        };
+        StudioPaths: {
+            paths: {
+                nodeIds: string[];
+                relationshipIds: string[];
+                length: number;
+            }[];
+            elements: components["schemas"]["Element"][];
+            relationships: components["schemas"]["Relationship"][];
+            /** @description More shortest paths than limit */
+            truncated: boolean;
+        };
+        StudioPathsInput: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            from: string;
+            to: string;
+            /**
+             * @description Only along relationships of this kind
+             * @enum {string}
+             */
+            kind?: "containment" | "dependency" | "flow" | "ownership" | "association" | "classification";
+            /**
+             * @description Links per path at most
+             * @default 6
+             */
+            maxLength: number;
+            /** @default 25 */
+            limit: number;
         };
         StudioCountsResult: {
             counts: {
