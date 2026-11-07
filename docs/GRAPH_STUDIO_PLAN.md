@@ -167,6 +167,11 @@ Open: query lenses are left out of the "Not sure yet" counts (counting would run
 every pause in typing) and have no preview funnel; the editor has no test run of a new query yet
 (authors can test it in Query Studio before it is reviewed).
 
+### Phase 10: lenses as viewpoints (D85): designed
+The lens becomes one spec that every pattern renders: see [`LENS_DESIGN.md`](LENS_DESIGN.md),
+section 9 for the build order (slice 1: relationship kinds, the spec, the disclosure engine with
+group stubs, Ego and Hierarchy, drill with breadcrumb).
+
 ### Later (not in this plan)
 - Ingestion Studio adopting GraphCanvas: needs a wider `state` input first (CT-6).
 - Retiring the Cytoscape Explorer graph.
