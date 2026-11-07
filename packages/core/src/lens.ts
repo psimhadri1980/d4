@@ -48,6 +48,10 @@ export interface LensStep {
   kind?: LensRelationshipKind;
   relationships?: string[];
   direction: 'down' | 'up' | 'both';
+  /** Only to nodes of these types (supertypes match their subtypes); any when absent. */
+  types?: string[];
+  /** The column this step's nodes are drawn in, in a Flow lens (a viewpoint chain's stage). */
+  stage?: string;
   /** Keep following this step, level after level. */
   repeat?: boolean;
 }
@@ -62,8 +66,11 @@ export interface LensDisclosure {
   perNodeCap: number;
 }
 
-/** The lens's shape: Ego (around the roots) or Hierarchy (a tree down from them). */
-export type LensShape = 'ego' | 'tree';
+/**
+ * The lens's shape: Ego (around the roots), Hierarchy (a tree down from them) or Flow (columns, one
+ * per level or stage: lineage, impact and viewpoint chains).
+ */
+export type LensShape = 'ego' | 'tree' | 'flow';
 
 export const LENS_DISCLOSURE: LensDisclosure = { budget: 150, initialDepth: 1, perNodeCap: 12 };
 export const LENS_MAX_BUDGET = 350;
@@ -201,4 +208,22 @@ export const groupId = (g: Pick<LensGroup, 'parent' | 'relationship' | 'directio
 export function groupLabel(g: Pick<LensGroup, 'count' | 'type' | 'offset'>): string {
   const t = camel(g.type);
   return `▸ ${g.count}${g.offset ? ' more' : ''} ${g.count === 1 ? t : t.endsWith('s') ? t : t.endsWith('y') ? `${t.slice(0, -1)}ies` : `${t}s`}`;
+}
+
+/**
+ * The column a Flow lens draws each level in (D88): left to right along the steps, except that a
+ * lens whose every step goes up (lineage: where does this come from) runs right to left, so
+ * sources are on the left.
+ */
+export function flowRank(steps: readonly LensStep[], level: number): number {
+  return steps.length && steps.every((s) => s.direction === 'up') ? -level : level;
+}
+
+/** A Flow column's heading: its step's stage, else the step's types, else its level. */
+export function flowStage(steps: readonly LensStep[], level: number): string {
+  if (level === 0) return 'Start';
+  const s = stepAt(steps, level - 1);
+  if (s?.stage) return s.stage;
+  if (s?.types?.length) return s.types.join(' or ');
+  return `Level ${level}`;
 }

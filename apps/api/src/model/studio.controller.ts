@@ -2,7 +2,7 @@ import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFound
 import { DomainError, lensSpec, ulid } from '@d4/core';
 import { queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
 import { StudioLensStore, type StudioLensRow } from '@d4/db';
-import { StudioCountsBody, StudioLensBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
+import { StudioCountsBody, StudioImpactBody, StudioLensBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
@@ -60,6 +60,15 @@ export class StudioController {
     const steps = b.steps ?? lensSpec(null).steps;
     if (!scope.registry.relationshipType(b.group.relationship)) throw new RangeError(`Unknown relationship type '${b.group.relationship}'`);
     return studio.openGroup(scope.workspaceId, b.group, steps, b.disclosure, b.shown, view);
+  }
+
+  /** Everything a lens reaches from its roots, for the impact table (D88). */
+  @Post('impact')
+  @HttpCode(200)
+  async impact(@Workspace('read') { queries, studio, scope }: OpenWorkspace, @ValidBody(StudioImpactBody) b: z.output<typeof StudioImpactBody>) {
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
+    const found = await studio.findRoots(scope.workspaceId, { ids: b.ids }, STUDIO_MAX_ROOTS, view);
+    return studio.impact(scope.workspaceId, found.roots, b.steps, { maxNodes: b.maxNodes, view });
   }
 
   /** Root counts per search, for the lens list while the user has not chosen a lens (LS-5). */
@@ -120,7 +129,7 @@ export class StudioController {
 
   /** Types and relationships must exist in the metamodel; sharing a lens needs write access. */
   private async checkLens(p: Principal, workspaceId: string, registry: OpenWorkspace['scope']['registry'], b: z.output<typeof StudioLensBody>) {
-    for (const t of [b.contour.type, ...b.facets.flatMap((f) => f.types)]) if (!registry.nodeType(t)) throw new RangeError(`Unknown element type '${t}'`);
+    for (const t of [b.contour.type, ...b.facets.flatMap((f) => f.types), ...(b.steps ?? []).flatMap((s) => s.types ?? [])]) if (!registry.nodeType(t)) throw new RangeError(`Unknown element type '${t}'`);
     for (const r of [...b.facets.map((f) => f.relationship), ...(b.steps ?? []).flatMap((s) => s.relationships ?? [])]) if (r && !registry.relationshipType(r)) throw new RangeError(`Unknown relationship type '${r}'`);
     if (b.visibility === 'workspace') await this.access.resolve(p, workspaceId, 'write');
     // A query the caller cannot see does not exist for them.

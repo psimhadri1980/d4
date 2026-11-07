@@ -1,4 +1,4 @@
-import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioGroupPageSchema, StudioOpenBody, StudioProjectionSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
+import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioGroupPageSchema, StudioImpactBody, StudioImpactSchema, StudioOpenBody, StudioProjectionSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
 import { json, errors, writeErrors, ws, id, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
@@ -86,6 +86,15 @@ export function registerModelRoutes(route: ApiRoute) {
     description: 'Open a lens group (D85): the next page of its members, most important first, with their own links folded into groups one level further.',
     request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioOpenBody } } } },
     responses: { 200: json(StudioGroupPageSchema, 'A page of the group'), ...errors },
+  });
+
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/studio/impact',
+    tags: ['Elements'],
+    description: 'Everything a lens reaches from its roots, without a budget (D88): the impact table of a lineage or impact lens, each node once with its level and the link that first reached it.',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioImpactBody } } } },
+    responses: { 200: json(StudioImpactSchema, 'The nodes reached, level by level'), ...errors },
   });
 
   route({

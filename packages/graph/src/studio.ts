@@ -92,6 +92,26 @@ export interface StudioGroupPage {
   truncated: boolean;
 }
 
+/** Impact table limits (D88): nodes listed and levels walked. */
+export const IMPACT_MAX_NODES = 5000;
+export const IMPACT_MAX_LEVELS = 20;
+
+/** One node a lens reaches, for the impact table: its level and the link that first reached it. */
+export interface StudioImpactRow {
+  element: Element;
+  level: number;
+  relationship: string;
+  /** Seen from `from`. */
+  direction: 'OUT' | 'IN';
+  from: string;
+  fromName: string;
+}
+
+export interface StudioImpact {
+  rows: StudioImpactRow[];
+  truncated: boolean;
+}
+
 export interface StudioProfile {
   count: number;
   links: { relationship: string; direction: 'OUT' | 'IN'; type: string; count: number }[];
@@ -216,6 +236,43 @@ export class StudioQueries {
   }
 
   /**
+   * Everything a lens reaches from the roots, without a budget (D88: the impact table). Level by
+   * level along the steps, each node once, at the level it is first reached and through the first
+   * link that reached it. Stops at `maxNodes` or `maxLevels` with `truncated`.
+   */
+  async impact(ws: string, roots: Element[], steps: readonly LensStep[], opts: { maxNodes?: number; maxLevels?: number; view?: ModelView } = {}): Promise<StudioImpact> {
+    const maxNodes = clamp(opts.maxNodes ?? IMPACT_MAX_NODES, 1, IMPACT_MAX_NODES);
+    const maxLevels = clamp(opts.maxLevels ?? IMPACT_MAX_LEVELS, 1, IMPACT_MAX_LEVELS);
+    const seen = new Set(roots.map((r) => r.id));
+    const names = new Map(roots.map((r) => [r.id, name(r)]));
+    const rows: StudioImpactRow[] = [];
+    let frontier = roots.map((r) => r.id);
+    let truncated = false;
+    for (let level = 0; level < maxLevels && frontier.length; level++) {
+      const step = stepAt(steps, level);
+      if (!step) break;
+      const read = await this.stepRows(ws, frontier, step, null, opts.view);
+      truncated ||= read.truncated;
+      const next: string[] = [];
+      for (const m of read.rows) {
+        if (seen.has(m.node.id)) continue;
+        if (seen.size - roots.length >= maxNodes) {
+          truncated = true;
+          break;
+        }
+        seen.add(m.node.id);
+        names.set(m.node.id, name(m.node));
+        rows.push({ element: m.node, level: level + 1, relationship: m.relationship, direction: m.direction, from: m.parent, fromName: names.get(m.parent) ?? '' });
+        next.push(m.node.id);
+      }
+      frontier = next;
+      // A repeated step that still finds nodes at the level cap was cut short.
+      if (level === maxLevels - 1 && frontier.length && stepAt(steps, level + 1)) truncated = true;
+    }
+    return { rows, truncated };
+  }
+
+  /**
    * A group of one is its member: drawn as the node, with its own next step counted, while the
    * budget has room. Only one level past the last one opened, so a deeper Depth never shows less.
    */
@@ -294,12 +351,15 @@ export class StudioQueries {
    */
   private stepWhere(step: LensStep): { where: string; params: Row } {
     const names = step.relationships?.length ? step.relationships.map((r) => this.knownRel(r)) : step.kind ? this.reg.relationshipsOfKind(step.kind) : null;
-    if (step.direction === 'both') return { where: '($rels IS NULL OR type(r) IN $rels)', params: { rels: names } };
+    // A step may only go to some types (a viewpoint chain's next stage).
+    const to = step.types?.length ? step.types.map((t) => this.knownType(t)) : null;
+    const target = '($to IS NULL OR any(l IN labels(b) WHERE l IN $to))';
+    if (step.direction === 'both') return { where: `($rels IS NULL OR type(r) IN $rels) AND ${target}`, params: { rels: names, to } };
     const all = names ?? this.reg.relationshipTypes().map((r) => r.name);
     const fwd = all.filter((n) => this.reg.forwardOf(n) === 'out');
     const rev = all.filter((n) => this.reg.forwardOf(n) === 'in');
     const [out, inn] = step.direction === 'down' ? [fwd, rev] : [rev, fwd];
-    return { where: '((startNode(r) = a AND type(r) IN $out) OR (endNode(r) = a AND type(r) IN $in))', params: { out, in: inn } };
+    return { where: `((startNode(r) = a AND type(r) IN $out) OR (endNode(r) = a AND type(r) IN $in)) AND ${target}`, params: { out, in: inn, to } };
   }
 
   /** Most important first (the type's importance rule in the metamodel), then by name. */

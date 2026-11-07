@@ -945,6 +945,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{ws}/studio/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Everything a lens reaches from its roots, without a budget (D88): the impact table of a lineage or impact lens, each node once with its level and the link that first reached it. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioImpactInput"];
+                };
+            };
+            responses: {
+                /** @description The nodes reached, level by level */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioImpact"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{ws}/studio/counts": {
         parameters: {
             query?: never;
@@ -8557,6 +8635,10 @@ export interface components {
              * @enum {string}
              */
             direction: "down" | "up" | "both";
+            /** @description Only to nodes of these types; supertypes match their subtypes */
+            types?: string[];
+            /** @description The column this step's nodes are drawn in, in a Flow lens */
+            stage?: string;
             /** @description Keep following this step, level after level */
             repeat?: boolean;
         };
@@ -8660,6 +8742,38 @@ export interface components {
              * @default []
              */
             shown: string[];
+        };
+        StudioImpact: {
+            rows: {
+                element: components["schemas"]["Element"];
+                /** @description Steps from the nearest root */
+                level: number;
+                relationship: string;
+                /**
+                 * @description Seen from `from`
+                 * @enum {string}
+                 */
+                direction: "OUT" | "IN";
+                /** @description The node it was first reached from */
+                from: string;
+                fromName: string;
+            }[];
+            /** @description Stopped at maxNodes or 20 levels, or a step read too many rows */
+            truncated: boolean;
+        };
+        StudioImpactInput: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            /** @description The roots */
+            ids: string[];
+            steps: components["schemas"]["LensStep"][];
+            /** @default 5000 */
+            maxNodes: number;
         };
         StudioCountsResult: {
             counts: {
@@ -8793,7 +8907,7 @@ export interface components {
             depth: number;
             steps?: components["schemas"]["LensStep"][];
             /** @enum {string} */
-            shape?: "ego" | "tree";
+            shape?: "ego" | "tree" | "flow";
             /** @description The lens's own disclosure settings; the rest default */
             disclosure?: {
                 budget?: number;

@@ -113,6 +113,8 @@ const LensStepBody = z
     kind: RelKind.optional().openapi({ description: 'Follow the relationships of this kind in the metamodel' }),
     relationships: z.array(z.string()).max(50).optional().openapi({ description: 'Follow exactly these; any when neither this nor kind is given' }),
     direction: z.enum(['down', 'up', 'both']).openapi({ description: "down follows each relationship the way the metamodel reads it as down (its `forward`); up the reverse" }),
+    types: z.array(z.string()).max(50).optional().openapi({ description: 'Only to nodes of these types; supertypes match their subtypes' }),
+    stage: z.string().max(60).optional().openapi({ description: "The column this step's nodes are drawn in, in a Flow lens" }),
     repeat: z.boolean().optional().openapi({ description: 'Keep following this step, level after level' }),
   })
   .strict()
@@ -221,7 +223,7 @@ export const StudioLensBody = z
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
     depth: z.number().int().min(1).max(6).default(2),
     steps: z.array(LensStepBody).min(1).max(10).optional(),
-    shape: z.enum(['ego', 'tree']).optional(),
+    shape: z.enum(['ego', 'tree', 'flow']).optional(),
     disclosure: z
       .object({ budget: z.number().int().min(1).max(350).optional(), initialDepth: z.number().int().min(1).max(6).optional(), perNodeCap: z.number().int().min(1).max(100).optional() })
       .strict()
@@ -381,6 +383,32 @@ export const StudioOpenBody = z
   })
   .strict()
   .openapi('StudioOpen');
+
+export const StudioImpactBody = z
+  .object({
+    ...View,
+    ids: z.array(z.string()).min(1).max(500).openapi({ description: 'The roots' }),
+    steps: z.array(LensStepBody).min(1).max(10),
+    maxNodes: z.number().int().min(1).max(5000).default(5000),
+  })
+  .strict()
+  .openapi('StudioImpactInput');
+
+export const StudioImpactSchema = z
+  .object({
+    rows: z.array(
+      z.object({
+        element: ElementSchema,
+        level: z.number().int().openapi({ description: 'Steps from the nearest root' }),
+        relationship: z.string(),
+        direction: z.enum(['OUT', 'IN']).openapi({ description: 'Seen from `from`' }),
+        from: z.string().openapi({ description: 'The node it was first reached from' }),
+        fromName: z.string(),
+      }),
+    ),
+    truncated: z.boolean().openapi({ description: 'Stopped at maxNodes or 20 levels, or a step read too many rows' }),
+  })
+  .openapi('StudioImpact');
 
 export const StudioGroupPageSchema = z
   .object({

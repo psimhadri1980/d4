@@ -327,6 +327,41 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(chain.body!['groups']).toEqual([]);
     });
 
+    it('walks lineage and impact along flow links, and limits a step to its target types (D88)', async () => {
+      const add = async (type: string, name: string) => (await call('POST', `${ws()}/elements`, token, { type, attrs: { name } })).body!['id'] as string;
+      const [p1, p2, p3, report] = [await add('DataProduct', 'Flow source'), await add('DataProduct', 'Flow middle'), await add('DataProduct', 'Flow end'), await add('Report', 'Flow report')];
+      // DERIVED_FROM and CONSUMES read end to start as downstream: data flows p1 → p2 → p3 → report.
+      await call('POST', `${ws()}/relationships`, token, { type: 'DERIVED_FROM', fromId: p2, toId: p1 });
+      await call('POST', `${ws()}/relationships`, token, { type: 'DERIVED_FROM', fromId: p3, toId: p2 });
+      await call('POST', `${ws()}/relationships`, token, { type: 'CONSUMES', fromId: report, toId: p3 });
+
+      const down = await call('POST', `${ws()}/studio/impact`, token, { ids: [p1], steps: [{ kind: 'flow', direction: 'down', repeat: true }] });
+      expect(down.status).toBe(200);
+      expect(down.body!['rows'].map((r: any) => [r.element.attrs.name, r.level, r.fromName])).toEqual([
+        ['Flow middle', 1, 'Flow source'],
+        ['Flow end', 2, 'Flow middle'],
+        ['Flow report', 3, 'Flow end'],
+      ]);
+      expect(down.body!['truncated']).toBe(false);
+      const up = await call('POST', `${ws()}/studio/impact`, token, { ids: [report], steps: [{ kind: 'flow', direction: 'up', repeat: true }] });
+      expect(up.body!['rows'].map((r: any) => r.element.id)).toEqual([p3, p2, p1]);
+      const capped = await call('POST', `${ws()}/studio/impact`, token, { ids: [p1], steps: [{ kind: 'flow', direction: 'down', repeat: true }], maxNodes: 2 });
+      expect(capped.body).toMatchObject({ truncated: true });
+      expect(capped.body!['rows']).toHaveLength(2);
+
+      // A viewpoint chain: from the middle product, only to products, then only to reports.
+      const chain = await call('POST', `${ws()}/studio/search`, token, {
+        ids: [p2],
+        types: ['DataProduct'],
+        steps: [{ kind: 'flow', direction: 'down', types: ['DataProduct'], stage: 'Product' }, { kind: 'flow', direction: 'down', types: ['Report'], stage: 'Report' }],
+        disclosure: { initialDepth: 2 },
+      });
+      expect(chain.body!['levels']).toEqual({ [p2]: 0, [p3]: 1, [report]: 2 });
+      const none = await call('POST', `${ws()}/studio/search`, token, { ids: [p2], types: ['DataProduct'], steps: [{ kind: 'flow', direction: 'down', types: ['Report'] }], disclosure: {} });
+      expect(none.body!['elements']).toEqual([]);
+      expect((await call('POST', `${ws()}/studio/impact`, token, { ids: [p1], steps: [{ direction: 'down', types: ['Nope'] }] })).status).toBe(400);
+    });
+
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
       const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
       const created = await call('POST', `${ws()}/studio/lenses`, token, lens);
