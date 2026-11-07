@@ -12,7 +12,7 @@ import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { processJob } from '@d4/jobs';
 import { JobQueue, S3ArtifactStore, startJobWorker } from '@d4/infra';
 import { createDb, LOCAL_TENANT, MetamodelStore, RoleStore, runMigrations, schema, seedLocal, TenantStore, UsageStore, WorkspaceStore, type DbHandle } from '@d4/db';
-import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
+import { loadMetamodelPack, loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { JWKS } from '../src/auth/identity';
@@ -741,6 +741,34 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const holds = (await call('POST', `${ws()}/relationships`, admin, { type: 'HOLDS', fromId: store['id'], toId: target['id'], attrs: { role: 'REPLICA' } })).body!;
       expect((await call('GET', `${ws()}/relationships/${holds['id']}`, admin)).status).toBe(200);
       expect((await call('GET', '/v1/admin/workspaces', admin)).body!.find((w: any) => w.slug === 'bank-lab')).toMatchObject({ metamodel: 'd4-banking@0.1.1' });
+    });
+
+    it('upgrades a workspace to the newest shipped version of its metamodel, only when existing data stays valid', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      const shipped = loadMetamodelPack('d4-credit-graph');
+      // An older version without lens kinds, as workspaces created before D86 have.
+      const older = { ...structuredClone(shipped), version: '0.0.9', relationshipTypes: shipped.relationshipTypes.map((r) => ({ ...r, kind: undefined, forward: undefined })) };
+      const mm = new MetamodelStore(handle.db);
+      const olderId = await mm.register(LOCAL_TENANT, older, 'test');
+      const w = await new WorkspaceStore(handle.db).create(LOCAL_TENANT, { slug: 'credit-old', name: 'Credit (old)', metamodelId: olderId });
+      const path = `/v1/admin/workspaces/${w.id}/metamodel-upgrade`;
+
+      expect((await call('GET', path, await sign('plain-viewer', ['viewer']))).status).toBe(403);
+      expect((await call('GET', path, admin)).body).toEqual({ from: 'd4-credit-graph@0.0.9', to: `d4-credit-graph@${shipped.version}`, issues: [] });
+      expect((await call('POST', path, admin)).body).toMatchObject({ id: w.id, metamodel: `d4-credit-graph@${shipped.version}` });
+      expect((await call('GET', `/v1/workspaces/${w.id}/metamodel`, admin)).body).toMatchObject({ version: shipped.version });
+      // Already on the newest version: nothing to do.
+      expect((await call('GET', path, admin)).body).toMatchObject({ to: null, issues: [] });
+      expect((await call('POST', path, admin)).status).toBe(409);
+
+      // An older version with a value the shipped one dropped cannot move without a migration.
+      const [enumName, values] = Object.entries(shipped.enums)[0]!;
+      const wider = { ...structuredClone(shipped), version: '0.0.8', enums: { ...shipped.enums, [enumName]: [...values, 'RETIRED_VALUE'] } };
+      const blocked = await new WorkspaceStore(handle.db).create(LOCAL_TENANT, { slug: 'credit-blocked', name: 'Credit (blocked)', metamodelId: await mm.register(LOCAL_TENANT, wider, 'test') });
+      const check = await call('GET', `/v1/admin/workspaces/${blocked.id}/metamodel-upgrade`, admin);
+      expect(check.body!['issues']).toEqual([`enum '${enumName}' drops value 'RETIRED_VALUE'`]);
+      const refused = await call('POST', `/v1/admin/workspaces/${blocked.id}/metamodel-upgrade`, admin);
+      expect(refused).toMatchObject({ status: 409, body: { message: expect.stringContaining('RETIRED_VALUE') } });
     });
 
     it('lets admins manage connectors: validated config and mapping, write-only secret, sync jobs', async () => {

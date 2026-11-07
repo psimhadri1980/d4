@@ -8,7 +8,7 @@ import { z } from '../http/zod';
 import { Database } from '../infra/database.service';
 import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { assertWorkspaceQuota, currentUsage, limitsFor } from '@d4/infra';
-import { describeMetamodelPacks, loadMetamodelPack, METAMODEL_PACKS, MetamodelRegistry } from '@d4/metamodel';
+import { describeMetamodelPacks, loadMetamodelPack, METAMODEL_PACKS, MetamodelRegistry, type Metamodel, type MetamodelPackId, upgradeIssues } from '@d4/metamodel';
 import { TenantGraphService } from '../infra/tenant-graph.service';
 import { ValidBody } from '../http/zod.pipe';
 
@@ -108,6 +108,46 @@ export class AdminController {
     const w = await store.create(p.tenantId, { slug: b.slug, name: b.name, ...(b.description && { description: b.description }), metamodelId });
     const label = (await metamodels.labels(p.tenantId)).get(metamodelId) ?? null;
     return { id: w.id, slug: w.slug, name: w.name, description: w.description, archived: false, metamodel: label, createdAt: w.createdAt.toISOString() };
+  }
+
+  /** Whether the workspace can move to the newest shipped version of its metamodel, and why not. */
+  @Get('admin/workspaces/:ws/metamodel-upgrade')
+  async upgradeCheck(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
+    const { from, to, issues } = await this.upgradePlan(p, ws);
+    return { from: `${from.id}@${from.version}`, to: to && `${to.id}@${to.version}`, issues };
+  }
+
+  /**
+   * Moves the workspace to the newest shipped version of its metamodel. Refused unless the check
+   * finds nothing existing data relies on, so the graph needs no migration: the new version's
+   * labels and indexes are added, then the workspace is repointed.
+   */
+  @Post('admin/workspaces/:ws/metamodel-upgrade')
+  async upgrade(@CurrentPrincipal() p: Principal, @Param('ws') ws: string) {
+    const { row, to, issues } = await this.upgradePlan(p, ws);
+    if (!to) throw new ConflictException(issues[0] ?? 'No newer version of this metamodel ships with D4');
+    if (issues.length) throw new ConflictException(`The workspace cannot be upgraded: ${issues.join('; ')}`);
+    const metamodelId = await this.metamodelStore.register(p.tenantId, to, p.userId);
+    const session = await this.graph.session(p.tenantId, 'WRITE');
+    try {
+      await applySchema(session, new MetamodelRegistry(to));
+      await awaitSchemaOnline(session);
+    } finally {
+      await session.close();
+    }
+    await this.workspaceStore.setMetamodel(p.tenantId, row.id, metamodelId);
+    return { id: row.id, slug: row.slug, name: row.name, description: row.description, archived: !!row.archivedAt, metamodel: `${to.id}@${to.version}`, createdAt: row.createdAt.toISOString() };
+  }
+
+  private async upgradePlan(p: Principal, ws: string) {
+    const row = await this.workspaceStore.get(p.tenantId, ws);
+    if (!row) throw new NotFoundException(`Workspace '${ws}' not found`);
+    const from = await this.metamodelStore.get(p.tenantId, row.metamodelId);
+    // Only metamodels that ship with D4 have a newer version to move to.
+    if (!(METAMODEL_PACKS as readonly string[]).includes(from.id)) return { row, from, to: null as Metamodel | null, issues: [`${from.id} does not ship with D4`] };
+    const to = loadMetamodelPack(from.id as MetamodelPackId);
+    if (to.version === from.version) return { row, from, to: null, issues: [] };
+    return { row, from, to, issues: upgradeIssues(from, to) };
   }
 
   @Patch('admin/workspaces/:ws')

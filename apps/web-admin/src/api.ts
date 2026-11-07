@@ -25,6 +25,8 @@ export const adminApi = {
     archived
       ? d4().post('/v1/admin/workspaces/{ws}/archive', { path: { ws } })
       : d4().post('/v1/admin/workspaces/{ws}/restore', { path: { ws } }),
+  /** Refused (409, with the reasons) unless existing data stays valid on the newer version. */
+  upgradeMetamodel: (ws: string) => d4().post('/v1/admin/workspaces/{ws}/metamodel-upgrade', { path: { ws } }),
   users: () => d4().get('/v1/admin/users'),
   members: (ws: string) => d4().get('/v1/admin/members/{ws}', { path: { ws } }),
   grant: (ws: string, principalId: string, role: string) =>
