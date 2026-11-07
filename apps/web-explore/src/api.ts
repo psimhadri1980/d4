@@ -6,6 +6,7 @@ type StudioSearch = Omit<Schemas['StudioSearch'], 'asOf' | 'scenario'>;
 type StudioCountSearch = Schemas['StudioCounts']['searches'][number];
 type StudioOpen = Omit<Schemas['StudioOpen'], 'asOf' | 'scenario'>;
 type StudioPaths = Omit<Schemas['StudioPathsInput'], 'asOf' | 'scenario' | 'maxLength' | 'limit'>;
+type StudioMatrix = Omit<Schemas['StudioMatrixInput'], 'asOf' | 'scenario' | 'maxColumns'>;
 type StudioImpact = Omit<Schemas['StudioImpactInput'], 'asOf' | 'scenario' | 'maxNodes'>;
 export type LensInput = Schemas['StudioLensInput'];
 
@@ -27,6 +28,9 @@ export const exploreApi = {
   /** Everything a Flow lens reaches from its roots, for the impact table (D88). */
   studioImpact: (ws: string, body: StudioImpact, v: ViewParams = {}) =>
     d4().post('/v1/workspaces/{ws}/studio/impact', { path: { ws }, body: { ...body, maxNodes: 5000, ...view(v) } }),
+  /** A Matrix lens: its roots by what its step reaches (D90). */
+  studioMatrix: (ws: string, body: StudioMatrix, v: ViewParams = {}) =>
+    d4().post('/v1/workspaces/{ws}/studio/matrix', { path: { ws }, body: { ...body, maxColumns: 200, ...view(v) } }),
   /** How two elements are connected: the shortest paths between them (D89). */
   studioPaths: (ws: string, body: StudioPaths, v: ViewParams = {}) =>
     d4().post('/v1/workspaces/{ws}/studio/paths', { path: { ws }, body: { ...body, maxLength: 6, limit: 25, ...view(v) } }),

@@ -429,6 +429,25 @@ test.describe('graph studio', () => {
       await expect(page.getByRole('complementary', { name: 'Large Exposures Report' })).toBeVisible();
     });
 
+    test('a Matrix lens opens its matrix: facilities by the collateral that secures them (D90)', async ({ page }) => {
+      await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+      await search(page).getByLabel('Lens', { exact: true }).selectOption('credit-collateral-cover');
+      await search(page).getByRole('button', { name: 'Search' }).click();
+      const matrix = page.getByRole('region', { name: 'Matrix' });
+      await expect(matrix).toContainText(/\d+ × \d+ Collateral agreements, \d+ without a link/);
+      await expect(matrix.getByRole('columnheader', { name: /^CreditFacility/ })).toBeVisible();
+      await expect(matrix.locator('.mcell').first()).toBeVisible();
+      await expect(matrix.getByRole('button', { name: 'Export CSV' })).toBeEnabled();
+      const row = matrix.getByRole('rowheader').first().getByRole('button');
+      const name = (await row.textContent())!;
+      await row.click();
+      await expect(page.getByRole('complementary', { name })).toBeVisible();
+      await matrix.getByRole('button', { name: 'Close' }).click();
+      await expect(matrix).toHaveCount(0);
+      await result(page).getByRole('button', { name: 'Matrix' }).click();
+      await expect(page.getByRole('region', { name: 'Matrix' })).toBeVisible();
+    });
+
     test('only credit lenses show on the credit workspace, and none on the default one', async ({ page }) => {
       await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
       const options = search(page).getByLabel('Lens', { exact: true }).locator('option');

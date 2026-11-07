@@ -358,6 +358,20 @@ table.matrix tbody tr:hover .row-head {
 .graph-studio-impact .table-wrap {
   max-height: 40vh;
 }
+/* Matrix lens (D90): a row with no link is a gap. */
+.graph-studio-impact .matrix-scroll {
+  max-height: 50vh;
+}
+.graph-studio-matrix-gap .row-head {
+  color: var(--text-secondary);
+  box-shadow: inset 3px 0 0 var(--support-warning);
+  font-style: italic;
+}
+.graph-studio-matrix-gaps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 /* Connections (D89): one button per path. */
 .graph-studio-paths {
   margin: 0;

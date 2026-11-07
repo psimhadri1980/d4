@@ -25,6 +25,7 @@ import {
 import { exploreApi, type LensInput } from './api';
 import { Connections } from './Connections';
 import { ImpactTable } from './ImpactTable';
+import { LensMatrix } from './LensMatrix';
 import { offeredOn, PREDEFINED_LENSES, type BuiltInLens } from './lenses';
 
 /** One place on the focus path: the search the user began from, then one step per drill (DD-2). */
@@ -339,6 +340,12 @@ export function GraphStudio() {
     [pinned, pins, registry.data, modelView.asOf, flowSteps],
   );
   const [impactOpen, setImpactOpen] = useState(false);
+  // A Matrix lens opens its matrix (D90): the roots by what its first step reaches.
+  const matrixStep = useMemo(() => {
+    const lens = lensOf(search);
+    return lens?.shape === 'matrix' && !step?.connect ? (lensSpec(lens).steps[0] ?? null) : null;
+  }, [search, lenses, step?.connect]);
+  const [matrixOpen, setMatrixOpen] = useState(true);
 
   // A large result opens in the Overview, once per step; after that the view is the user's.
   useEffect(() => {
@@ -362,6 +369,7 @@ export function GraphStudio() {
     // A new Search starts a new focus path (DD-3).
     setSteps([{ label: describe(lens, v), selectedId: null, view: lens?.view ?? carried(step?.view) }]);
     if (lens?.shape !== 'flow') setImpactOpen(false);
+    setMatrixOpen(true);
   };
   const clear = () => {
     setSearch(null);
@@ -511,6 +519,10 @@ export function GraphStudio() {
                 <button type="button" className="button ghost small" aria-pressed={impactOpen} onClick={() => setImpactOpen(!impactOpen)}>
                   Impact table
                 </button>
+              ) : matrixStep && graph?.rootIds.length ? (
+                <button type="button" className="button ghost small" aria-pressed={matrixOpen} onClick={() => setMatrixOpen(!matrixOpen)}>
+                  Matrix
+                </button>
               ) : undefined
             }
             depth={depth}
@@ -562,6 +574,9 @@ export function GraphStudio() {
             onChoose={(i) => patch({ connect: { ...connect, ...{ chosen: i ?? undefined } }, viewport: undefined })}
             onClose={() => setSteps((s) => s.slice(0, -1))}
           />
+        )}
+        {matrixOpen && matrixStep && graph && (
+          <LensMatrix ws={ws!} rootIds={graph.rootIds} rowLabel={lensOf(search)?.contour.type ?? ''} step={matrixStep} view={vq} selectedId={step?.selectedId ?? null} onSelect={(id) => patch({ selectedId: id })} onClose={() => setMatrixOpen(false)} />
         )}
         {impactOpen && flowSteps && graph && !connect && (
           <ImpactTable ws={ws!} rootIds={graph.rootIds} steps={flowSteps} view={vq} onSelect={(id) => patch({ selectedId: id })} onClose={() => setImpactOpen(false)} />

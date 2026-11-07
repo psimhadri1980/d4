@@ -204,6 +204,14 @@ describe('LensEditor', () => {
     expect([...host.querySelectorAll('.lens-first-screen li')].map((l) => l.textContent)).toEqual(['Start3', 'Capability4 + 9 folded']);
     click(button('Save'));
     expect(saved[0]).toMatchObject({ shape: 'flow', depth: 1, steps: [{ types: ['Capability'], relationships: ['REALIZES'] }] });
+
+    // A matrix (D90): one step, whose type is the columns.
+    click(radio('Matrix'));
+    expect(drafts.at(-1)).toMatchObject({ shape: 'matrix', depth: 1 });
+    expect(drafts.at(-1)!.steps).toHaveLength(1);
+    set(field<HTMLSelectElement>('To'), 'Capability');
+    expect(drafts.at(-1)!.steps).toEqual([{ direction: 'both', types: ['Capability'], stage: 'Capability' }]);
+    expect(button('Add a step')).toBeUndefined();
     act(() => root.unmount());
   });
 });
