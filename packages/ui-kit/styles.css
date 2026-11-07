@@ -179,6 +179,10 @@
 .graph-canvas-node:hover .graph-canvas-card {
   fill: var(--layer-hover, #e8e8e8);
 }
+.graph-canvas-node.pinned .graph-canvas-card {
+  stroke: var(--support-warning, #b28600);
+  stroke-width: 2;
+}
 .graph-canvas-node.selected .graph-canvas-card {
   stroke: var(--interactive, #0f62fe);
   stroke-width: 3;
