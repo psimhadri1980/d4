@@ -1,4 +1,4 @@
-import { RESERVED_ATTRIBUTE_NAMES, type AttributeDef, type Metamodel, type NodeTypeDef, type NodeTypeRole, type RelationshipTypeDef } from './schema';
+import { RESERVED_ATTRIBUTE_NAMES, type AttributeDef, type Metamodel, type NodeTypeDef, type NodeTypeRole, type RelationshipKind, type RelationshipTypeDef } from './schema';
 
 export type AttributeValues = Record<string, unknown>;
 
@@ -41,6 +41,30 @@ export class MetamodelRegistry {
       if (role) return role;
     }
     return 'both';
+  }
+
+  /** A relationship type's kind (D85); `association` when the metamodel does not say. */
+  kindOf(rel: string): RelationshipKind {
+    return this.rels.get(rel)?.kind ?? 'association';
+  }
+
+  /** Whether the stored direction of `rel` reads as down / downstream (`out`) or the reverse. */
+  forwardOf(rel: string): 'out' | 'in' {
+    return this.rels.get(rel)?.forward ?? 'out';
+  }
+
+  /** The relationship types of a kind, by name. */
+  relationshipsOfKind(kind: RelationshipKind): string[] {
+    return this.relationshipTypes().filter((r) => (r.kind ?? 'association') === kind).map((r) => r.name).sort();
+  }
+
+  /** What makes a node of the type stand out: its own rule, else the nearest ancestor's. */
+  importanceOf(name: string): { attribute: string; order: string[] } | undefined {
+    for (const t of this.lineage(name)) {
+      const imp = this.nodes.get(t)?.importance;
+      if (imp) return imp;
+    }
+    return undefined;
   }
 
   /** The type itself followed by its ancestors via `extends`. */

@@ -53,3 +53,16 @@ describe('industry packs', () => {
     expect(reg.validateNodeAttributes('CreditFacility', { name: 'F', status: 'NOPE' })[0]).toMatch(/must be one of/);
   });
 });
+
+describe('lens semantics (D85)', () => {
+  it('relationship kinds and direction, and node importance through extends', () => {
+    const reg = new MetamodelRegistry(loadMetamodelPack('d4-credit-graph'));
+    expect(reg.kindOf('PART_OF')).toBe('containment');
+    expect(reg.forwardOf('PART_OF')).toBe('in');
+    expect(reg.forwardOf('HAS_DRAWDOWN')).toBe('out');
+    expect(reg.kindOf('RELATED_TO')).toBe('association');
+    expect(reg.relationshipsOfKind('containment')).toContain('MEMBER_OF_GROUP');
+    expect(reg.importanceOf('Application')).toEqual({ attribute: 'criticality', order: ['MISSION_CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] });
+    expect(reg.importanceOf('Covenant')).toBeUndefined();
+  });
+});
