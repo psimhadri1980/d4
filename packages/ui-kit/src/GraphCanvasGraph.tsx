@@ -342,7 +342,7 @@ export function GraphCanvasGraph(props: Props) {
             const b = geometry.boxes.get(n.id)!;
             const root = roots.has(n.id);
             const selected = n.id === selectedId;
-            const state = [root && 'root', selected && 'selected', n.state === 'planned' && 'planned', movable && 'movable'].filter(Boolean).join(' ');
+            const state = [root && 'root', selected && 'selected', n.state === 'planned' && 'planned', n.group !== undefined && 'group', movable && 'movable'].filter(Boolean).join(' ');
             return (
               <g
                 key={n.id}
@@ -351,7 +351,7 @@ export function GraphCanvasGraph(props: Props) {
                 role="button"
                 tabIndex={0}
                 aria-pressed={selected}
-                aria-label={`${n.name}, ${n.type}, ${n.layer}${root ? ', root' : ''}${n.state === 'planned' ? ', planned' : ''}`}
+                aria-label={n.group !== undefined ? `${n.name.replace(/^▸ /, '')}, group, click to open` : `${n.name}, ${n.type}, ${n.layer}${root ? ', root' : ''}${n.state === 'planned' ? ', planned' : ''}`}
                 aria-keyshortcuts={movable ? 'ArrowUp ArrowDown ArrowLeft ArrowRight' : undefined}
                 data-node-id={n.id}
                 onPointerDown={(e) => start(e, { kind: 'node', id: n.id, from: { x: e.clientX, y: e.clientY }, origin: centreOf(n.id), moved: false })}

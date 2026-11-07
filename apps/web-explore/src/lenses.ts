@@ -13,7 +13,7 @@ export const offeredOn = (l: BuiltInLens, id: string) => (l.only ? l.only.includ
 
 /**
  * Lenses offered before anyone has saved one (LS-7): five for the starter metamodel (and the
- * metamodels built on it, except the credit graph), eleven for the credit graph only (CG-4).
+ * metamodels built on it, except the credit graph), thirteen for the credit graph only (CG-4, D85).
  */
 const STARTER_LENSES: BuiltInLens[] = [
   {
@@ -174,6 +174,33 @@ const CREDIT_LENSES: BuiltInLens[] = [
     contour: { type: 'CreditFacility', attributes: [{ attribute: 'limitAmount', op: 'gte', value: 10_000_000 }] },
     facets: [],
     match: 'all',
+    depth: 1,
+    layout: 'hier',
+    view: 'graph',
+    only: CREDIT,
+  },
+  // Hierarchy lenses (D85): a tree down through containment, with the rest folded into groups.
+  {
+    id: 'credit-group-structure',
+    name: 'Client group structure',
+    contour: { type: 'ClientGroup' },
+    facets: [],
+    match: 'all',
+    shape: 'tree',
+    steps: [{ kind: 'containment', direction: 'down', repeat: true }],
+    depth: 2,
+    layout: 'hier',
+    view: 'graph',
+    only: CREDIT,
+  },
+  {
+    id: 'credit-facility-breakdown',
+    name: 'Facility breakdown',
+    contour: { type: 'CreditFacility' },
+    facets: [],
+    match: 'all',
+    shape: 'tree',
+    steps: [{ kind: 'containment', direction: 'down', repeat: true }],
     depth: 1,
     layout: 'hier',
     view: 'graph',

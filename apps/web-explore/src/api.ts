@@ -4,6 +4,7 @@ import { d4, type Schemas, type ViewParams } from '@d4/web-platform';
 /** A Graph Studio search without the view, which comes from the page's view picker. */
 type StudioSearch = Omit<Schemas['StudioSearch'], 'asOf' | 'scenario'>;
 type StudioCountSearch = Schemas['StudioCounts']['searches'][number];
+type StudioOpen = Omit<Schemas['StudioOpen'], 'asOf' | 'scenario'>;
 export type LensInput = Schemas['StudioLensInput'];
 
 const text = (v: string | undefined) => v || undefined;
@@ -19,6 +20,8 @@ export const exploreApi = {
   studioSearch: (ws: string, search: StudioSearch, v: ViewParams = {}) =>
     d4().post('/v1/workspaces/{ws}/studio/search', { path: { ws }, body: { ...search, ...view(v) } }),
   /** How many roots each search finds, for the lens list while no lens is chosen. */
+  studioOpen: (ws: string, body: StudioOpen, v: ViewParams = {}) =>
+    d4().post('/v1/workspaces/{ws}/studio/open', { path: { ws }, body: { ...body, ...view(v) } }),
   studioCounts: (ws: string, searches: StudioCountSearch[], v: ViewParams = {}, sample = 0) =>
     d4().post('/v1/workspaces/{ws}/studio/counts', { path: { ws }, body: { searches, cap: 1000, sample, ...view(v) } }),
   /** For the lens editor: a contour type's count, links and attribute values. */

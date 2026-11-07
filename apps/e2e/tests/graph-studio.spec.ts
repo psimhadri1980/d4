@@ -94,7 +94,7 @@ test.describe('graph studio', () => {
     await expect(result(page).getByText('Showing only:')).toBeVisible();
     await expect.poll(() => result(page).locator('.graph-canvas-node').count()).toBeLessThan(all);
     for (const label of await result(page).locator('.graph-canvas-node').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')!)))
-      expect(label).toMatch(/, DataStore, |, root$/);
+      expect(label).toMatch(/, DataStore, |, root$|data stores?, group, click to open$/);
     await expect(result(page).getByLabel('Result summary')).toContainText(` of ${all} nodes`);
 
     await result(page).getByRole('button', { name: 'Remove DataStore' }).click();
@@ -316,7 +316,7 @@ test.describe('graph studio', () => {
     await expect(result(page).getByRole('tab', { name: 'Graph' })).toHaveAttribute('aria-selected', 'true');
     await expect(result(page).getByRole('button', { name: 'Remove DataStore' })).toBeVisible();
     for (const label of await result(page).locator('.graph-canvas-node').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')!)))
-      expect(label).toMatch(/, DataStore, |, root$/);
+      expect(label).toMatch(/, DataStore, |, root$|data stores?, group, click to open$/);
   });
 
   test('names the criteria when nothing matches and offers to clear them', async ({ page }) => {
@@ -346,6 +346,20 @@ test.describe('graph studio', () => {
         await expect(result(page).getByLabel('Result summary')).toContainText(`${roots} roots`);
       });
     }
+
+    test('a Hierarchy lens shows the first level, folds the rest into groups, and opens a group on a click (D85)', async ({ page }) => {
+      await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+      await search(page).getByLabel('Lens', { exact: true }).selectOption('credit-facility-breakdown');
+      await search(page).getByRole('button', { name: 'Search' }).click();
+      await result(page).getByRole('tab', { name: 'Graph' }).click();
+      const groups = result(page).locator('.graph-canvas-node.group');
+      await expect(groups.first()).toBeVisible();
+      const before = await result(page).locator('.graph-canvas-node:not(.group)').count();
+      const label = (await groups.first().getAttribute('aria-label'))!;
+      expect(label).toMatch(/^\d+ [a-z ]+, group, click to open$/);
+      await groups.first().click();
+      await expect.poll(() => result(page).locator('.graph-canvas-node:not(.group)').count()).toBeGreaterThan(before);
+    });
 
     test('only credit lenses show on the credit workspace, and none on the default one', async ({ page }) => {
       await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
