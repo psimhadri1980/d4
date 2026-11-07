@@ -302,8 +302,9 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
 
       const page = await call('POST', `${ws()}/studio/open`, token, { group, disclosure: { perNodeCap: 1 }, shown: [root] });
       expect(page.status).toBe(200);
-      expect(page.body!['elements'].map((e: any) => e.attrs.name)).toEqual(['Lake']);
-      expect(page.body!['group']).toMatchObject({ count: 1, offset: 1 });
+      // A page never leaves a group of one: the last member comes along.
+      expect(page.body!['elements'].map((e: any) => e.attrs.name).sort()).toEqual(['Lake', 'MDM Hub']);
+      expect(page.body!['group']).toMatchObject({ count: 0, offset: 2 });
       expect(page.body!['groups'].every((g: any) => g.level === 2)).toBe(true);
 
       const open = await call('POST', `${ws()}/studio/search`, token, { ...base, disclosure: {} });
@@ -314,6 +315,16 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const tree = await call('POST', `${ws()}/studio/search`, token, { ...base, steps: [{ kind: 'containment', direction: 'down', repeat: true }], disclosure: {} });
       expect(tree.body).toMatchObject({ elements: [], groups: [], truncated: false });
       expect((await call('POST', `${ws()}/studio/search`, token, { ...base, steps: [{ relationships: ['NOPE'], direction: 'down' }], disclosure: {} })).status).toBe(400);
+
+      // A group of one past the last level opened is drawn as its member.
+      const add = async (type: string, name: string) => (await call('POST', `${ws()}/elements`, token, { type, attrs: { name } })).body!['id'] as string;
+      const [product, store, set] = [await add('DataProduct', 'Solo product'), await add('DataStore', 'Solo store'), await add('DataSet', 'Solo set')];
+      await call('POST', `${ws()}/relationships`, token, { type: 'HOLDS', fromId: store, toId: product, attrs: { role: 'MASTER' } });
+      await call('POST', `${ws()}/relationships`, token, { type: 'STORED_IN', fromId: set, toId: store });
+      const chain = await call('POST', `${ws()}/studio/search`, token, { types: ['DataProduct'], name: 'Solo product', disclosure: {} });
+      expect(chain.body!['levels']).toEqual({ [product]: 0, [store]: 1, [set]: 2 });
+      expect(chain.body!['relationships']).toHaveLength(2);
+      expect(chain.body!['groups']).toEqual([]);
     });
 
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
