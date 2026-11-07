@@ -358,3 +358,29 @@ table.matrix tbody tr:hover .row-head {
 .graph-studio-impact .table-wrap {
   max-height: 40vh;
 }
+/* Connections (D89): one button per path. */
+.graph-studio-paths {
+  margin: 0;
+  padding-left: 24px;
+  display: grid;
+  gap: 4px;
+  max-height: 40vh;
+  overflow: auto;
+}
+.graph-studio-path {
+  all: unset;
+  cursor: pointer;
+  display: block;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+}
+.graph-studio-path:hover,
+.graph-studio-path:focus-visible {
+  border-color: var(--border-subtle);
+}
+.graph-studio-path[aria-pressed='true'] {
+  border-color: var(--interactive, #0f62fe);
+}
+.graph-studio-path-link {
+  color: var(--text-secondary);
+}
