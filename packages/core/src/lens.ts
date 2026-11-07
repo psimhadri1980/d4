@@ -36,6 +36,38 @@ export interface LensQuery {
   params?: Record<string, unknown>;
 }
 
+/** Relationship kinds a lens step can follow (D85); the metamodel declares each relationship's kind. */
+export type LensRelationshipKind = 'containment' | 'dependency' | 'flow' | 'ownership' | 'association' | 'classification';
+
+/**
+ * One step of a lens's traversal (D85): which relationships to follow and which way. `down` follows
+ * each relationship the way the metamodel reads it as down or downstream (container to part, source
+ * to consumer), `up` the reverse. With neither `kind` nor `relationships`, any relationship.
+ */
+export interface LensStep {
+  kind?: LensRelationshipKind;
+  relationships?: string[];
+  direction: 'down' | 'up' | 'both';
+  /** Keep following this step, level after level. */
+  repeat?: boolean;
+}
+
+/** How much a lens shows at first, and how the rest folds into groups that open on demand (D85). */
+export interface LensDisclosure {
+  /** Nodes drawn before the rest folds into groups. */
+  budget: number;
+  /** Levels opened at first. */
+  initialDepth: number;
+  /** A parent's links of one relationship and type fold into a group above this many. */
+  perNodeCap: number;
+}
+
+/** The lens's shape: Ego (around the roots) or Hierarchy (a tree down from them). */
+export type LensShape = 'ego' | 'tree';
+
+export const LENS_DISCLOSURE: LensDisclosure = { budget: 150, initialDepth: 1, perNodeCap: 12 };
+export const LENS_MAX_BUDGET = 350;
+
 export interface Lens {
   id: string;
   name: string;
@@ -48,6 +80,10 @@ export interface Lens {
   query?: LensQuery;
   /** Attributes offered as quick filters; the contour's pick-list attributes when absent. */
   quickFilters?: string[];
+  /** The traversal (D85); absent means any relationship, both ways, to `depth`. */
+  steps?: LensStep[];
+  shape?: LensShape;
+  disclosure?: Partial<LensDisclosure>;
   /** How the result opens (LS-6); the user can still change them on the canvas. */
   depth: number;
   layout: 'hier' | 'flow' | 'layers' | 'radial' | 'force';
@@ -114,4 +150,55 @@ export function lensSearch(lens: Lens | null, quick: readonly QuickFilter[], nam
     match: lens?.match ?? ('all' as const),
     ...(q && { query: { id: q.id, ...(q.version && { version: q.version }), params: { ...q.params, ...params } } }),
   };
+}
+
+/** A lens's traversal, shape and disclosure (D85), with what older lenses imply filled in. */
+export function lensSpec(lens: Lens | null): { steps: LensStep[]; shape: LensShape; disclosure: LensDisclosure } {
+  const shape = lens?.shape ?? 'ego';
+  const steps = lens?.steps?.length ? lens.steps : [{ direction: 'both' as const, repeat: true }];
+  const d = { ...LENS_DISCLOSURE, ...(!lens?.steps?.length && lens?.depth ? { initialDepth: lens.depth } : {}), ...lens?.disclosure };
+  return {
+    shape,
+    steps,
+    disclosure: {
+      budget: Math.min(Math.max(1, Math.trunc(d.budget)), LENS_MAX_BUDGET),
+      initialDepth: Math.min(Math.max(1, Math.trunc(d.initialDepth)), 6),
+      perNodeCap: Math.max(1, Math.trunc(d.perNodeCap)),
+    },
+  };
+}
+
+/** The step a traversal takes at `level` (0: from the roots), or none when it ends there. */
+export function stepAt(steps: readonly LensStep[], level: number): LensStep | undefined {
+  if (level < steps.length) return steps[level];
+  const last = steps.at(-1);
+  return last?.repeat ? last : undefined;
+}
+
+/**
+ * Links folded into one group (D85): a parent's links of one relationship, one way, to one type.
+ * Opening it loads its members a page at a time.
+ */
+export interface LensGroup {
+  /** `parent~relationship~OUT or IN~type`, stable across loads. */
+  id: string;
+  parent: string;
+  relationship: string;
+  /** Seen from the parent. */
+  direction: 'OUT' | 'IN';
+  type: string;
+  /** The level the members are on (the parent's + 1). */
+  level: number;
+  /** Members not yet shown. */
+  count: number;
+  /** Members already shown; the next page starts here. */
+  offset: number;
+}
+
+export const groupId = (g: Pick<LensGroup, 'parent' | 'relationship' | 'direction' | 'type'>) => `${g.parent}~${g.relationship}~${g.direction}~${g.type}`;
+
+/** "▸ 14 data stores", the label of a group. */
+export function groupLabel(g: Pick<LensGroup, 'count' | 'type' | 'offset'>): string {
+  const t = camel(g.type);
+  return `▸ ${g.count}${g.offset ? ' more' : ''} ${g.count === 1 ? t : t.endsWith('s') ? t : t.endsWith('y') ? `${t.slice(0, -1)}ies` : `${t}s`}`;
 }

@@ -290,6 +290,32 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/studio/search`, token, { name: 'x', depth: 7 })).status).toBe(400);
     });
 
+    it('draws a lens by disclosure: links past the cap fold into groups that open a page at a time (D85)', async () => {
+      const base = { types: ['DataProduct'], name: 'custom' };
+      const folded = await call('POST', `${ws()}/studio/search`, token, { ...base, disclosure: { perNodeCap: 1 } });
+      expect(folded.status).toBe(200);
+      expect(folded.body!['elements']).toEqual([]);
+      const root = folded.body!['roots'][0].id;
+      const group = folded.body!['groups'].find((g: any) => g.relationship === 'HOLDS');
+      expect(group).toMatchObject({ parent: root, direction: 'IN', type: 'DataStore', level: 1, count: 2, offset: 0 });
+      expect(folded.body!['levels']).toEqual({ [root]: 0 });
+
+      const page = await call('POST', `${ws()}/studio/open`, token, { group, disclosure: { perNodeCap: 1 }, shown: [root] });
+      expect(page.status).toBe(200);
+      expect(page.body!['elements'].map((e: any) => e.attrs.name)).toEqual(['Lake']);
+      expect(page.body!['group']).toMatchObject({ count: 1, offset: 1 });
+      expect(page.body!['groups'].every((g: any) => g.level === 2)).toBe(true);
+
+      const open = await call('POST', `${ws()}/studio/search`, token, { ...base, disclosure: {} });
+      expect(open.body!['elements'].map((e: any) => e.attrs.name).sort()).toEqual(['Lake', 'MDM Hub']);
+      expect(open.body!['groups'].every((g: any) => g.level === 2)).toBe(true);
+
+      // A step that follows only containment finds nothing here: no group, nothing drawn.
+      const tree = await call('POST', `${ws()}/studio/search`, token, { ...base, steps: [{ kind: 'containment', direction: 'down', repeat: true }], disclosure: {} });
+      expect(tree.body).toMatchObject({ elements: [], groups: [], truncated: false });
+      expect((await call('POST', `${ws()}/studio/search`, token, { ...base, steps: [{ relationships: ['NOPE'], direction: 'down' }], disclosure: {} })).status).toBe(400);
+    });
+
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
       const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
       const created = await call('POST', `${ws()}/studio/lenses`, token, lens);
@@ -959,7 +985,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const token = await sign('exporter-1', ['viewer']);
       const exported = await call('GET', `${ws()}/export`, token);
       expect(exported.status).toBe(200);
-      expect(exported.body!['metadata']).toMatchObject({ name: 'Default', metamodel: 'd4-starter@0.3.0' });
+      expect(exported.body!['metadata']).toMatchObject({ name: 'Default', metamodel: 'd4-starter@0.4.0' });
       expect(exported.body!['elements'].length).toBeGreaterThanOrEqual(sample.elements.length);
 
       const writer = await sign('importer-3', ['architect']);

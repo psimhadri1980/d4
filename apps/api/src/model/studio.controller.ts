@@ -1,8 +1,8 @@
 import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Put } from '@nestjs/common';
-import { DomainError, ulid } from '@d4/core';
+import { DomainError, lensSpec, ulid } from '@d4/core';
 import { queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
 import { StudioLensStore, type StudioLensRow } from '@d4/db';
-import { StudioCountsBody, StudioLensBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
+import { StudioCountsBody, StudioLensBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
@@ -42,11 +42,24 @@ export class StudioController {
       ids = within ? found.filter((id) => within.has(id)) : found;
       if (!ids.length) return { roots: [], elements: [], relationships: [], tooLarge: false, nodeCount: 0 };
     }
-    return studio.search(
-      scope.workspaceId,
-      { ids, types: b.types, name: b.name, attributes: b.attributes, facets: b.facets, match: b.match },
-      { depth: b.depth, maxNodes: b.maxNodes, view },
-    );
+    const search = { ids, types: b.types, name: b.name, attributes: b.attributes, facets: b.facets, match: b.match };
+    if (!b.disclosure) return studio.search(scope.workspaceId, search, { depth: b.depth, maxNodes: b.maxNodes, view });
+    // By disclosure (D85): the roots, then what fits the budget along the lens's steps.
+    const found = await studio.findRoots(scope.workspaceId, search, STUDIO_MAX_ROOTS, view);
+    if (found.tooMany) return { roots: [], elements: [], relationships: [], tooLarge: true, nodeCount: found.roots.length };
+    const steps = b.steps ?? lensSpec(null).steps;
+    const shown = await studio.project(scope.workspaceId, found.roots, steps, b.disclosure, view);
+    return { ...shown, tooLarge: false, nodeCount: shown.roots.length + shown.elements.length };
+  }
+
+  /** The next page of a lens group (D85). */
+  @Post('open')
+  @HttpCode(200)
+  async open(@Workspace('read') { queries, studio, scope }: OpenWorkspace, @ValidBody(StudioOpenBody) b: z.output<typeof StudioOpenBody>) {
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
+    const steps = b.steps ?? lensSpec(null).steps;
+    if (!scope.registry.relationshipType(b.group.relationship)) throw new RangeError(`Unknown relationship type '${b.group.relationship}'`);
+    return studio.openGroup(scope.workspaceId, b.group, steps, b.disclosure, b.shown, view);
   }
 
   /** Root counts per search, for the lens list while the user has not chosen a lens (LS-5). */
@@ -108,7 +121,7 @@ export class StudioController {
   /** Types and relationships must exist in the metamodel; sharing a lens needs write access. */
   private async checkLens(p: Principal, workspaceId: string, registry: OpenWorkspace['scope']['registry'], b: z.output<typeof StudioLensBody>) {
     for (const t of [b.contour.type, ...b.facets.flatMap((f) => f.types)]) if (!registry.nodeType(t)) throw new RangeError(`Unknown element type '${t}'`);
-    for (const f of b.facets) if (f.relationship && !registry.relationshipType(f.relationship)) throw new RangeError(`Unknown relationship type '${f.relationship}'`);
+    for (const r of [...b.facets.map((f) => f.relationship), ...(b.steps ?? []).flatMap((s) => s.relationships ?? [])]) if (r && !registry.relationshipType(r)) throw new RangeError(`Unknown relationship type '${r}'`);
     if (b.visibility === 'workspace') await this.access.resolve(p, workspaceId, 'write');
     // A query the caller cannot see does not exist for them.
     if (b.query) await this.catalog.entry(p, b.query.id);

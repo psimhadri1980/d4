@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFilter, lensChips, lensNote, lensSearch, type Lens } from '../src';
+import { describeFilter, groupLabel, lensChips, lensNote, lensSearch, lensSpec, stepAt, type Lens } from '../src';
 
 const mastered: Lens = {
   id: 'mastered',
@@ -54,5 +54,24 @@ describe('lenses', () => {
       query: { id: 'q1', params: { owner: 'cdo', days: 7 } },
     });
     expect(lensSearch({ ...byQuery, query: { id: 'q1', version: 3 } }, [], '').query).toEqual({ id: 'q1', version: 3, params: {} });
+  });
+});
+
+describe('lens spec (D85)', () => {
+  const old: Lens = { id: 'x', name: 'Old', contour: { type: 'Application' }, facets: [], match: 'all', depth: 3, layout: 'hier', view: 'graph' };
+  it('fills in what an older lens implies: any relationship both ways, opened to its depth', () => {
+    expect(lensSpec(old)).toEqual({ shape: 'ego', steps: [{ direction: 'both', repeat: true }], disclosure: { budget: 150, initialDepth: 3, perNodeCap: 12 } });
+    expect(lensSpec({ ...old, shape: 'tree', steps: [{ kind: 'containment', direction: 'down', repeat: true }], disclosure: { budget: 999 } }).disclosure).toEqual({ budget: 350, initialDepth: 1, perNodeCap: 12 });
+  });
+  it('steps run out unless the last repeats', () => {
+    const steps = [{ kind: 'ownership' as const, direction: 'down' as const }, { direction: 'both' as const }];
+    expect(stepAt(steps, 1)).toBe(steps[1]);
+    expect(stepAt(steps, 2)).toBeUndefined();
+    expect(stepAt([{ direction: 'up', repeat: true }], 5)).toEqual({ direction: 'up', repeat: true });
+  });
+  it('names groups', () => {
+    expect(groupLabel({ count: 14, type: 'DataStore', offset: 0 })).toBe('▸ 14 data stores');
+    expect(groupLabel({ count: 3, type: 'CreditFacility', offset: 12 })).toBe('▸ 3 more credit facilities');
+    expect(groupLabel({ count: 1, type: 'Drawdown', offset: 0 })).toBe('▸ 1 drawdown');
   });
 });

@@ -1,4 +1,4 @@
-import type { Element, ModelView, Relationship } from '@d4/core';
+import { groupId, stepAt, type Element, type LensDisclosure, type LensGroup, type LensStep, type ModelView, type Relationship } from '@d4/core';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import { propsToElement, propsToRelationship } from './mapping';
 import { inView, relInView, viewParams } from './queries';
@@ -66,6 +66,32 @@ export interface StudioResult {
 
 const ATTRIBUTE_NAME = /^[a-z][A-Za-z0-9]*$/;
 
+/**
+ * A lens result drawn by disclosure (D85): the roots and what fits the budget, with the rest folded
+ * into groups the user opens. Nothing is cut without a group or `truncated` saying so.
+ */
+export interface StudioProjection {
+  roots: Element[];
+  elements: Element[];
+  relationships: Relationship[];
+  groups: LensGroup[];
+  /** Each shown node's level: 0 for the roots. */
+  levels: Record<string, number>;
+  /** A step read more rows than allowed, so some links are missing. */
+  truncated: boolean;
+}
+
+/** A page of a group's members, with their own folded links one level further. */
+export interface StudioGroupPage {
+  elements: Element[];
+  relationships: Relationship[];
+  groups: LensGroup[];
+  levels: Record<string, number>;
+  /** The group with what is left in it; count 0 when it is used up. */
+  group: LensGroup;
+  truncated: boolean;
+}
+
 export interface StudioProfile {
   count: number;
   links: { relationship: string; direction: 'OUT' | 'IN'; type: string; count: number }[];
@@ -108,6 +134,139 @@ export class StudioQueries {
     const found = await this.findRoots(ws, search, Math.min(maxNodes, STUDIO_MAX_ROOTS), opts.view);
     if (found.tooMany) return { roots: [], elements: [], relationships: [], tooLarge: true, nodeCount: found.roots.length };
     return { roots: found.roots, ...(await this.expand(ws, found.roots, depth, maxNodes, opts.view)) };
+  }
+
+  /**
+   * The lens result by disclosure (D85). Level by level from the roots, along the lens's steps: a
+   * parent's links of one relationship and type are shown when they fit the per-node cap and the
+   * budget, else they fold into a group. Nodes on the last level opened get their next step as
+   * groups with counts, so every branch that goes on says how much is there.
+   */
+  async project(ws: string, roots: Element[], steps: readonly LensStep[], d: LensDisclosure, view?: ModelView): Promise<StudioProjection> {
+    const out: StudioProjection = { roots, elements: [], relationships: [], groups: [], levels: {}, truncated: false };
+    const shown = new Map<string, Element>(roots.map((r) => [r.id, r]));
+    for (const r of roots) out.levels[r.id] = 0;
+    const rels = new Map<string, Relationship>();
+    let frontier = roots.map((r) => r.id);
+    let level = 0;
+    for (; level < d.initialDepth && frontier.length; level++) {
+      const step = stepAt(steps, level);
+      if (!step) { frontier = []; break; }
+      const { rows, truncated } = await this.stepRows(ws, frontier, step, null, view);
+      out.truncated ||= truncated;
+      const next: string[] = [];
+      // Parents in the order they are shown, so the first ones get the budget.
+      const order = new Map(frontier.map((id, i) => [id, i]));
+      const byGroup = groupRows(rows);
+      const keys = [...byGroup.keys()].sort((a, b) => order.get(byGroup.get(a)![0]!.parent)! - order.get(byGroup.get(b)![0]!.parent)! || a.localeCompare(b));
+      for (const key of keys) {
+        const members = byGroup.get(key)!;
+        const fresh = members.filter((m) => !shown.has(m.node.id));
+        // Links to nodes already shown are drawn; they cost no budget.
+        for (const m of members) if (shown.has(m.node.id)) rels.set(m.rel.id, m.rel);
+        if (!fresh.length) continue;
+        if (fresh.length <= d.perNodeCap && shown.size + fresh.length <= d.budget) {
+          for (const m of this.ranked(fresh)) {
+            shown.set(m.node.id, m.node);
+            out.levels[m.node.id] = level + 1;
+            rels.set(m.rel.id, m.rel);
+            next.push(m.node.id);
+          }
+        } else {
+          const g = members[0]!;
+          out.groups.push({ id: groupId(g), parent: g.parent, relationship: g.relationship, direction: g.direction, type: g.type, level: level + 1, count: fresh.length, offset: 0 });
+        }
+      }
+      frontier = next;
+    }
+    out.groups.push(...(await this.groupCounts(ws, frontier, steps, level, [...shown.keys()], view)));
+    out.elements = [...shown.values()].filter((e) => out.levels[e.id] !== 0);
+    out.relationships = [...rels.values()];
+    return out;
+  }
+
+  /** The next page of a group (D85): its members ranked by importance, and their own groups. */
+  async openGroup(ws: string, group: LensGroup, steps: readonly LensStep[], d: LensDisclosure, shownIds: readonly string[], view?: ModelView): Promise<StudioGroupPage> {
+    const step: LensStep = { relationships: [group.relationship], direction: 'both' };
+    const { rows, truncated } = await this.stepRows(ws, [group.parent], step, null, view);
+    const shown = new Set(shownIds);
+    const members = this.ranked(rows.filter((m) => m.relationship === group.relationship && m.direction === group.direction && m.type === group.type && !shown.has(m.node.id)));
+    const page = members.slice(0, d.perNodeCap);
+    const levels = Object.fromEntries(page.map((m) => [m.node.id, group.level]));
+    const ids = page.map((m) => m.node.id);
+    return {
+      elements: page.map((m) => m.node),
+      relationships: page.map((m) => m.rel),
+      groups: await this.groupCounts(ws, ids, steps, group.level, [...shown, ...ids], view),
+      levels,
+      group: { ...group, count: members.length - page.length, offset: group.offset + page.length },
+      truncated,
+    };
+  }
+
+  /** Groups with counts for the step after `level`, from each of `parents`, leaving out what is shown. */
+  private async groupCounts(ws: string, parents: string[], steps: readonly LensStep[], level: number, shownIds: string[], view?: ModelView): Promise<LensGroup[]> {
+    const step = stepAt(steps, level);
+    if (!step || !parents.length) return [];
+    const { where, params } = this.stepWhere(step);
+    const rows = await this.read(
+      `MATCH (a:Element)-[r]-(b:Element)
+       WHERE a.id IN $frontier AND a.workspaceId = $ws AND b.deleted = false AND r.deleted = false AND NOT b.id IN $shown
+         AND ${where} AND ${inView('b')} AND ${relInView('r')}
+       RETURN a.id AS parent, type(r) AS t, CASE WHEN startNode(r) = a THEN 'OUT' ELSE 'IN' END AS d, b.type AS bt, count(DISTINCT b) AS c
+       ORDER BY parent, t, d, bt`,
+      { ...params, ws, frontier: parents, shown: shownIds, ...viewParams(view) },
+    );
+    return rows.map((r) => {
+      const g = { parent: r['parent'] as string, relationship: r['t'] as string, direction: r['d'] as 'OUT' | 'IN', type: r['bt'] as string };
+      return { ...g, id: groupId(g), level: level + 1, count: Number(r['c']), offset: 0 };
+    });
+  }
+
+  /** Relationships a step follows from each of `frontier`, with the node at the other end. */
+  private async stepRows(ws: string, frontier: string[], step: LensStep, within: string[] | null, view?: ModelView): Promise<{ rows: StepRow[]; truncated: boolean }> {
+    const { where, params } = this.stepWhere(step);
+    const rows = await this.read(
+      `MATCH (a:Element)-[r]-(b:Element)
+       WHERE a.id IN $frontier AND a.workspaceId = $ws AND b.deleted = false AND r.deleted = false
+         AND ($within IS NULL OR b.id IN $within) AND ${where}
+         AND ${inView('b')} AND ${relInView('r')}
+       RETURN a.id AS parent, properties(r) AS p, type(r) AS t, startNode(r).id AS f, endNode(r).id AS o, properties(b) AS bp
+       LIMIT toInteger($limit)`,
+      { ...params, ws, frontier, within, limit: MAX_ROWS_PER_HOP + 1, ...viewParams(view) },
+    );
+    const parsed = rows.slice(0, MAX_ROWS_PER_HOP).map((row): StepRow => {
+      const rel = toRel(row);
+      const parent = row['parent'] as string;
+      const node = propsToElement(row['bp'] as Row);
+      return { parent, rel, node, relationship: rel.type, direction: rel.fromId === parent ? 'OUT' : 'IN', type: node.type };
+    });
+    return { rows: parsed, truncated: rows.length > MAX_ROWS_PER_HOP };
+  }
+
+  /**
+   * Which links a step follows, as a predicate on `a` (the node it starts from) and `r`. `down`
+   * follows a relationship whose metamodel direction is `out` from start to end, one that is `in`
+   * from end to start; `up` the reverse.
+   */
+  private stepWhere(step: LensStep): { where: string; params: Row } {
+    const names = step.relationships?.length ? step.relationships.map((r) => this.knownRel(r)) : step.kind ? this.reg.relationshipsOfKind(step.kind) : null;
+    if (step.direction === 'both') return { where: '($rels IS NULL OR type(r) IN $rels)', params: { rels: names } };
+    const all = names ?? this.reg.relationshipTypes().map((r) => r.name);
+    const fwd = all.filter((n) => this.reg.forwardOf(n) === 'out');
+    const rev = all.filter((n) => this.reg.forwardOf(n) === 'in');
+    const [out, inn] = step.direction === 'down' ? [fwd, rev] : [rev, fwd];
+    return { where: '((startNode(r) = a AND type(r) IN $out) OR (endNode(r) = a AND type(r) IN $in))', params: { out, in: inn } };
+  }
+
+  /** Most important first (the type's importance rule in the metamodel), then by name. */
+  private ranked<T extends { node: Element }>(xs: T[]): T[] {
+    const rank = (e: Element) => {
+      const imp = this.reg.importanceOf(e.type);
+      const i = imp ? imp.order.indexOf(String(e.attrs[imp.attribute] ?? '')) : -1;
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...xs].sort((a, b) => rank(a.node) - rank(b.node) || name(a.node).localeCompare(name(b.node)) || a.node.id.localeCompare(b.node.id));
   }
 
   /** At most `limit` roots; `tooMany` when there are more. */
@@ -323,5 +482,25 @@ export function attributePredicates(x: string, prefix: string, filters: Attribut
   });
 }
 
+interface StepRow {
+  parent: string;
+  rel: Relationship;
+  node: Element;
+  relationship: string;
+  direction: 'OUT' | 'IN';
+  type: string;
+}
+
+/** Rows by group (parent, relationship, direction, type), in the order first seen. */
+function groupRows(rows: StepRow[]): Map<string, StepRow[]> {
+  const out = new Map<string, StepRow[]>();
+  for (const r of rows) {
+    const k = groupId(r);
+    out.set(k, [...(out.get(k) ?? []), r]);
+  }
+  return out;
+}
+
+const name = (e: Element) => String(e.attrs['name'] ?? '');
 const toRel = (row: Row) => propsToRelationship(row['p'] as Row, row['t'] as string, row['f'] as string, row['o'] as string);
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.trunc(n)));

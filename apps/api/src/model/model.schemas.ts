@@ -105,6 +105,42 @@ const LensQueryBody = z
   })
   .strict();
 
+const RelKind = z.enum(['containment', 'dependency', 'flow', 'ownership', 'association', 'classification']);
+
+/** One traversal step of a lens (D85). */
+const LensStepBody = z
+  .object({
+    kind: RelKind.optional().openapi({ description: 'Follow the relationships of this kind in the metamodel' }),
+    relationships: z.array(z.string()).max(50).optional().openapi({ description: 'Follow exactly these; any when neither this nor kind is given' }),
+    direction: z.enum(['down', 'up', 'both']).openapi({ description: "down follows each relationship the way the metamodel reads it as down (its `forward`); up the reverse" }),
+    repeat: z.boolean().optional().openapi({ description: 'Keep following this step, level after level' }),
+  })
+  .strict()
+  .openapi('LensStep');
+
+const DisclosureBody = z
+  .object({
+    budget: z.number().int().min(1).max(350).default(150).openapi({ description: 'Nodes drawn before the rest folds into groups' }),
+    initialDepth: z.number().int().min(1).max(6).default(1),
+    perNodeCap: z.number().int().min(1).max(100).default(12).openapi({ description: "A parent's links of one relationship and type fold into a group above this many" }),
+  })
+  .strict()
+  .openapi('LensDisclosure');
+
+const LensGroupSchema = z
+  .object({
+    id: z.string(),
+    parent: z.string(),
+    relationship: z.string(),
+    direction: z.enum(['OUT', 'IN']),
+    type: z.string(),
+    level: z.number().int().min(1),
+    count: z.number().int().min(0),
+    offset: z.number().int().min(0),
+  })
+  .strict()
+  .openapi('LensGroup');
+
 export const StudioSearchBody = z
   .object({
     ...View,
@@ -130,6 +166,8 @@ export const StudioSearchBody = z
     query: LensQueryBody.optional().openapi({ description: 'Roots from a published catalog query that returns element ids in an `id` column, or element nodes; the other filters narrow them' }),
     depth: z.number().int().min(1).max(6).default(2).openapi({ description: 'Hops from each root, both directions' }),
     maxNodes: z.number().int().min(1).max(1000).default(1000),
+    steps: z.array(LensStepBody).min(1).max(10).optional().openapi({ description: 'With disclosure: the traversal (D85); any relationship both ways, repeated, when absent' }),
+    disclosure: DisclosureBody.optional().openapi({ description: 'Draw by disclosure (D85): a budget, with the rest folded into groups; depth and maxNodes do not apply' }),
   })
   .strict()
   .refine((b) => b.query || b.ids?.length || b.types?.length || b.name?.trim() || b.attributes?.length || b.facets?.length, {
@@ -182,6 +220,13 @@ export const StudioLensBody = z
     query: LensQueryBody.optional(),
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
     depth: z.number().int().min(1).max(6).default(2),
+    steps: z.array(LensStepBody).min(1).max(10).optional(),
+    shape: z.enum(['ego', 'tree']).optional(),
+    disclosure: z
+      .object({ budget: z.number().int().min(1).max(350).optional(), initialDepth: z.number().int().min(1).max(6).optional(), perNodeCap: z.number().int().min(1).max(100).optional() })
+      .strict()
+      .optional()
+      .openapi({ description: "The lens's own disclosure settings; the rest default" }),
     layout: z.enum(['hier', 'flow', 'layers', 'radial', 'force']).default('hier'),
     view: z.enum(['graph', 'table']).default('graph'),
     follow: z.boolean().default(false),
@@ -310,7 +355,7 @@ export const SubgraphSchema = z
   })
   .openapi('Subgraph');
 
-export const StudioResultSchema = z
+const StudioResultSchema = z
   .object({
     roots: z.array(ElementSchema),
     elements: z.array(ElementSchema).openapi({ description: 'Everything reached from the roots, roots excluded' }),
@@ -319,6 +364,34 @@ export const StudioResultSchema = z
     nodeCount: z.number().int(),
   })
   .openapi('StudioResult');
+
+export const StudioProjectionSchema = StudioResultSchema.extend({
+  groups: z.array(LensGroupSchema).optional().openapi({ description: 'With disclosure: links folded into groups, to open with studio/open' }),
+  levels: z.record(z.number().int()).optional().openapi({ description: "With disclosure: each shown node's level, 0 for roots" }),
+  truncated: z.boolean().optional().openapi({ description: 'With disclosure: a step read more rows than allowed' }),
+}).openapi('StudioProjection');
+
+export const StudioOpenBody = z
+  .object({
+    ...View,
+    group: LensGroupSchema,
+    steps: z.array(LensStepBody).min(1).max(10).optional(),
+    disclosure: DisclosureBody.default({}),
+    shown: z.array(z.string()).max(2000).default([]).openapi({ description: 'Ids already on the canvas, left out of the page and the counts' }),
+  })
+  .strict()
+  .openapi('StudioOpen');
+
+export const StudioGroupPageSchema = z
+  .object({
+    elements: z.array(ElementSchema),
+    relationships: z.array(RelationshipSchema),
+    groups: z.array(LensGroupSchema),
+    levels: z.record(z.number().int()),
+    group: LensGroupSchema.openapi({ description: 'The group with what is left in it' }),
+    truncated: z.boolean(),
+  })
+  .openapi('StudioGroupPage');
 
 export const EventSchema = z
   .object({
