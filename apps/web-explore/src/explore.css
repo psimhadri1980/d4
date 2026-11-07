@@ -335,3 +335,26 @@ table.matrix tbody tr:hover .row-head {
   left: 24px;
   right: 24px;
 }
+/* The impact table of a Flow lens (D88), under the result. */
+.graph-studio-impact {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border-subtle);
+  padding: 12px;
+}
+.graph-studio-impact header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.graph-studio-impact h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.graph-studio-impact-count {
+  margin-right: auto;
+  color: var(--text-secondary);
+}
+.graph-studio-impact .table-wrap {
+  max-height: 40vh;
+}

@@ -49,6 +49,7 @@ interface Props {
   selectedId: string | null;
   layout: CanvasLayout;
   layers: readonly string[];
+  columns?: Readonly<Record<number, string>>;
   adjustments: CanvasAdjustments;
   onAdjustmentsChange?(a: CanvasAdjustments): void;
   onSelect?(id: string | null): void;
@@ -80,7 +81,7 @@ const SLOP = 3;
  * selection and fits the result (ZM-2…ZM-4).
  */
 export function GraphCanvasGraph(props: Props) {
-  const { nodes, edges, rootIds, selectedId, layout, layers, adjustments, onAdjustmentsChange, onSelect, onDrill, viewport, onViewportChange, follow = false, onFollowChange } = props;
+  const { nodes, edges, rootIds, selectedId, layout, layers, columns, adjustments, onAdjustmentsChange, onSelect, onDrill, viewport, onViewportChange, follow = false, onFollowChange } = props;
   const markerId = useId();
   const [live, setLive] = useState<CanvasAdjustments | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -96,7 +97,7 @@ export function GraphCanvasGraph(props: Props) {
   const movable = !!onAdjustmentsChange;
   const level = levelAt(zoom);
 
-  const layoutNodes = useMemo(() => nodes.map((n) => ({ id: n.id, layer: n.layer })), [nodes]);
+  const layoutNodes = useMemo(() => nodes.map((n) => ({ id: n.id, layer: n.layer, ...(n.column !== undefined && { rank: n.column }) })), [nodes]);
   const layoutEdges = useMemo(() => edges.map((e) => ({ id: e.id, from: e.from, to: e.to, label: edgeLabel(e.type) })), [edges]);
   const placement = useMemo(() => canvasPlacement(layoutNodes, layoutEdges, rootIds, layout, layers), [layoutNodes, layoutEdges, rootIds, layout, layers]);
   const names = useMemo(() => new Map(nodes.map((n) => [n.id, n.name])), [nodes]);
@@ -105,6 +106,19 @@ export function GraphCanvasGraph(props: Props) {
     () => canvasGeometry(layoutNodes, layoutEdges, rootIds, layout, layers, { placement, adjust, size: (id) => sizeAt(level, names.get(id) ?? '') }),
     [layoutNodes, layoutEdges, rootIds, layout, layers, placement, adjust, level, names],
   );
+  // Flow column headings (D88): over each column's nodes, above the topmost card.
+  const headings = useMemo(() => {
+    if (!columns) return [];
+    const xs = new Map<number, number[]>();
+    let top = Infinity;
+    for (const n of nodes) {
+      const b = geometry.boxes.get(n.id);
+      if (!b || n.column === undefined || columns[n.column] === undefined) continue;
+      xs.set(n.column, [...(xs.get(n.column) ?? []), b.x + b.w / 2]);
+      top = Math.min(top, b.y);
+    }
+    return [...xs].sort(([a], [b]) => a - b).map(([c, x]) => ({ column: c, label: columns[c]!, x: x.reduce((s, v) => s + v, 0) / x.length, y: top - 14 }));
+  }, [columns, nodes, geometry]);
   const degree = useMemo(() => {
     const d = new Map<string, number>();
     for (const e of edges) for (const id of [e.from, e.to]) d.set(id, (d.get(id) ?? 0) + 1);
@@ -316,6 +330,11 @@ export function GraphCanvasGraph(props: Props) {
               <path d="M0,0 L10,5 L0,10 z" className="graph-canvas-arrow" />
             </marker>
           </defs>
+          {headings.map((h) => (
+            <text key={h.column} className="graph-canvas-column" x={h.x} y={h.y} textAnchor="middle">
+              {h.label}
+            </text>
+          ))}
           {geometry.routes.map((r) => (
             <Connector
               key={r.id}

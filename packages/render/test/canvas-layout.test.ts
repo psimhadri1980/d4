@@ -157,3 +157,20 @@ describe('canvasGeometry', () => {
     }
   });
 });
+
+describe('Flow columns from the host (D88)', () => {
+  it('places each node in its given column, negative ranks to the left', () => {
+    const nodes = [
+      { id: 'r', layer: 'Data', rank: 0 },
+      { id: 'up', layer: 'Data', rank: -1 },
+      { id: 'up2', layer: 'Data', rank: -2 },
+    ];
+    const edges = [
+      { id: 'e1', from: 'up', to: 'r', label: '' },
+      { id: 'e2', from: 'up2', to: 'up', label: '' },
+    ];
+    const p = canvasPlacement(nodes, edges, ['r'], 'flow');
+    expect(p.get('up2')!.x).toBeLessThan(p.get('up')!.x);
+    expect(p.get('up')!.x).toBeLessThan(p.get('r')!.x);
+  });
+});

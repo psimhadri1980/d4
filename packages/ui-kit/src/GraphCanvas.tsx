@@ -20,6 +20,8 @@ export interface GraphCanvasNode {
   group?: number;
   /** Kept on the canvas by the user through drills and new searches. */
   pinned?: boolean;
+  /** Its column in the Flow layout (a Flow lens's level, D88); hops from the roots when absent. */
+  column?: number;
 }
 
 /** A relationship; the arrow points from `from` to `to` (CT-2). */
@@ -45,6 +47,8 @@ export interface GraphCanvasProps {
   layout?: CanvasLayout;
   /** Metamodel layer order, for the By layer layout. */
   layers?: readonly string[];
+  /** Flow layout: a heading per node `column` (a viewpoint chain's stages, D88). */
+  columns?: Readonly<Record<number, string>>;
   /** Fill the positioned box the host gives it. */
   fill?: boolean;
   loading?: boolean;
@@ -296,6 +300,7 @@ function CanvasBody({
   expandedIds,
   layout = 'hier',
   layers = [],
+  columns,
   loading = false,
   maxNodes = 1000,
   onSelect,
@@ -365,6 +370,7 @@ function CanvasBody({
         selectedId={selectedId}
         layout={layout}
         layers={layers}
+        columns={layout === 'flow' ? columns : undefined}
         adjustments={adjustments}
         onAdjustmentsChange={onAdjustmentsChange}
         onSelect={onSelect}

@@ -11,6 +11,8 @@ export const CANVAS_LAYOUTS: readonly CanvasLayout[] = ['hier', 'flow', 'layers'
 export interface LayoutNode {
   id: string;
   layer: string;
+  /** The Flow layout's column, when the host knows it (a Flow lens's level); else hops from the roots. */
+  rank?: number;
 }
 
 export interface LayoutEdge {
@@ -151,7 +153,7 @@ function place(nodes: LayoutNode[], edges: LayoutEdge[], rootIds: string[], layo
   const rank =
     layout === 'layers'
       ? layerRanks(nodes, layers)
-      : new Map(nodes.map((n) => [n.id, hop.get(n.id)!]));
+      : new Map(nodes.map((n) => [n.id, layout === 'flow' && n.rank !== undefined ? n.rank : hop.get(n.id)!]));
   const rows = orderRows(nodes, edges, rank, hop);
   const pos = new Map<string, Point>();
   const widest = Math.max(...[...rows.values()].map((r) => r.length));

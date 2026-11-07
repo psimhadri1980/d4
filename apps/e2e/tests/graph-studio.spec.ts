@@ -382,6 +382,31 @@ test.describe('graph studio', () => {
       await expect.poll(() => result(page).locator('.graph-canvas-node:not(.group)').count()).toBeGreaterThan(before);
     });
 
+    test('a viewpoint chain draws one column per stage; its impact table lists everything it reaches (D88)', async ({ page }) => {
+      await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+      await search(page).getByLabel('Lens', { exact: true }).selectOption('credit-facility-to-report');
+      await nameBox(page).fill('Swiss Residential Mortgage CL-1-1');
+      await nameBox(page).press('Escape');
+      await nameBox(page).press('Enter');
+      await result(page).getByRole('tab', { name: 'Graph' }).click();
+      await expect(result(page).getByRole('button', { name: 'Flow' })).toHaveAttribute('aria-pressed', 'true');
+      await expect(result(page).locator('.graph-canvas-column')).toHaveText(['Start', 'Exposures', 'Reports']);
+      await expect(card(page, 'Large Exposures Report')).toBeVisible();
+      // Sources left, reports right. Two facilities in the sample share this name.
+      const x = async (name: string) => (await card(page, name).first().boundingBox())!.x;
+      expect(await x('Swiss Residential Mortgage CL-1-1')).toBeLessThan(await x('Large Exposures Report'));
+
+      await result(page).getByRole('button', { name: 'Impact table' }).click();
+      const table = page.getByRole('region', { name: 'Impact table' });
+      // Each exposure at level 1, each report at level 2.
+      await expect(table.getByRole('row', { name: /Large Exposures Report/ }).getByRole('cell').first()).toHaveText('2');
+      await expect(table.getByRole('row', { name: /^1 Exposure/ })).toHaveCount(2);
+      await expect(table).toContainText('4 nodes');
+      await expect(table.getByRole('button', { name: 'Export CSV' })).toBeEnabled();
+      await table.getByRole('button', { name: 'Large Exposures Report' }).click();
+      await expect(page.getByRole('complementary', { name: 'Large Exposures Report' })).toBeVisible();
+    });
+
     test('only credit lenses show on the credit workspace, and none on the default one', async ({ page }) => {
       await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
       const options = search(page).getByLabel('Lens', { exact: true }).locator('option');
