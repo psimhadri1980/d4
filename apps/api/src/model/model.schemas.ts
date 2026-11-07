@@ -410,6 +410,27 @@ export const StudioImpactSchema = z
   })
   .openapi('StudioImpact');
 
+export const StudioPathsBody = z
+  .object({
+    ...View,
+    from: z.string().min(1),
+    to: z.string().min(1),
+    kind: RelKind.optional().openapi({ description: 'Only along relationships of this kind' }),
+    maxLength: z.number().int().min(1).max(6).default(6).openapi({ description: 'Links per path at most' }),
+    limit: z.number().int().min(1).max(25).default(25),
+  })
+  .strict()
+  .openapi('StudioPathsInput');
+
+export const StudioPathsSchema = z
+  .object({
+    paths: z.array(z.object({ nodeIds: z.array(z.string()), relationshipIds: z.array(z.string()), length: z.number().int() })),
+    elements: z.array(ElementSchema),
+    relationships: z.array(RelationshipSchema),
+    truncated: z.boolean().openapi({ description: 'More shortest paths than limit' }),
+  })
+  .openapi('StudioPaths');
+
 export const StudioGroupPageSchema = z
   .object({
     elements: z.array(ElementSchema),

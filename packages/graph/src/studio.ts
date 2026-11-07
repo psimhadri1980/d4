@@ -112,6 +112,18 @@ export interface StudioImpact {
   truncated: boolean;
 }
 
+/** Connection limits (D89): links per path and paths returned. */
+export const PATHS_MAX_LENGTH = 6;
+export const PATHS_MAX = 25;
+
+export interface StudioPaths {
+  /** Shortest first; each the node ids from one end to the other and the links between them. */
+  paths: { nodeIds: string[]; relationshipIds: string[]; length: number }[];
+  elements: Element[];
+  relationships: Relationship[];
+  truncated: boolean;
+}
+
 export interface StudioProfile {
   count: number;
   links: { relationship: string; direction: 'OUT' | 'IN'; type: string; count: number }[];
@@ -270,6 +282,41 @@ export class StudioQueries {
       if (level === maxLevels - 1 && frontier.length && stepAt(steps, level + 1)) truncated = true;
     }
     return { rows, truncated };
+  }
+
+  /**
+   * How two nodes are connected (D89, the Connection pattern): the shortest paths between them, up
+   * to `maxLength` links, through elements only, optionally along one relationship kind. Paths come
+   * shortest first, then by the names along them, at most `limit`; `truncated` when there were more.
+   */
+  async paths(ws: string, fromId: string, toId: string, opts: { maxLength?: number; limit?: number; kind?: LensStep['kind']; view?: ModelView } = {}): Promise<StudioPaths> {
+    // The length is spliced into the pattern (Cypher takes no parameter there), so it is clamped.
+    const max = clamp(opts.maxLength ?? PATHS_MAX_LENGTH, 1, PATHS_MAX_LENGTH);
+    const limit = clamp(opts.limit ?? PATHS_MAX, 1, PATHS_MAX);
+    const rels = opts.kind ? this.reg.relationshipsOfKind(opts.kind) : null;
+    const rows = await this.read(
+      `MATCH (a:Element {id: $from}), (b:Element {id: $to})
+       WHERE a.workspaceId = $ws AND b.workspaceId = $ws AND a.deleted = false AND b.deleted = false AND a <> b
+       MATCH p = allShortestPaths((a)-[*..${max}]-(b))
+       WHERE all(n IN nodes(p) WHERE n:Element AND n.deleted = false AND ${inView('n')})
+         AND all(r IN relationships(p) WHERE r.deleted = false AND ($rels IS NULL OR type(r) IN $rels) AND ${inView('r')})
+       WITH p LIMIT toInteger($limit)
+       RETURN [n IN nodes(p) | properties(n)] AS ns,
+              [r IN relationships(p) | {p: properties(r), t: type(r), f: startNode(r).id, o: endNode(r).id}] AS rs`,
+      { ws, from: fromId, to: toId, rels, limit: limit + 1, ...viewParams(opts.view) },
+    );
+    const elements = new Map<string, Element>();
+    const relationships = new Map<string, Relationship>();
+    const paths = rows.slice(0, limit).map((row) => {
+      const ns = (row['ns'] as Row[]).map((x) => propsToElement(x));
+      const rs = (row['rs'] as Row[]).map((x) => propsToRelationship(x['p'] as Row, x['t'] as string, x['f'] as string, x['o'] as string));
+      for (const n of ns) elements.set(n.id, n);
+      for (const r of rs) relationships.set(r.id, r);
+      return { nodeIds: ns.map((n) => n.id), relationshipIds: rs.map((r) => r.id), length: rs.length };
+    });
+    const label = (x: { nodeIds: string[] }) => x.nodeIds.map((id) => name(elements.get(id)!)).join('\u0000');
+    paths.sort((x, y) => x.length - y.length || label(x).localeCompare(label(y)));
+    return { paths, elements: [...elements.values()], relationships: [...relationships.values()], truncated: rows.length > limit };
   }
 
   /**
