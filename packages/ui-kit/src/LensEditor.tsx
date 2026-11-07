@@ -21,6 +21,9 @@ export interface LensPreview {
 }
 
 /** A lens being edited: no contour yet means "Choose a node type…" (LE-9). */
+/** A Hierarchy lens follows containment down from its roots, level after level (D85). */
+const HIERARCHY_STEPS: Lens['steps'] = [{ kind: 'containment', direction: 'down', repeat: true }];
+
 export type LensDraft = Omit<Lens, 'id' | 'contour'> & { id?: string; contour: Lens['contour'] | null };
 
 export interface LensEditorProps {
@@ -187,6 +190,18 @@ export function LensEditor(props: LensEditorProps) {
 
           <Section n={5} title="When it is opened">
             <div className="lens-editor-grid">
+              <Field label="Shape">
+                {(fid) => (
+                  <select
+                    id={fid}
+                    value={draft.shape ?? 'ego'}
+                    onChange={(e) => set(e.target.value === 'tree' ? { shape: 'tree', steps: HIERARCHY_STEPS, layout: 'hier' } : { shape: 'ego', steps: undefined })}
+                  >
+                    <option value="ego">Around the roots</option>
+                    <option value="tree">Hierarchy: down through what they contain</option>
+                  </select>
+                )}
+              </Field>
               <Field label="Depth">
                 {(fid) => (
                   <select id={fid} value={draft.depth} onChange={(e) => set({ depth: Number(e.target.value) })}>

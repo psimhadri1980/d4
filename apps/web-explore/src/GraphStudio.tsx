@@ -1,7 +1,7 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { lensSearch, type Lens, type LensAttributeFilter } from '@d4/core';
+import { groupLabel, lensSearch, lensSpec, type Lens, type LensAttributeFilter, type LensGroup } from '@d4/core';
 import { D4ApiError, type Element, type QueryParamDef, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
@@ -40,7 +40,14 @@ interface Step {
   adjust?: Partial<Record<CanvasLayout, CanvasAdjustments>>;
   /** Zoom and scroll; absent, the graph fits the pane (DD-4). */
   viewport?: CanvasViewport;
+  /** Group pages opened on this step, in order (D85). */
+  pages?: GroupPage[];
 }
+
+type GroupPage = Awaited<ReturnType<typeof exploreApi.studioOpen>>;
+const NO_PAGES: GroupPage[] = [];
+/** Canvas ids of group nodes: a group opens where a node would drill. */
+const GROUP = 'group:';
 
 const DEFAULT_DEPTH = 2;
 /** Results with more nodes than this open in the Overview (OV-1, LS-6). */
@@ -155,6 +162,25 @@ export function GraphStudio() {
     enabled: !!ws && !!body,
     queryFn: () => exploreApi.studioSearch(ws!, body!, vq),
   });
+  // The search's result with the groups opened on this step merged in (D85).
+  const shownResult = useMemo(() => (result.data ? withPages(result.data, step?.pages ?? NO_PAGES) : undefined), [result.data, step?.pages]);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [openError, setOpenError] = useState<unknown>(null);
+  const openGroup = async (id: string) => {
+    const g = shownResult?.groups?.find((x) => x.id === id);
+    if (!g || !ws || !body || opening) return;
+    setOpening(id);
+    setOpenError(null);
+    try {
+      const shown = [...shownResult!.roots, ...shownResult!.elements].map((e) => e.id);
+      const page = await exploreApi.studioOpen(ws, { group: g, steps: body.steps, disclosure: body.disclosure, shown }, vq);
+      patch({ pages: [...(step?.pages ?? []), page] });
+    } catch (e) {
+      setOpenError(e);
+    } finally {
+      setOpening(null);
+    }
+  };
 
   // "Not sure yet": how many roots each lens finds for the text being typed (LS-5). Query lenses
   // are left out: counting them would run their query on every pause in typing.
@@ -225,6 +251,9 @@ export function GraphStudio() {
       match: d.match,
       ...(d.query?.id && { query: { id: d.query.id, ...(d.query.version && { version: d.query.version }), params: d.query.params ?? {} } }),
       ...(d.quickFilters?.length && { quickFilters: d.quickFilters }),
+      ...(d.steps?.length && { steps: d.steps }),
+      ...(d.shape && { shape: d.shape }),
+      ...(d.disclosure && { disclosure: d.disclosure }),
       depth: d.depth,
       layout: d.layout,
       view: d.view,
@@ -255,7 +284,7 @@ export function GraphStudio() {
     }
   };
 
-  const graph = useMemo(() => (result.data && registry.data ? toCanvas(registry.data, result.data, modelView.asOf) : null), [result.data, registry.data, modelView.asOf]);
+  const graph = useMemo(() => (shownResult && registry.data ? toCanvas(registry.data, shownResult, modelView.asOf) : null), [shownResult, registry.data, modelView.asOf]);
 
   // A large result opens in the Overview, once per step; after that the view is the user's.
   useEffect(() => {
@@ -272,7 +301,8 @@ export function GraphStudio() {
     // A lens opens with its own depth, layout and view (LS-6).
     if (lens) {
       setDepth(lens.depth);
-      setLayout(lens.layout);
+      // A Hierarchy lens is a tree from its roots (D85).
+      setLayout(lens.shape === 'tree' ? 'hier' : lens.layout);
       setFollow(!!lens.follow);
     }
     // A new Search starts a new focus path (DD-3).
@@ -321,6 +351,7 @@ export function GraphStudio() {
   };
 
   const drill = (id: string) => {
+    if (id.startsWith(GROUP)) return void openGroup(id.slice(GROUP.length));
     const name = graph?.byId.get(id)?.name ?? id;
     setSteps((s) => [...s, { label: name, focusId: id, selectedId: id, view: carried(s.at(-1)?.view) }]);
   };
@@ -395,6 +426,7 @@ export function GraphStudio() {
         />
       </div>
       {result.error && <ErrorBanner error={result.error} />}
+      {openError ? <ErrorBanner error={openError} /> : null}
       <div className="graph-studio-main">
         <div className="graph-studio-result">
           <GraphCanvas
@@ -411,7 +443,8 @@ export function GraphStudio() {
             layout={layout}
             depth={depth}
             crumbs={steps.map((s) => ({ label: s.label }))}
-            onSelect={(id) => step && patch({ selectedId: id })}
+            // A group opens on a click: it has nothing to inspect (D85).
+            onSelect={(id) => (id?.startsWith(GROUP) ? void openGroup(id.slice(GROUP.length)) : step && patch({ selectedId: id }))}
             onViewChange={(v) => (step ? patch({ view: v, viewChosen: true }) : undefined)}
             onExpandedChange={(paths) => patch({ expandedIds: paths })}
             // A new layout or depth opens fitted again.
@@ -462,13 +495,34 @@ function describe(lens: Lens | null, v: GraphSearchValue): string {
   return parts.join(' · ') || 'everything';
 }
 
+/**
+ * The search request: the lens's roots (or the drilled node), drawn by disclosure along its steps
+ * (D85). Depth on the canvas sets how many levels open at first.
+ */
 function searchBody(lens: Lens | null, v: GraphSearchValue, focusId: string | undefined, depth: number) {
-  const base = { depth, match: 'all' as const, maxNodes: 1000 };
+  const spec = lensSpec(lens);
+  const base = { depth, match: 'all' as const, maxNodes: 1000, steps: spec.steps, disclosure: { ...spec.disclosure, initialDepth: depth } };
   if (focusId) return { ...base, ids: [focusId] };
   return { ...base, ...lensSearch(lens, v.filters, v.name, v.params) };
 }
 
 type StudioResult = Awaited<ReturnType<typeof exploreApi.studioSearch>>;
+
+/** The result with opened group pages added: their members, links and groups; each group as it was left. */
+function withPages(r: StudioResult, pages: readonly GroupPage[]): StudioResult {
+  if (!pages.length) return r;
+  const elements = new Map(r.elements.map((e) => [e.id, e]));
+  const rels = new Map(r.relationships.map((x) => [x.id, x]));
+  const groups = new Map((r.groups ?? []).map((g) => [g.id, g]));
+  for (const p of pages) {
+    for (const e of p.elements) elements.set(e.id, e);
+    for (const x of p.relationships) rels.set(x.id, x);
+    for (const g of p.groups) groups.set(g.id, g);
+    groups.set(p.group.id, p.group);
+  }
+  // A member shown since may still be counted in a group fetched earlier; counts are as the server gave them.
+  return { ...r, elements: [...elements.values()], relationships: [...rels.values()], groups: [...groups.values()].filter((g) => g.count > 0) };
+}
 
 const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 
@@ -493,6 +547,14 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, asOf?: string) {
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x) }));
+  // Folded links (D85): one node per group, joined to its parent by the group's relationship.
+  const ids = new Set(nodes.map((n) => n.id));
+  for (const g of (r.groups ?? []) as LensGroup[]) {
+    if (!ids.has(g.parent)) continue;
+    const id = `${GROUP}${g.id}`;
+    nodes.push({ id, name: groupLabel(g), type: g.type, layer: reg.nodeType(g.type)?.layer ?? 'System', state: 'in-graph', group: g.count });
+    edges.push({ id: `${id}:edge`, from: g.direction === 'OUT' ? g.parent : id, to: g.direction === 'OUT' ? id : g.parent, type: g.relationship, planned: false });
+  }
   return {
     nodes,
     edges,

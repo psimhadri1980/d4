@@ -52,17 +52,23 @@ export async function defaultWorkspaceId(): Promise<string> {
 }
 
 /**
- * The `credit` workspace on the d4-credit-graph pack. `created` says whether this call made it,
+ * Workspaces keep the metamodel version they were made with, so the slug names the pack version:
+ * bump it with the pack and the suite runs on a workspace made from the current one.
+ */
+const CREDIT_SLUG = 'credit-0-2-0';
+
+/**
+ * The credit workspace on the d4-credit-graph pack. `created` says whether this call made it,
  * so the sample is imported once: its names repeat (two clients called Hugo Roth), which makes a
  * second import, matched by name, ambiguous.
  */
 export async function creditWorkspace(): Promise<{ id: string; created: boolean }> {
   const list = await api<{ id: string; slug: string }[]>('/v1/workspaces');
-  const found = list.find((w) => w.slug === 'credit');
+  const found = list.find((w) => w.slug === CREDIT_SLUG);
   if (found) return { id: found.id, created: false };
   const made = await api<{ id: string }>('/v1/admin/workspaces', {
     method: 'POST',
-    body: JSON.stringify({ slug: 'credit', name: 'Credit graph', metamodel: 'd4-credit-graph' }),
+    body: JSON.stringify({ slug: CREDIT_SLUG, name: 'Credit graph', metamodel: 'd4-credit-graph' }),
   });
   return { id: made.id, created: true };
 }

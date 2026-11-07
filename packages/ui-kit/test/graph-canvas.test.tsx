@@ -40,6 +40,20 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
   });
 
+  it('draws a group of folded links as its own node, which selects like any other (D85)', () => {
+    const picked: (string | null)[] = [];
+    const group: GraphCanvasNode = { id: 'group:r1~ENABLED_BY~OUT~Capability', name: '▸ 14 capabilities', type: 'Capability', layer: 'Business', state: 'in-graph', group: 14 };
+    const root = render(
+      <GraphCanvas nodes={[...nodes, group]} edges={[...edges, { id: 'g', from: 'r1', to: group.id, type: 'ENABLED_BY', planned: false }]} rootIds={['r1']} onSelect={(id) => picked.push(id)} />,
+    );
+    const g = node(group.id);
+    expect(g.classList.contains('group')).toBe(true);
+    expect(g.getAttribute('aria-label')).toBe('14 capabilities, group, click to open');
+    click(g);
+    expect(picked).toEqual([group.id]);
+    act(() => root.unmount());
+  });
+
   it('reports selection, clearing on empty canvas, and drill on double-click; the host owns the selection', () => {
     const events: (string | null)[] = [];
     const drilled: string[] = [];

@@ -16,6 +16,8 @@ export interface GraphCanvasNode {
   /** Shown at the Detail level (ZM-3). */
   owner?: string;
   changedAt?: string;
+  /** A group of folded links (D85): how many nodes it holds. It opens on a click. */
+  group?: number;
 }
 
 /** A relationship; the arrow points from `from` to `to` (CT-2). */
