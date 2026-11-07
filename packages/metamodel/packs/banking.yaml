@@ -1,7 +1,7 @@
 # D4 banking pack: extends the starter metamodel with a BIAN-inspired service landscape,
 # banking products and regulatory reporting (BCBS 239 lineage, DORA, …). Versioned like code.
 id: d4-banking
-version: 0.1.0
+version: 0.1.1
 extends: d4-starter
 description: Banking — BIAN-style business areas, domains and service domains, banking products, regulatory reports and their data lineage.
 

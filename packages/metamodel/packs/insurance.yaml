@@ -1,7 +1,7 @@
 # D4 insurance pack: extends the starter metamodel with an ACORD-aligned product, coverage, party
 # and claims model, underwriting, and Solvency II / IFRS 17 reporting. Versioned like code.
 id: d4-insurance
-version: 0.1.0
+version: 0.1.1
 extends: d4-starter
 description: Insurance — products and coverages by line of business, party roles, underwriting and claims, Solvency II and IFRS 17 reporting.
 

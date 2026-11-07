@@ -724,7 +724,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', '/v1/admin/metamodel-packs', admin)).body!.map((p: any) => p.id)).toEqual(['d4-starter', 'd4-banking', 'd4-insurance', 'd4-credit-graph']);
       expect((await call('POST', '/v1/admin/workspaces', admin, { slug: 'x-pack', name: 'x', metamodel: 'd4-unknown' })).status).toBe(400);
       const created = await call('POST', '/v1/admin/workspaces', admin, { slug: 'bank-lab', name: 'Bank lab', metamodel: 'd4-banking' });
-      expect(created).toMatchObject({ status: 201, body: { metamodel: 'd4-banking@0.1.0' } });
+      expect(created).toMatchObject({ status: 201, body: { metamodel: 'd4-banking@0.1.1' } });
       const bank = `/v1/workspaces/${created.body!['id']}`;
 
       const report = (await call('POST', `${bank}/elements`, admin, { type: 'RegulatoryReport', attrs: { name: 'COREP own funds', regime: 'BASEL_III', frequency: 'QUARTERLY', templateCode: 'C 01.00' } })).body!;
@@ -740,7 +740,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const target = (await call('POST', `${ws()}/elements`, admin, { type: 'DataProduct', attrs: { name: 'Pack-test product' } })).body!;
       const holds = (await call('POST', `${ws()}/relationships`, admin, { type: 'HOLDS', fromId: store['id'], toId: target['id'], attrs: { role: 'REPLICA' } })).body!;
       expect((await call('GET', `${ws()}/relationships/${holds['id']}`, admin)).status).toBe(200);
-      expect((await call('GET', '/v1/admin/workspaces', admin)).body!.find((w: any) => w.slug === 'bank-lab')).toMatchObject({ metamodel: 'd4-banking@0.1.0' });
+      expect((await call('GET', '/v1/admin/workspaces', admin)).body!.find((w: any) => w.slug === 'bank-lab')).toMatchObject({ metamodel: 'd4-banking@0.1.1' });
     });
 
     it('lets admins manage connectors: validated config and mapping, write-only secret, sync jobs', async () => {
