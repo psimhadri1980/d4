@@ -68,10 +68,10 @@ export interface LensDisclosure {
 
 /**
  * The lens's shape: Ego (around the roots), Hierarchy (a tree down from them) or Flow (columns, one
- * per level or stage: lineage, impact and viewpoint chains) or Matrix (the roots by what the first
- * step reaches, D90).
+ * per level or stage: lineage, impact and viewpoint chains), Matrix (the roots by what the first
+ * step reaches, D90) or Landscape (each root a box holding what its step reaches, D91).
  */
-export type LensShape = 'ego' | 'tree' | 'flow' | 'matrix';
+export type LensShape = 'ego' | 'tree' | 'flow' | 'matrix' | 'landscape';
 
 export const LENS_DISCLOSURE: LensDisclosure = { budget: 150, initialDepth: 1, perNodeCap: 12 };
 export const LENS_MAX_BUDGET = 350;

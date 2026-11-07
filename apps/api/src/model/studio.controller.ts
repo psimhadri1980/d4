@@ -150,6 +150,8 @@ export class StudioController {
     for (const r of [...b.facets.map((f) => f.relationship), ...(b.steps ?? []).flatMap((s) => s.relationships ?? [])]) if (r && !registry.relationshipType(r)) throw new RangeError(`Unknown relationship type '${r}'`);
     // A matrix's columns are one step's targets: the step names them.
     if (b.shape === 'matrix' && !b.steps?.[0]?.types?.length) throw new RangeError('A matrix lens needs a step with the types of its columns');
+    // A landscape's boxes hold what its step reaches: it needs one.
+    if (b.shape === 'landscape' && !b.steps?.length) throw new RangeError('A landscape lens needs a step to what its boxes hold');
     if (b.visibility === 'workspace') await this.access.resolve(p, workspaceId, 'write');
     // A query the caller cannot see does not exist for them.
     if (b.query) await this.catalog.entry(p, b.query.id);

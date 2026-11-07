@@ -417,6 +417,9 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect(one.body!['columns'].map((e: any) => e.id)).toEqual([y]);
       const lens = { name: 'Matrix without columns', contour: { type: 'DataProduct' }, shape: 'matrix', steps: [{ direction: 'both' }] };
       expect((await call('POST', `${ws()}/studio/lenses`, token, lens)).status).toBe(400);
+      const landscape = { name: 'Landscape without a step', contour: { type: 'DataProduct' }, shape: 'landscape' };
+      expect((await call('POST', `${ws()}/studio/lenses`, token, landscape)).status).toBe(400);
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...landscape, name: 'Landscape', steps: [{ kind: 'containment', direction: 'down' }] })).status).toBe(201);
     });
 
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
