@@ -1,4 +1,4 @@
-import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioResultSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
+import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioGroupPageSchema, StudioOpenBody, StudioProjectionSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
 import { json, errors, writeErrors, ws, id, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
@@ -76,7 +76,16 @@ export function registerModelRoutes(route: ApiRoute) {
     description:
       'Graph Studio search: every element matching the contour types, name, attribute and facet filters is a root, and everything within `depth` hops of the roots (both directions) is loaded. Above `maxNodes` nothing past the roots is returned and `tooLarge` is set.',
     request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioSearchBody } } } },
-    responses: { 200: json(StudioResultSchema, 'Roots and their neighbourhood'), ...errors },
+    responses: { 200: json(StudioProjectionSchema, 'Roots and their neighbourhood'), ...errors },
+  });
+
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/studio/open',
+    tags: ['Elements'],
+    description: 'Open a lens group (D85): the next page of its members, most important first, with their own links folded into groups one level further.',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioOpenBody } } } },
+    responses: { 200: json(StudioGroupPageSchema, 'A page of the group'), ...errors },
   });
 
   route({

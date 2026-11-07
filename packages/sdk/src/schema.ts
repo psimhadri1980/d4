@@ -820,7 +820,85 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["StudioResult"];
+                        "application/json": components["schemas"]["StudioProjection"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{ws}/studio/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Open a lens group (D85): the next page of its members, most important first, with their own links folded into groups one level further. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioOpen"];
+                };
+            };
+            responses: {
+                /** @description A page of the group */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioGroupPage"];
                     };
                 };
                 /** @description Malformed request */
@@ -8291,6 +8369,17 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        LensGroup: {
+            id: string;
+            parent: string;
+            relationship: string;
+            /** @enum {string} */
+            direction: "OUT" | "IN";
+            type: string;
+            level: number;
+            count: number;
+            offset: number;
+        };
         StudioResult: {
             roots: components["schemas"]["Element"][];
             /** @description Everything reached from the roots, roots excluded */
@@ -8300,12 +8389,53 @@ export interface components {
             tooLarge: boolean;
             nodeCount: number;
         };
+        StudioProjection: components["schemas"]["StudioResult"] & {
+            /** @description With disclosure: links folded into groups, to open with studio/open */
+            groups?: components["schemas"]["LensGroup"][];
+            /** @description With disclosure: each shown node's level, 0 for roots */
+            levels?: {
+                [key: string]: number;
+            };
+            /** @description With disclosure: a step read more rows than allowed */
+            truncated?: boolean;
+        };
         AttributeFilter: {
             /** @example criticality */
             attribute: string;
             /** @enum {string} */
             op: "eq" | "in" | "contains" | "starts" | "gte" | "lte";
             value: string | number | boolean | (string | number | boolean)[];
+        };
+        LensStep: {
+            /**
+             * @description Follow the relationships of this kind in the metamodel
+             * @enum {string}
+             */
+            kind?: "containment" | "dependency" | "flow" | "ownership" | "association" | "classification";
+            /** @description Follow exactly these; any when neither this nor kind is given */
+            relationships?: string[];
+            /**
+             * @description down follows each relationship the way the metamodel reads it as down (its `forward`); up the reverse
+             * @enum {string}
+             */
+            direction: "down" | "up" | "both";
+            /** @description Keep following this step, level after level */
+            repeat?: boolean;
+        };
+        /** @description Draw by disclosure (D85): a budget, with the rest folded into groups; depth and maxNodes do not apply */
+        LensDisclosure: {
+            /**
+             * @description Nodes drawn before the rest folds into groups
+             * @default 150
+             */
+            budget: number;
+            /** @default 1 */
+            initialDepth: number;
+            /**
+             * @description A parent's links of one relationship and type fold into a group above this many
+             * @default 12
+             */
+            perNodeCap: number;
         };
         StudioSearch: {
             /**
@@ -8362,6 +8492,36 @@ export interface components {
             depth: number;
             /** @default 1000 */
             maxNodes: number;
+            /** @description With disclosure: the traversal (D85); any relationship both ways, repeated, when absent */
+            steps?: components["schemas"]["LensStep"][];
+            disclosure?: components["schemas"]["LensDisclosure"];
+        };
+        StudioGroupPage: {
+            elements: components["schemas"]["Element"][];
+            relationships: components["schemas"]["Relationship"][];
+            groups: components["schemas"]["LensGroup"][];
+            levels: {
+                [key: string]: number;
+            };
+            group: components["schemas"]["LensGroup"] & unknown;
+            truncated: boolean;
+        };
+        StudioOpen: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            group: components["schemas"]["LensGroup"];
+            steps?: components["schemas"]["LensStep"][];
+            disclosure?: components["schemas"]["LensDisclosure"] & unknown;
+            /**
+             * @description Ids already on the canvas, left out of the page and the counts
+             * @default []
+             */
+            shown: string[];
         };
         StudioCountsResult: {
             counts: {
@@ -8493,6 +8653,15 @@ export interface components {
             quickFilters?: string[];
             /** @default 2 */
             depth: number;
+            steps?: components["schemas"]["LensStep"][];
+            /** @enum {string} */
+            shape?: "ego" | "tree";
+            /** @description The lens's own disclosure settings; the rest default */
+            disclosure?: {
+                budget?: number;
+                initialDepth?: number;
+                perNodeCap?: number;
+            };
             /**
              * @default hier
              * @enum {string}

@@ -437,6 +437,53 @@
           "data"
         ]
       },
+      "LensGroup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "OUT",
+              "IN"
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "parent",
+          "relationship",
+          "direction",
+          "type",
+          "level",
+          "count",
+          "offset"
+        ],
+        "additionalProperties": false
+      },
       "StudioResult": {
         "type": "object",
         "properties": {
@@ -473,6 +520,36 @@
           "relationships",
           "tooLarge",
           "nodeCount"
+        ]
+      },
+      "StudioProjection": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/StudioResult"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "groups": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LensGroup"
+                },
+                "description": "With disclosure: links folded into groups, to open with studio/open"
+              },
+              "levels": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "description": "With disclosure: each shown node's level, 0 for roots"
+              },
+              "truncated": {
+                "type": "boolean",
+                "description": "With disclosure: a step read more rows than allowed"
+              }
+            }
+          }
         ]
       },
       "AttributeFilter": {
@@ -531,6 +608,75 @@
           "value"
         ],
         "additionalProperties": false
+      },
+      "LensStep": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "containment",
+              "dependency",
+              "flow",
+              "ownership",
+              "association",
+              "classification"
+            ],
+            "description": "Follow the relationships of this kind in the metamodel"
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "description": "Follow exactly these; any when neither this nor kind is given"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "down",
+              "up",
+              "both"
+            ],
+            "description": "down follows each relationship the way the metamodel reads it as down (its `forward`); up the reverse"
+          },
+          "repeat": {
+            "type": "boolean",
+            "description": "Keep following this step, level after level"
+          }
+        },
+        "required": [
+          "direction"
+        ],
+        "additionalProperties": false
+      },
+      "LensDisclosure": {
+        "type": "object",
+        "properties": {
+          "budget": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 350,
+            "default": 150,
+            "description": "Nodes drawn before the rest folds into groups"
+          },
+          "initialDepth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6,
+            "default": 1
+          },
+          "perNodeCap": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 12,
+            "description": "A parent's links of one relationship and type fold into a group above this many"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Draw by disclosure (D85): a budget, with the rest folded into groups; depth and maxNodes do not apply"
       },
       "StudioSearch": {
         "type": "object",
@@ -670,8 +816,119 @@
             "minimum": 1,
             "maximum": 1000,
             "default": 1000
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LensStep"
+            },
+            "minItems": 1,
+            "maxItems": 10,
+            "description": "With disclosure: the traversal (D85); any relationship both ways, repeated, when absent"
+          },
+          "disclosure": {
+            "$ref": "#/components/schemas/LensDisclosure"
           }
         },
+        "additionalProperties": false
+      },
+      "StudioGroupPage": {
+        "type": "object",
+        "properties": {
+          "elements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Element"
+            }
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Relationship"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LensGroup"
+            }
+          },
+          "levels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "group": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LensGroup"
+              },
+              {
+                "description": "The group with what is left in it"
+              }
+            ]
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "elements",
+          "relationships",
+          "groups",
+          "levels",
+          "group",
+          "truncated"
+        ]
+      },
+      "StudioOpen": {
+        "type": "object",
+        "properties": {
+          "asOf": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Only items valid on this date",
+            "example": "2026-10-17"
+          },
+          "scenario": {
+            "type": "string",
+            "description": "Scenario element id: the baseline plus this scenario"
+          },
+          "group": {
+            "$ref": "#/components/schemas/LensGroup"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LensStep"
+            },
+            "minItems": 1,
+            "maxItems": 10
+          },
+          "disclosure": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LensDisclosure"
+              },
+              {
+                "default": {}
+              }
+            ]
+          },
+          "shown": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "default": [],
+            "description": "Ids already on the canvas, left out of the page and the counts"
+          }
+        },
+        "required": [
+          "group"
+        ],
         "additionalProperties": false
       },
       "StudioCountsResult": {
@@ -1058,6 +1315,43 @@
             "minimum": 1,
             "maximum": 6,
             "default": 2
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LensStep"
+            },
+            "minItems": 1,
+            "maxItems": 10
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "ego",
+              "tree"
+            ]
+          },
+          "disclosure": {
+            "type": "object",
+            "properties": {
+              "budget": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 350
+              },
+              "initialDepth": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "perNodeCap": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              }
+            },
+            "additionalProperties": false,
+            "description": "The lens's own disclosure settings; the rest default"
           },
           "layout": {
             "type": "string",
@@ -4641,7 +4935,91 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StudioResult"
+                  "$ref": "#/components/schemas/StudioProjection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{ws}/studio/open": {
+      "post": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Elements"
+        ],
+        "description": "Open a lens group (D85): the next page of its members, most important first, with their own links folded into groups one level further.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "ws",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioOpen"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A page of the group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioGroupPage"
                 }
               }
             }
