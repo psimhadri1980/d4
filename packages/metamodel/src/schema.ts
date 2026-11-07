@@ -62,6 +62,11 @@ export const NodeTypeDef = z.object({
    * it (`facet`), or `both`. Unset means the role of the type it extends, else `both`.
    */
   role: z.enum(['contour', 'facet', 'both']).optional(),
+  /**
+   * What makes a node of this type stand out in a lens (D85): an attribute and its values, most
+   * important first. Unset means the type it extends, else none.
+   */
+  importance: z.object({ attribute: AttrName, order: z.array(z.string()).min(1) }).optional(),
   /** Internal types are hidden from end-user pickers. */
   internal: z.boolean().default(false),
 });
@@ -71,9 +76,22 @@ export type NodeTypeRole = NonNullable<NodeTypeDef['role']>;
 /** `*` means any element type. */
 const Endpoint = z.union([NodeTypeName, z.literal('*')]);
 
+/**
+ * What a relationship means, for lenses (D85): patterns follow kinds, not names, so they work on
+ * any metamodel. Unset means `association`.
+ */
+export const RelationshipKind = z.enum(['containment', 'dependency', 'flow', 'ownership', 'association', 'classification']);
+export type RelationshipKind = z.infer<typeof RelationshipKind>;
+
 export const RelationshipTypeDef = z.object({
   name: RelTypeName,
   description: z.string().optional(),
+  kind: RelationshipKind.optional(),
+  /**
+   * Whether the stored direction reads as "down" (container to part, owner to owned, upstream to
+   * downstream): `out`, the default, or the other way round: `in` (e.g. PART_OF, child to parent).
+   */
+  forward: z.enum(['out', 'in']).optional(),
   from: z.array(Endpoint).min(1),
   to: z.array(Endpoint).min(1),
   attributes: z.array(AttributeDef).default([]),

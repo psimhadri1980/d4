@@ -2,7 +2,7 @@ apiVersion: d4/v1
 kind: Model
 metadata:
   name: Alpenhof credit graph (illustrative)
-  metamodel: d4-credit-graph@0.1.1
+  metamodel: d4-credit-graph@0.2.0
   description: >
     Sample credit book for a wealth-management bank on the d4-credit-graph metamodel pack: client groups
     and clients, credit facilities and drawdowns, collateral agreements pledging custody accounts and

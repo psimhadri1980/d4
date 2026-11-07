@@ -1,6 +1,6 @@
 # D4 starter metamodel. Tenants copy and extend this; it is versioned like code.
 id: d4-starter
-version: 0.3.0
+version: 0.4.0
 description: Default enterprise design-to-delivery metamodel.
 
 layers: [Strategy, Organisation, Business, Data, Application, Technology, Governance, Design, Planning, System]
@@ -179,6 +179,7 @@ nodeTypes:
 
   # ── Application ───────────────────────────────────────────────────────
   - name: Application
+    importance: { attribute: criticality, order: [MISSION_CRITICAL, HIGH, MEDIUM, LOW] }
     role: contour
     layer: Application
     attributes:
@@ -306,9 +307,10 @@ nodeTypes:
 
 relationshipTypes:
   # Generic
-  - { name: PART_OF, from: ['*'], to: ['*'], description: Composition / containment }
+  - { name: PART_OF, kind: containment, forward: in, from: ['*'], to: ['*'], description: Composition / containment }
   - { name: RELATED_TO, from: ['*'], to: ['*'] }
   - name: PARENT_OF
+    kind: containment
     from: [Capability, OrgUnit, DataDomain, BusinessProcess, BacklogItem, ValueStream, Tag]
     to: [Capability, OrgUnit, DataDomain, BusinessProcess, BacklogItem, ValueStreamStage, Tag]
 
@@ -321,13 +323,15 @@ relationshipTypes:
   - { name: SERVES, from: [Product, BusinessService, Channel], to: [CustomerSegment, Market] }
 
   # Organisation
-  - { name: HAS_UNIT, from: [LegalEntity], to: [OrgUnit] }
+  - { name: HAS_UNIT, kind: containment, from: [LegalEntity], to: [OrgUnit] }
   - name: OWNS
+    kind: ownership
     from: [OrgUnit, Team, Person]
     to: [DataProduct, DataDomain, Application, Platform, BusinessProcess, Capability, DataStore, Initiative]
-  - { name: MEMBER_OF, from: [Person], to: [Team, OrgUnit] }
+  - { name: MEMBER_OF, kind: containment, forward: in, from: [Person], to: [Team, OrgUnit] }
   - { name: PLAYS, from: [Person, Team], to: [Role, Actor] }
   - name: ACCOUNTABLE_FOR
+    kind: ownership
     from: [Role, Person, Team]
     to: ['*']
     attributes: [{ name: raci, type: enum, enum: Raci, required: true }]
@@ -337,8 +341,8 @@ relationshipTypes:
 
   # Business
   - { name: SUPPORTS, from: [BusinessProcess, BusinessFunction], to: [Capability] }
-  - { name: HAS_STEP, from: [BusinessProcess], to: [ProcessStep], attributes: [{ name: seq, type: integer }] }
-  - { name: NEXT, from: [ProcessStep], to: [ProcessStep], attributes: [{ name: condition, type: string }] }
+  - { name: HAS_STEP, kind: containment, from: [BusinessProcess], to: [ProcessStep], attributes: [{ name: seq, type: integer }] }
+  - { name: NEXT, kind: flow, from: [ProcessStep], to: [ProcessStep], attributes: [{ name: condition, type: string }] }
   - { name: PERFORMED_BY, from: [ProcessStep, BusinessProcess], to: [Actor, Role, Team] }
   - { name: TRIGGERED_BY, from: [BusinessProcess, ProcessStep], to: [BusinessEvent] }
   - { name: PRODUCES_EVENT, from: [BusinessProcess, ProcessStep], to: [BusinessEvent] }
@@ -348,38 +352,40 @@ relationshipTypes:
     from: [ProcessStep]
     to: [DataProduct, BusinessObject]
     attributes: [{ name: op, type: enum, enum: DataOperation, required: true }]
-  - { name: INCLUDES_STEP, from: [UseCase, UserJourney], to: [ProcessStep] }
+  - { name: INCLUDES_STEP, kind: containment, from: [UseCase, UserJourney], to: [ProcessStep] }
 
   # Data
-  - { name: IN_DOMAIN, from: [DataProduct, DataEntity, GlossaryTerm], to: [DataDomain] }
-  - { name: DERIVED_FROM, from: [DataProduct, DataSet], to: [DataProduct, DataSet] }
+  - { name: IN_DOMAIN, kind: containment, forward: in, from: [DataProduct, DataEntity, GlossaryTerm], to: [DataDomain] }
+  - { name: DERIVED_FROM, kind: flow, forward: in, from: [DataProduct, DataSet], to: [DataProduct, DataSet] }
   - { name: EXPOSES, from: [DataProduct], to: [DataContract] }
   - { name: DESCRIBES, from: [DataContract], to: [DataSet] }
   - { name: REPRESENTS, from: [DataProduct, DataEntity], to: [BusinessObject, DataEntity] }
-  - { name: HAS_ATTRIBUTE, from: [DataEntity, DataSet], to: [DataAttribute] }
-  - { name: CLASSIFIED_AS, from: [DataAttribute, DataProduct, DataSet], to: [DataClassification] }
+  - { name: HAS_ATTRIBUTE, kind: containment, from: [DataEntity, DataSet], to: [DataAttribute] }
+  - { name: CLASSIFIED_AS, kind: classification, from: [DataAttribute, DataProduct, DataSet], to: [DataClassification] }
   - { name: DEFINES, from: [GlossaryTerm], to: [DataEntity, DataAttribute, BusinessObject] }
   - { name: USES_REFERENCE, from: [DataAttribute], to: [ReferenceData] }
   - name: HOLDS
     from: [DataStore]
     to: [DataProduct]
     attributes: [{ name: role, type: enum, enum: DataStoreRole, required: true }]
-  - { name: STORED_IN, from: [DataSet], to: [DataStore] }
+  - { name: STORED_IN, kind: containment, forward: in, from: [DataSet], to: [DataStore] }
   - name: FEEDS
+    kind: flow
     from: [DataStore, Pipeline]
     to: [DataStore, Pipeline]
     attributes: [{ name: mode, type: enum, enum: FeedMode }]
-  - { name: READS, from: [Pipeline], to: [DataSet, DataStore] }
-  - { name: WRITES, from: [Pipeline], to: [DataSet, DataStore] }
-  - { name: CONSUMES, from: [Report, MLModel, Application], to: [DataProduct, DataSet] }
+  - { name: READS, kind: flow, forward: in, from: [Pipeline], to: [DataSet, DataStore] }
+  - { name: WRITES, kind: flow, from: [Pipeline], to: [DataSet, DataStore] }
+  - { name: CONSUMES, kind: flow, forward: in, from: [Report, MLModel, Application], to: [DataProduct, DataSet] }
   - { name: CHECKED_BY, from: [DataProduct, DataSet, DataAttribute], to: [DataQualityRule] }
   - { name: RESULT_OF, from: [DataQualityMetric], to: [DataQualityRule] }
 
   # Application
   - { name: REALIZES, from: [Application, ApplicationService, PlatformService], to: [Capability, BusinessService] }
-  - { name: HAS_COMPONENT, from: [Application], to: [ApplicationComponent] }
+  - { name: HAS_COMPONENT, kind: containment, from: [Application], to: [ApplicationComponent] }
   - { name: PROVIDES, from: [Application, ApplicationComponent], to: [ApplicationService, Interface, EventType] }
   - name: USES
+    kind: dependency
     from: [Application, ApplicationComponent]
     to: [DataStore, Interface, PlatformService]
     attributes: [{ name: op, type: enum, enum: DataOperation }]
@@ -389,15 +395,15 @@ relationshipTypes:
     attributes: [{ name: style, type: enum, enum: InterfaceStyle }]
   - { name: VIA_INTEGRATION, from: [Application], to: [Integration] }
   - { name: SUPPORTS_STEP, from: [Application], to: [ProcessStep] }
-  - { name: BUILT_ON, from: [Application, Platform], to: [SoftwareProduct] }
+  - { name: BUILT_ON, kind: dependency, from: [Application, Platform], to: [SoftwareProduct] }
   - { name: PUBLISHES, from: [Application, ApplicationComponent], to: [EventType] }
   - { name: SUBSCRIBES_TO, from: [Application, ApplicationComponent], to: [EventType] }
 
   # Technology
-  - { name: RUNS_ON, from: [Application, ApplicationComponent, DataStore, Pipeline], to: [Platform, InfrastructureNode] }
-  - { name: DEPLOYED_IN, from: [Application, ApplicationComponent, DataStore], to: [Environment] }
-  - { name: HOSTED_ON, from: [Environment, Platform], to: [Platform, InfrastructureNode, CloudAccount] }
-  - { name: OFFERS, from: [Platform], to: [PlatformService] }
+  - { name: RUNS_ON, kind: dependency, from: [Application, ApplicationComponent, DataStore, Pipeline], to: [Platform, InfrastructureNode] }
+  - { name: DEPLOYED_IN, kind: dependency, from: [Application, ApplicationComponent, DataStore], to: [Environment] }
+  - { name: HOSTED_ON, kind: dependency, from: [Environment, Platform], to: [Platform, InfrastructureNode, CloudAccount] }
+  - { name: OFFERS, kind: containment, from: [Platform], to: [PlatformService] }
   - { name: IN_ZONE, from: [InfrastructureNode, Environment], to: [NetworkZone] }
   - { name: CONFORMS_TO, from: ['*'], to: [TechnologyStandard, Standard, Pattern, ReferenceArchitecture] }
 
@@ -420,8 +426,8 @@ relationshipTypes:
   - { name: SHOWS, from: [ArchitectureView], to: ['*'] }
 
   # Planning
-  - { name: CONTAINS, from: [Portfolio, Program, Initiative], to: [Program, Initiative, Deliverable] }
-  - { name: PART_OF_MILESTONE, from: [Deliverable], to: [Milestone, Release] }
+  - { name: CONTAINS, kind: containment, from: [Portfolio, Program, Initiative], to: [Program, Initiative, Deliverable] }
+  - { name: PART_OF_MILESTONE, kind: containment, forward: in, from: [Deliverable], to: [Milestone, Release] }
   - name: CHANGES
     from: [Deliverable]
     to: ['*']
@@ -429,6 +435,7 @@ relationshipTypes:
       - { name: action, type: enum, enum: ChangeAction, required: true }
       - { name: targetLifecycle, type: enum, enum: Lifecycle }
   - name: DEPENDS_ON
+    kind: dependency
     from: [Deliverable, Milestone]
     to: [Deliverable, Milestone]
     attributes:
@@ -442,7 +449,7 @@ relationshipTypes:
   - { name: COSTS, from: [Cost], to: [Initiative, Deliverable, Application, Platform, DataStore] }
   - { name: DELIVERS_BENEFIT, from: [Benefit], to: [Initiative, Outcome] }
   - { name: IN_SCENARIO, from: ['*'], to: [Scenario] }
-  - { name: TAGGED, from: ['*'], to: [Tag] }
+  - { name: TAGGED, kind: classification, from: ['*'], to: [Tag] }
 
 rules:
   - id: single-master-per-data-product
