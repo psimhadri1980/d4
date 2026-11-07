@@ -1,6 +1,6 @@
 import { z } from '../http/zod';
 import { EXPORT_FORMATS } from '@d4/codecs';
-import { LANE_KINDS, MATRIX_KINDS } from '@d4/core';
+import { LANE_KINDS, LENS_PHRASE, MATRIX_KINDS } from '@d4/core';
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ example: '2026-10-17' });
 const Attrs = z
@@ -221,6 +221,7 @@ export const StudioLensBody = z
     match: z.enum(['all', 'any']).default('all'),
     query: LensQueryBody.optional(),
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
+    phrases: z.array(z.string().trim().max(120).regex(LENS_PHRASE, 'a phrase is words then one slot at the end, such as "impact of $application"')).max(10).optional().openapi({ description: 'Search phrases that open the lens (D92)' }),
     depth: z.number().int().min(1).max(6).default(2),
     steps: z.array(LensStepBody).min(1).max(10).optional(),
     shape: z.enum(['ego', 'tree', 'flow', 'matrix', 'landscape']).optional(),

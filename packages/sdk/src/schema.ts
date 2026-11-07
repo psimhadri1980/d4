@@ -9118,6 +9118,8 @@ export interface components {
             };
             /** @description Attributes offered as quick filters */
             quickFilters?: string[];
+            /** @description Search phrases that open the lens (D92) */
+            phrases?: string[];
             /** @default 2 */
             depth: number;
             steps?: components["schemas"]["LensStep"][];
