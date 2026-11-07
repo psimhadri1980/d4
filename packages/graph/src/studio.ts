@@ -73,6 +73,24 @@ export interface StudioProfile {
   values: Record<string, { value: unknown; count: number }[]>;
 }
 
+/**
+ * The element ids a query lens's catalog query returned (D84): the `id` column's strings, else
+ * every element node in the rows (as the catalog runner returns them), in order, without repeats.
+ */
+export function queryRootIds(result: { columns: readonly string[]; rows: readonly Record<string, unknown>[] }): string[] {
+  const ids = new Set<string>();
+  const node = (v: unknown) => {
+    const p = (v as { labels?: unknown; properties?: { id?: unknown } } | null)?.properties;
+    if (Array.isArray((v as { labels?: unknown })?.labels) && (v as { labels: string[] }).labels.includes('Element') && typeof p?.id === 'string') ids.add(p.id);
+  };
+  if (result.columns.includes('id')) {
+    for (const r of result.rows) if (typeof r['id'] === 'string') ids.add(r['id']);
+    return [...ids];
+  }
+  for (const r of result.rows) for (const v of Object.values(r)) (Array.isArray(v) ? v : [v]).forEach(node);
+  return [...ids];
+}
+
 export class StudioQueries {
   constructor(
     private readonly reg: MetamodelRegistry,

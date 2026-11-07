@@ -96,6 +96,15 @@ const AttributeFilterBody = z
   .strict()
   .openapi('AttributeFilter');
 
+/** A catalog query a lens takes its roots from (D84). */
+const LensQueryBody = z
+  .object({
+    id: z.string().min(1),
+    version: z.number().int().positive().optional().openapi({ description: 'A fixed published version; the latest when absent' }),
+    params: z.record(z.unknown()).default({}).openapi({ description: "Values for the query's parameters; checked against its definitions" }),
+  })
+  .strict();
+
 export const StudioSearchBody = z
   .object({
     ...View,
@@ -118,12 +127,13 @@ export const StudioSearchBody = z
       .max(10)
       .optional(),
     match: z.enum(['all', 'any']).default('all'),
+    query: LensQueryBody.optional().openapi({ description: 'Roots from a published catalog query that returns element ids in an `id` column, or element nodes; the other filters narrow them' }),
     depth: z.number().int().min(1).max(6).default(2).openapi({ description: 'Hops from each root, both directions' }),
     maxNodes: z.number().int().min(1).max(1000).default(1000),
   })
   .strict()
-  .refine((b) => b.ids?.length || b.types?.length || b.name?.trim() || b.attributes?.length || b.facets?.length, {
-    message: 'give at least one of ids, types, name, attributes or facets',
+  .refine((b) => b.query || b.ids?.length || b.types?.length || b.name?.trim() || b.attributes?.length || b.facets?.length, {
+    message: 'give at least one of query, ids, types, name, attributes or facets',
   })
   .openapi('StudioSearch');
 
@@ -169,6 +179,8 @@ export const StudioLensBody = z
     contour: z.object({ type: z.string(), attributes: z.array(AttributeFilterBody).max(20).optional() }).strict(),
     facets: z.array(Facet).max(10).default([]),
     match: z.enum(['all', 'any']).default('all'),
+    query: LensQueryBody.optional(),
+    quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
     depth: z.number().int().min(1).max(6).default(2),
     layout: z.enum(['hier', 'flow', 'layers', 'radial', 'force']).default('hier'),
     view: z.enum(['graph', 'table']).default('graph'),

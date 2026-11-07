@@ -18,3 +18,4 @@ export * from './RelationshipForm';
 export * from './ScheduleForm';
 export * from './ViewBar';
 export * from './LensEditor';
+export * from './LensQuerySource';

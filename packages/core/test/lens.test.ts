@@ -40,4 +40,19 @@ describe('lenses', () => {
     // Not sure yet: every type.
     expect(lensSearch(null, [], 'pay')).toEqual({ types: undefined, name: 'pay', attributes: [], facets: [], match: 'all' });
   });
+
+  it('from a catalog query: the query gives the roots, the smart bar overrides its parameter values', () => {
+    const byQuery: Lens = { ...mastered, query: { id: 'q1', params: { owner: 'cdo', days: 30 } } };
+    expect(lensNote(byQuery)).toBe('DataProduct · catalog query');
+    expect(lensChips(byQuery)).toEqual(['DataProduct from a catalog query', 'Lifecycle LIVE']);
+    expect(lensSearch(byQuery, [], '', { days: 7 })).toEqual({
+      types: ['DataProduct'],
+      name: undefined,
+      attributes: [{ attribute: 'lifecycle', op: 'eq', value: 'LIVE' }],
+      facets: [],
+      match: 'all',
+      query: { id: 'q1', params: { owner: 'cdo', days: 7 } },
+    });
+    expect(lensSearch({ ...byQuery, query: { id: 'q1', version: 3 } }, [], '').query).toEqual({ id: 'q1', version: 3, params: {} });
+  });
 });

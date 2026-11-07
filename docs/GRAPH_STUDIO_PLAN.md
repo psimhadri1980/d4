@@ -149,6 +149,29 @@ only on credit workspaces; four are checked in the browser against the root coun
 requirements give (8, 23, 10, 2). Built-in lenses now say which metamodels they belong to. Open:
 the sample needs `externalKey`s to be re-importable (its names repeat).
 
+### Phase 9: Cypher lenses (D84): done
+A lens can take its roots from a catalog query instead of its contour and facets. Query Authors
+write the Cypher in the lens editor; it is saved as a catalog draft and submitted for review, so it
+passes the `@d4/cypher` checks and a steward's review before anyone can run it. The lens points at
+the query; until a version is published the lens says it is waiting for review.
+- The query returns element ids in a column named `id`, or element nodes. Those elements become
+  the roots (500 at most) and are expanded as any other result; name text and quick filters still
+  narrow them.
+- Parameters are declared on the query (typed, with defaults). The lens keeps its own values for
+  them, and the smart bar shows them as a form under the lens.
+- The lens lists the attributes it offers as quick filters: pick-list attributes as values,
+  others as "contains" on the typed text. Without the list, the contour's pick-list attributes.
+- Runs go through the catalog run path (grant, published status, fingerprint, bound parameters,
+  run log, quota). Lens save checks the caller can see the query.
+Open: query lenses are left out of the "Not sure yet" counts (counting would run each query on
+every pause in typing) and have no preview funnel; the editor has no test run of a new query yet
+(authors can test it in Query Studio before it is reviewed).
+
+### Phase 10: lenses as viewpoints (D85): designed
+The lens becomes one spec that every pattern renders: see [`LENS_DESIGN.md`](LENS_DESIGN.md),
+section 9 for the build order (slice 1: relationship kinds, the spec, the disclosure engine with
+group stubs, Ego and Hierarchy, drill with breadcrumb).
+
 ### Later (not in this plan)
 - Ingestion Studio adopting GraphCanvas: needs a wider `state` input first (CT-6).
 - Retiring the Cytoscape Explorer graph.

@@ -8342,6 +8342,19 @@ export interface components {
              * @enum {string}
              */
             match: "all" | "any";
+            /** @description Roots from a published catalog query that returns element ids in an `id` column, or element nodes; the other filters narrow them */
+            query?: {
+                id: string;
+                /** @description A fixed published version; the latest when absent */
+                version?: number;
+                /**
+                 * @description Values for the query's parameters; checked against its definitions
+                 * @default {}
+                 */
+                params: {
+                    [key: string]: unknown;
+                };
+            };
             /**
              * @description Hops from each root, both directions
              * @default 2
@@ -8464,6 +8477,20 @@ export interface components {
              * @enum {string}
              */
             match: "all" | "any";
+            query?: {
+                id: string;
+                /** @description A fixed published version; the latest when absent */
+                version?: number;
+                /**
+                 * @description Values for the query's parameters; checked against its definitions
+                 * @default {}
+                 */
+                params: {
+                    [key: string]: unknown;
+                };
+            };
+            /** @description Attributes offered as quick filters */
+            quickFilters?: string[];
             /** @default 2 */
             depth: number;
             /**

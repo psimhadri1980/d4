@@ -116,4 +116,47 @@ describe('GraphSearch (lens smart bar)', () => {
     expect(input().value).toBe('');
     act(() => root.unmount());
   });
+
+  it('a query lens offers only its chosen quick filters, and its parameters as a form sent with the search', () => {
+    const byQuery: Lens = {
+      id: 'q',
+      name: 'Apps by owner',
+      contour: { type: 'Application' },
+      facets: [],
+      match: 'all',
+      depth: 1,
+      layout: 'hier',
+      view: 'graph',
+      query: { id: 'cq1', params: { days: 30 } },
+      quickFilters: ['hosting', 'appId'],
+    };
+    const runs: GraphSearchValue[] = [];
+    const defs = [
+      { name: 'owner', type: 'string' as const, label: 'Owner' },
+      { name: 'days', type: 'integer' as const },
+    ];
+    const root = render(<GraphSearch registry={registry} lenses={[byQuery]} onSearch={(v) => runs.push(v)} queryParams={(id) => (id === 'q' ? defs : undefined)} />);
+    set(lensPicker(), 'q');
+    expect([...host.querySelectorAll('.graph-search-chips li.locked')].map((c) => c.textContent)).toEqual(['Application from a catalog query from lens']);
+    const form = host.querySelector('[role="group"][aria-label="Query parameters"]')!;
+    const days = form.querySelectorAll('input')[1] as HTMLInputElement;
+    expect(days.value).toBe('30');
+    set(form.querySelectorAll('input')[0] as HTMLInputElement, 'cdo');
+
+    act(() => input().focus());
+    // Hosting is a pick-list: its values. Criticality is not chosen, so it is not offered.
+    expect(options().some((o) => o!.startsWith('Hosting'))).toBe(true);
+    expect(options().some((o) => o!.startsWith('Criticality'))).toBe(false);
+    // App id is text: the typed text, as "contains".
+    set(input(), 'PAY');
+    pick('App id contains PAY');
+    submit();
+    expect(runs.at(-1)).toEqual({
+      lensId: 'q',
+      name: '',
+      filters: [{ attribute: 'appId', op: 'contains', value: 'PAY', label: 'App id contains PAY' }],
+      params: { owner: 'cdo', days: 30 },
+    });
+    act(() => root.unmount());
+  });
 });

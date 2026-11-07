@@ -1,12 +1,16 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { describeFilter, lensChips, lensNote, type Lens, type QuickFilter } from '@d4/core';
 import type { MetamodelRegistry } from '@d4/metamodel';
+import type { QueryParamDef } from '@d4/web-platform';
+import { ParamForm, paramsFromForm, type ParamValues } from './ParamForm';
 
 export interface GraphSearchValue {
   /** '' is "Not sure yet". */
   lensId: string;
   name: string;
   filters: QuickFilter[];
+  /** A query lens's parameter values, over the lens's own (D84). */
+  params?: Record<string, unknown>;
 }
 
 export const EMPTY_GRAPH_SEARCH: GraphSearchValue = { lensId: '', name: '', filters: [] };
@@ -30,6 +34,10 @@ export interface GraphSearchProps {
   onNewLens?(): void;
   /** "Save as lens" after a search (LS-7); shows with this. */
   onSaveAsLens?(): void;
+  /** A query lens's parameter definitions, so the bar can show them as a form (D84). */
+  queryParams?(lensId: string): QueryParamDef[] | undefined;
+  /** For element parameters' pickers. */
+  workspaceId?: string;
 }
 
 type Option = { id: string; group: 'lens' | 'filter' | 'name'; text: string; note?: string; pick(): void };
@@ -43,7 +51,7 @@ const MAX_FILTERS = 8;
  * that narrow it. With "Not sure yet", the list shows the lenses that fit the text, with their
  * counts, and choosing one moves into that lens. Nothing runs until Search (or Enter).
  */
-export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSearch, onClear, onUndecidedText, lensCounts, busy = false, onEditLens, onNewLens, onSaveAsLens }: GraphSearchProps) {
+export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSearch, onClear, onUndecidedText, lensCounts, busy = false, onEditLens, onNewLens, onSaveAsLens, queryParams, workspaceId = '' }: GraphSearchProps) {
   const id = useId();
   const [draft, setDraft] = useState(value);
   const [open, setOpen] = useState(false);
@@ -66,19 +74,24 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
     return () => document.removeEventListener('mousedown', away);
   }, [open]);
 
-  // Quick filters: the contour's pick-list attributes (every type's lifecycle without a lens).
+  // Quick filters: the lens's chosen attributes, else the contour's pick-list attributes (every
+  // type's lifecycle without a lens). Pick-lists offer their values; text attributes the typed text.
   const suggestions = useMemo(() => {
-    const defs = lens ? registry.attributesFor(lens.contour.type) : registry.metamodel.commonAttributes;
-    const enums = defs.filter((d) => d.type === 'enum' && d.enum);
+    const all = lens ? registry.attributesFor(lens.contour.type) : registry.metamodel.commonAttributes;
+    const chosen = lens?.quickFilters?.length ? all.filter((d) => lens.quickFilters!.includes(d.name)) : all.filter((d) => d.type === 'enum' && d.enum);
     const fixed = new Set([...(lens?.contour.attributes ?? []), ...draft.filters].map((f) => f.attribute));
-    const perAttribute = enums
+    const typed = draft.name.trim();
+    const perAttribute = chosen
       .filter((d) => !fixed.has(d.name))
-      .map((d) =>
-        (registry.metamodel.enums[d.enum!] ?? [])
-          .map((v) => ({ attribute: d.name, op: 'eq' as const, value: v, label: describeFilter({ attribute: d.name, op: 'eq', value: v }) }))
-          .filter((f) => !text || f.label.toLowerCase().includes(text))
-          .slice(0, PER_ATTRIBUTE),
-      );
+      .map((d): QuickFilter[] => {
+        if (d.type === 'enum' && d.enum)
+          return (registry.metamodel.enums[d.enum] ?? [])
+            .map((v) => ({ attribute: d.name, op: 'eq' as const, value: v, label: describeFilter({ attribute: d.name, op: 'eq', value: v }) }))
+            .filter((f) => !text || f.label.toLowerCase().includes(text))
+            .slice(0, PER_ATTRIBUTE);
+        if (!typed || (d.type !== 'string' && d.type !== 'text')) return [];
+        return [{ attribute: d.name, op: 'contains' as const, value: typed, label: describeFilter({ attribute: d.name, op: 'contains', value: typed }) }];
+      });
     // Taken in turn from each attribute, so one long list does not crowd out the others.
     const out: QuickFilter[] = [];
     for (let i = 0; out.length < MAX_FILTERS && perAttribute.some((l) => l[i]); i++) for (const l of perAttribute) if (l[i] && out.length < MAX_FILTERS) out.push(l[i]!);
@@ -98,6 +111,14 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
     ...(text ? [{ id: 'name', group: 'name' as const, text: `Use "${draft.name.trim()}" as a name`, pick: () => setOpen(false) }] : []),
   ];
 
+  const defs = lens?.query ? (queryParams?.(lens.id) ?? []) : [];
+  const [paramForm, setParamForm] = useState<ParamValues>({});
+  // The form starts from the lens's own values each time a lens is chosen.
+  useEffect(() => {
+    const own = { ...lens?.query?.params, ...value.params };
+    setParamForm(Object.fromEntries(Object.entries(own).map(([k, v]) => [k, typeof v === 'boolean' ? v : Array.isArray(v) ? v.join(', ') : String(v ?? '')])));
+  }, [lens, value.params]);
+
   const pickLens = (lensId: string) => {
     setDraft({ lensId, name: lens ? draft.name : '', filters: [] });
     setOpen(false);
@@ -110,7 +131,7 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const v = { ...draft, name: draft.name.trim() };
+    const v = { ...draft, name: draft.name.trim(), ...(defs.length && { params: paramsFromForm(defs, paramForm) }) };
     if (!v.lensId && !v.name && !v.filters.length) {
       setMissing(true);
       return;
@@ -252,6 +273,11 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
             </li>
           ))}
         </ul>
+      )}
+      {defs.length > 0 && (
+        <div className="graph-search-params" role="group" aria-label="Query parameters">
+          <ParamForm workspaceId={workspaceId} defs={defs} values={paramForm} onChange={setParamForm} />
+        </div>
       )}
       {missing && (
         <p id={`${id}-missing`} className="graph-search-error" role="alert">

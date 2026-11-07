@@ -28,6 +28,13 @@ export const exploreApi = {
   createLens: (ws: string, body: LensInput) => d4().post('/v1/workspaces/{ws}/studio/lenses', { path: { ws }, body }),
   updateLens: (ws: string, id: string, body: LensInput) => d4().put('/v1/workspaces/{ws}/studio/lenses/{id}', { path: { ws, id }, body }),
   deleteLens: (ws: string, id: string) => d4().delete('/v1/workspaces/{ws}/studio/lenses/{id}', { path: { ws, id } }),
+  // The catalog, for query lenses (D84): authors' new queries go in as drafts and are submitted for review.
+  catalog: () => d4().get('/v1/catalog', { query: {} }),
+  catalogQuery: (id: string) => d4().get('/v1/catalog/{id}', { path: { id } }),
+  createQuery: (body: { slug: string; title: string; tags?: string[] }) => d4().post('/v1/catalog', { body }),
+  saveQueryDraft: (id: string, body: { cypher: string; params: unknown[]; resultShape: 'table' | 'graph' }) =>
+    d4().put('/v1/catalog/{id}/draft', { path: { id }, body: body as never }),
+  submitQuery: (id: string) => d4().post('/v1/catalog/{id}/submit', { path: { id } }),
   matrix: (ws: string, kind: MatrixKind, v: ViewParams = {}) =>
     d4().get('/v1/workspaces/{ws}/matrix/{kind}', { path: { ws, kind }, query: view(v) }),
   diff: (ws: string, from: ViewParams, to: ViewParams) =>

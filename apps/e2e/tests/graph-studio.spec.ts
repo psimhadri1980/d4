@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { creditWorkspaceId, openNav, RUN } from './helpers';
+import { api, creditWorkspaceId, defaultWorkspaceId, openNav, RUN } from './helpers';
 
 const search = (page: Page) => page.getByRole('search', { name: 'Find nodes' });
 const result = (page: Page) => page.getByRole('region', { name: 'Result' });
@@ -240,6 +240,58 @@ test.describe('graph studio', () => {
     page.once('dialog', (d) => void d.accept());
     await page.getByRole('dialog', { name: `Edit lens: ${name}` }).getByRole('button', { name: 'Delete lens' }).click();
     await expect(search(page).getByLabel('Lens', { exact: true }).locator('option', { hasText: name })).toHaveCount(0);
+  });
+
+  test('a Query Author writes a lens query; once a steward publishes it, the lens finds its roots with its parameters', async ({ page }) => {
+    await page.goto('/');
+    await openNav(page, 'Graph Studio');
+    await search(page).getByRole('button', { name: '＋ New lens…' }).click();
+    const editor = page.getByRole('dialog', { name: 'New lens' });
+    await editor.getByRole('button', { name: /Choose a node type/ }).click();
+    await editor.getByRole('searchbox', { name: 'Find a node type', exact: true }).fill('Application');
+    await editor.getByRole('dialog', { name: 'Contour type' }).getByRole('button', { name: 'Application', exact: true }).click();
+    await editor.getByRole('radio', { name: 'A catalog query' }).check();
+
+    const title = `Apps by criticality ${RUN}`;
+    await editor.getByRole('button', { name: 'Write a new query…' }).click();
+    const writer = editor.getByRole('group', { name: 'New catalog query' });
+    await writer.getByLabel('Query title').fill(title);
+    await writer.getByLabel('Cypher').fill(
+      'MATCH (a:Application) WHERE a.workspaceId = $workspace AND a.deleted = false AND ($criticality IS NULL OR a.criticality = $criticality) RETURN a.id AS id',
+    );
+    await writer.getByLabel('Parameters (JSON)').fill('[{ "name": "criticality", "type": "enum", "values": ["LOW", "MEDIUM", "HIGH", "MISSION_CRITICAL"] }]');
+    await writer.getByRole('button', { name: 'Submit for review' }).click();
+    // Submitted and chosen; nothing runs until a steward publishes it.
+    await expect(editor.getByLabel('Catalog query').locator('option:checked')).toHaveText(`${title} (in review)`);
+    await expect(editor.getByRole('status')).toContainText('Waiting for review');
+    await editor.getByRole('group', { name: 'Query parameters' }).getByLabel('Criticality').selectOption('HIGH');
+    await editor.getByRole('group', { name: 'Quick filter attributes' }).getByLabel('Hosting').check();
+    const name = `Apps query ${RUN}`;
+    await editor.getByLabel('Name', { exact: true }).fill(name);
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await expect(search(page).getByLabel('Lens', { exact: true }).locator('option:checked')).toHaveText(new RegExp(`^${name}`));
+
+    // Another person reviews and publishes it (authors cannot review their own).
+    const entry = (await api<{ id: string; title: string }[]>('/v1/catalog', { as: 'steward' })).find((q) => q.title === title)!;
+    await api(`/v1/catalog/${entry.id}/review`, { method: 'POST', as: 'steward', body: JSON.stringify({ decision: 'publish' }) });
+
+    await page.reload();
+    await search(page).getByLabel('Lens', { exact: true }).selectOption({ label: `${name} (Application · catalog query)` });
+    const params = search(page).getByRole('group', { name: 'Query parameters' });
+    await expect(params.getByLabel('Criticality')).toHaveValue('HIGH');
+    await params.getByLabel('Criticality').selectOption('MISSION_CRITICAL');
+    await search(page).getByRole('button', { name: 'Search' }).click();
+    await expect(card(page, 'Core Banking System')).toHaveAttribute('aria-label', /Application, root$/);
+    await expect(result(page).locator('.graph-canvas-node.root')).toHaveCount(2);
+    // Its quick filters are the ones the lens chose.
+    await nameBox(page).focus();
+    await expect(search(page).getByRole('option', { name: /^Hosting / }).first()).toBeVisible();
+    await expect(search(page).getByRole('option', { name: /^Criticality / })).toHaveCount(0);
+
+    const ws = await defaultWorkspaceId();
+    const saved = (await api<{ id: string; name: string }[]>(`/v1/workspaces/${ws}/studio/lenses`)).find((l) => l.name === name)!;
+    await api(`/v1/workspaces/${ws}/studio/lenses/${saved.id}`, { method: 'DELETE' });
+    await api(`/v1/catalog/${entry.id}`, { method: 'DELETE', as: 'steward' });
   });
 
   test('Save as lens opens the editor filled in from the search', async ({ page }) => {
