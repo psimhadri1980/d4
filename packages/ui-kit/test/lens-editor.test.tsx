@@ -171,4 +171,39 @@ describe('LensEditor', () => {
     expect(drafts.at(-1)!.query).toEqual({ id: 'new1', params: {} });
     act(() => root.unmount());
   });
+
+  it('picks a pattern: lineage follows one kind up or down; a viewpoint chain is typed steps with column headings (D88)', () => {
+    const drafts: LensDraft[] = [];
+    const saved: LensDraft[] = [];
+    const initial: LensDraft = { name: 'Chain', contour: { type: 'Application' }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph' };
+    const firstScreen = { columns: [{ label: 'Start', shown: 3, folded: 0 }, { label: 'Capability', shown: 4, folded: 9 }], truncated: false };
+    const root = render(<LensEditor registry={registry} initial={initial} lenses={[]} firstScreen={firstScreen} onDraftChange={(d) => drafts.push(d)} onSave={(d) => saved.push(d)} onCancel={() => {}} />);
+    const radio = (name: string) => [...host.querySelectorAll('.lens-pattern')].find((l) => l.querySelector('.lens-pattern-name')!.textContent === name)!.querySelector('input')!;
+    expect(radio('Around the roots').checked).toBe(true);
+
+    click(radio('Lineage or impact'));
+    expect(drafts.at(-1)).toMatchObject({ shape: 'flow', layout: 'flow', steps: [{ kind: 'flow', direction: 'up', repeat: true }] });
+    expect(host.textContent).toContain('Follows ');
+    set(field<HTMLSelectElement>('Direction'), 'down');
+    expect(drafts.at(-1)!.steps).toEqual([{ kind: 'flow', direction: 'down', repeat: true }]);
+
+    click(radio('Viewpoint chain'));
+    const first = drafts.at(-1)!.steps![0]!;
+    expect(first.types).toHaveLength(1);
+    expect(first.stage).toBe(first.types![0]);
+    set(field<HTMLSelectElement>('To'), 'Capability');
+    expect(drafts.at(-1)!.steps).toEqual([{ direction: 'both', types: ['Capability'], stage: 'Capability' }]);
+    set(field<HTMLSelectElement>('By'), 'REALIZES');
+    click(button('Add a step'));
+    expect(drafts.at(-1)!.steps).toHaveLength(2);
+    expect(drafts.at(-1)!.depth).toBe(2);
+    click(button('Remove step 2'));
+    expect(drafts.at(-1)!.steps).toEqual([{ direction: 'both', types: ['Capability'], stage: 'Capability', relationships: ['REALIZES'] }]);
+
+    // The live preview counts the first screen per column.
+    expect([...host.querySelectorAll('.lens-first-screen li')].map((l) => l.textContent)).toEqual(['Start3', 'Capability4 + 9 folded']);
+    click(button('Save'));
+    expect(saved[0]).toMatchObject({ shape: 'flow', depth: 1, steps: [{ types: ['Capability'], relationships: ['REALIZES'] }] });
+    act(() => root.unmount());
+  });
 });

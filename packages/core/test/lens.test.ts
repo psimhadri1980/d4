@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFilter, groupLabel, lensChips, lensNote, lensSearch, lensSpec, stepAt, type Lens } from '../src';
+import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, stepAt, type Lens } from '../src';
 
 const mastered: Lens = {
   id: 'mastered',
@@ -73,5 +73,18 @@ describe('lens spec (D85)', () => {
     expect(groupLabel({ count: 14, type: 'DataStore', offset: 0 })).toBe('▸ 14 data stores');
     expect(groupLabel({ count: 3, type: 'CreditFacility', offset: 12 })).toBe('▸ 3 more credit facilities');
     expect(groupLabel({ count: 1, type: 'Drawdown', offset: 0 })).toBe('▸ 1 drawdown');
+  });
+});
+
+describe('flow columns (D88)', () => {
+  it('runs left to right, or right to left when every step goes up', () => {
+    expect(flowRank([{ direction: 'down', repeat: true }], 2)).toBe(2);
+    expect(flowRank([{ direction: 'up', repeat: true }], 2)).toBe(-2);
+    expect(flowRank([{ direction: 'up' }, { direction: 'down' }], 1)).toBe(1);
+  });
+
+  it('names a column by its stage, else its types, else its level', () => {
+    const steps = [{ direction: 'down' as const, stage: 'Apps' }, { direction: 'down' as const, types: ['DataSet', 'DataStore'] }, { direction: 'down' as const }];
+    expect([0, 1, 2, 3, 4].map((l) => flowStage(steps, l))).toEqual(['Start', 'Apps', 'DataSet or DataStore', 'Level 3', 'Level 4']);
   });
 });

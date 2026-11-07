@@ -103,6 +103,28 @@ test.describe('graph studio', () => {
     await expect(result(page).locator('.graph-canvas-node.pinned')).toHaveCount(0);
   });
 
+  test('how is it connected: a pinned node and the selected one, by their shortest paths (D89)', async ({ page }) => {
+    await findClientMaster(page);
+    await card(page, 'Client Master').click();
+    await page.getByRole('complementary', { name: 'Client Master' }).getByRole('button', { name: 'Pin' }).click();
+    await nameBox(page).fill('Product Reference');
+    await nameBox(page).press('Escape');
+    await nameBox(page).press('Enter');
+    await card(page, 'Product Reference').first().click();
+    await page.getByRole('complementary', { name: 'Product Reference' }).getByRole('button', { name: 'How is it connected to Client Master?' }).click();
+
+    const panel = page.getByRole('region', { name: 'Connections' });
+    await expect(panel).toContainText(/shortest paths?, \d links?/);
+    await expect(result(page)).toContainText('Product Reference ↔ Client Master');
+    await expect(card(page, 'Client Master')).toHaveAttribute('aria-label', /, root, pinned$/);
+    const first = panel.getByRole('listitem').first().getByRole('button');
+    await first.click();
+    await expect(first).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.getByRole('button', { name: 'All paths' })).toHaveAttribute('aria-pressed', 'false');
+    await panel.getByRole('button', { name: 'Close' }).click();
+    await expect(panel).toHaveCount(0);
+  });
+
   test('Show only narrows both views to the ticked kinds, shown as chips', async ({ page }) => {
     await findClientMaster(page);
     const all = await result(page).locator('.graph-canvas-node').count();
@@ -380,6 +402,31 @@ test.describe('graph studio', () => {
       expect(label).toMatch(/^\d+ [a-z ]+, group, click to open$/);
       await groups.first().click();
       await expect.poll(() => result(page).locator('.graph-canvas-node:not(.group)').count()).toBeGreaterThan(before);
+    });
+
+    test('a viewpoint chain draws one column per stage; its impact table lists everything it reaches (D88)', async ({ page }) => {
+      await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+      await search(page).getByLabel('Lens', { exact: true }).selectOption('credit-facility-to-report');
+      await nameBox(page).fill('Swiss Residential Mortgage CL-1-1');
+      await nameBox(page).press('Escape');
+      await nameBox(page).press('Enter');
+      await result(page).getByRole('tab', { name: 'Graph' }).click();
+      await expect(result(page).getByRole('button', { name: 'Flow' })).toHaveAttribute('aria-pressed', 'true');
+      await expect(result(page).locator('.graph-canvas-column')).toHaveText(['Start', 'Exposures', 'Reports']);
+      await expect(card(page, 'Large Exposures Report')).toBeVisible();
+      // Sources left, reports right. Two facilities in the sample share this name.
+      const x = async (name: string) => (await card(page, name).first().boundingBox())!.x;
+      expect(await x('Swiss Residential Mortgage CL-1-1')).toBeLessThan(await x('Large Exposures Report'));
+
+      await result(page).getByRole('button', { name: 'Impact table' }).click();
+      const table = page.getByRole('region', { name: 'Impact table' });
+      // Each exposure at level 1, each report at level 2.
+      await expect(table.getByRole('row', { name: /Large Exposures Report/ }).getByRole('cell').first()).toHaveText('2');
+      await expect(table.getByRole('row', { name: /^1 Exposure/ })).toHaveCount(2);
+      await expect(table).toContainText('4 nodes');
+      await expect(table.getByRole('button', { name: 'Export CSV' })).toBeEnabled();
+      await table.getByRole('button', { name: 'Large Exposures Report' }).click();
+      await expect(page.getByRole('complementary', { name: 'Large Exposures Report' })).toBeVisible();
     });
 
     test('only credit lenses show on the credit workspace, and none on the default one', async ({ page }) => {

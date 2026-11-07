@@ -5,6 +5,8 @@ import { d4, type Schemas, type ViewParams } from '@d4/web-platform';
 type StudioSearch = Omit<Schemas['StudioSearch'], 'asOf' | 'scenario'>;
 type StudioCountSearch = Schemas['StudioCounts']['searches'][number];
 type StudioOpen = Omit<Schemas['StudioOpen'], 'asOf' | 'scenario'>;
+type StudioPaths = Omit<Schemas['StudioPathsInput'], 'asOf' | 'scenario' | 'maxLength' | 'limit'>;
+type StudioImpact = Omit<Schemas['StudioImpactInput'], 'asOf' | 'scenario' | 'maxNodes'>;
 export type LensInput = Schemas['StudioLensInput'];
 
 const text = (v: string | undefined) => v || undefined;
@@ -22,6 +24,12 @@ export const exploreApi = {
   /** How many roots each search finds, for the lens list while no lens is chosen. */
   studioOpen: (ws: string, body: StudioOpen, v: ViewParams = {}) =>
     d4().post('/v1/workspaces/{ws}/studio/open', { path: { ws }, body: { ...body, ...view(v) } }),
+  /** Everything a Flow lens reaches from its roots, for the impact table (D88). */
+  studioImpact: (ws: string, body: StudioImpact, v: ViewParams = {}) =>
+    d4().post('/v1/workspaces/{ws}/studio/impact', { path: { ws }, body: { ...body, maxNodes: 5000, ...view(v) } }),
+  /** How two elements are connected: the shortest paths between them (D89). */
+  studioPaths: (ws: string, body: StudioPaths, v: ViewParams = {}) =>
+    d4().post('/v1/workspaces/{ws}/studio/paths', { path: { ws }, body: { ...body, maxLength: 6, limit: 25, ...view(v) } }),
   studioCounts: (ws: string, searches: StudioCountSearch[], v: ViewParams = {}, sample = 0) =>
     d4().post('/v1/workspaces/{ws}/studio/counts', { path: { ws }, body: { searches, cap: 1000, sample, ...view(v) } }),
   /** For the lens editor: a contour type's count, links and attribute values. */

@@ -183,6 +183,12 @@
   stroke: var(--support-warning, #b28600);
   stroke-width: 2;
 }
+.graph-canvas-column {
+  fill: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
 .graph-canvas-node.selected .graph-canvas-card {
   stroke: var(--interactive, #0f62fe);
   stroke-width: 3;
@@ -1231,17 +1237,20 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.lens-funnel {
+.lens-funnel,
+.lens-first-screen {
   margin: 0;
   padding-left: 20px;
   display: grid;
   gap: 4px;
 }
-.lens-funnel li {
+.lens-funnel li,
+.lens-first-screen li {
   display: flex;
   gap: 8px;
 }
-.lens-funnel .lens-count {
+.lens-funnel .lens-count,
+.lens-first-screen .lens-count {
   margin-left: auto;
 }
 .lens-meter {
@@ -1405,4 +1414,76 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
+}
+
+/* Lens editor, Traversal (D88): the pattern cards, then a viewpoint chain's steps. */
+.lens-traversal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lens-editor-patterns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.lens-pattern {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle, #c6c6c6);
+  cursor: pointer;
+}
+.lens-pattern.current {
+  border-color: var(--interactive, #0f62fe);
+  box-shadow: inset 0 0 0 1px var(--interactive, #0f62fe);
+}
+.lens-pattern.off {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.lens-pattern input {
+  grid-row: 1 / 3;
+  margin: 2px 0 0;
+}
+.lens-pattern-name {
+  font-weight: 600;
+}
+.lens-pattern-note {
+  font-size: 12px;
+  color: var(--text-secondary, #525252);
+}
+.lens-chain {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.lens-chain-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+.lens-chain-start,
+.lens-chain-step {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle, #c6c6c6);
+}
+.lens-chain-step .lens-editor-grid {
+  flex: 1;
+}
+.lens-chain-stage,
+.lens-chain-n {
+  font-weight: 600;
+}
+.lens-chain-n {
+  align-self: center;
+  min-width: 20px;
 }

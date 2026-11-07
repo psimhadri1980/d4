@@ -53,9 +53,10 @@ export async function defaultWorkspaceId(): Promise<string> {
 
 /**
  * Workspaces keep the metamodel version they were made with, so the slug names the pack version:
- * bump it with the pack and the suite runs on a workspace made from the current one.
+ * bump it with the pack and the suite runs on a workspace made from the current one. The suite has
+ * a workspace of its own, apart from any credit workspace people use.
  */
-const CREDIT_SLUG = 'credit-0-2-0';
+const CREDIT_SLUG = 'e2e-credit-0-2-0';
 
 /**
  * The credit workspace on the d4-credit-graph pack. `created` says whether this call made it,
@@ -68,7 +69,7 @@ export async function creditWorkspace(): Promise<{ id: string; created: boolean 
   if (found) return { id: found.id, created: false };
   const made = await api<{ id: string }>('/v1/admin/workspaces', {
     method: 'POST',
-    body: JSON.stringify({ slug: CREDIT_SLUG, name: 'Credit graph', metamodel: 'd4-credit-graph' }),
+    body: JSON.stringify({ slug: CREDIT_SLUG, name: 'Credit graph (tests)', metamodel: 'd4-credit-graph' }),
   });
   return { id: made.id, created: true };
 }

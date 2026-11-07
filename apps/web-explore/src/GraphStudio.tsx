@@ -1,7 +1,7 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { groupLabel, lensSearch, lensSpec, type Lens, type LensAttributeFilter, type LensGroup } from '@d4/core';
+import { flowRank, flowStage, groupLabel, lensSearch, lensSpec, type Lens, type LensAttributeFilter, type LensGroup, type LensStep } from '@d4/core';
 import { D4ApiError, type Element, type QueryParamDef, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
@@ -23,6 +23,8 @@ import {
   type SubmitQueryResult,
 } from '@d4/ui-kit';
 import { exploreApi, type LensInput } from './api';
+import { Connections } from './Connections';
+import { ImpactTable } from './ImpactTable';
 import { offeredOn, PREDEFINED_LENSES, type BuiltInLens } from './lenses';
 
 /** One place on the focus path: the search the user began from, then one step per drill (DD-2). */
@@ -42,6 +44,8 @@ interface Step {
   viewport?: CanvasViewport;
   /** Group pages opened on this step, in order (D85). */
   pages?: GroupPage[];
+  /** A connection step (D89): the paths between two nodes, and the one chosen (all when absent). */
+  connect?: { from: string; to: string; chosen?: number };
 }
 
 type GroupPage = Awaited<ReturnType<typeof exploreApi.studioOpen>>;
@@ -162,8 +166,16 @@ export function GraphStudio() {
     enabled: !!ws && !!body,
     queryFn: () => exploreApi.studioSearch(ws!, body!, vq),
   });
+  // A connection step shows the paths between two nodes instead of the search (D89).
+  const connect = step?.connect;
+  const paths = useQuery({
+    queryKey: ['studio-paths', ws, connect?.from, connect?.to, vq],
+    enabled: !!ws && !!connect,
+    queryFn: () => exploreApi.studioPaths(ws!, { from: connect!.from, to: connect!.to }, vq),
+  });
+  const base = useMemo(() => (connect ? (paths.data ? pathResult(paths.data, connect) : undefined) : result.data), [connect, paths.data, result.data]);
   // The search's result with the groups opened on this step merged in (D85).
-  const shownResult = useMemo(() => (result.data ? withPages(result.data, step?.pages ?? NO_PAGES) : undefined), [result.data, step?.pages]);
+  const shownResult = useMemo(() => (base ? withPages(base, step?.pages ?? NO_PAGES) : undefined), [base, step?.pages]);
   const [opening, setOpening] = useState<string | null>(null);
   const [openError, setOpenError] = useState<unknown>(null);
   const openGroup = async (id: string) => {
@@ -236,6 +248,30 @@ export function GraphStudio() {
     },
   });
 
+  // The first screen (D88): the draft drawn as it would open, counted per column.
+  const firstScreen = useQuery({
+    queryKey: ['studio-first-screen', ws, previewOf?.contour, previewOf?.facets, previewOf?.match, previewOf?.steps, previewOf?.shape, previewOf?.depth, vq],
+    enabled: !!ws && !!previewOf?.contour && !previewOf.query,
+    retry: false,
+    queryFn: async () => {
+      const d = previewOf!;
+      const lens = { ...d, id: '', contour: d.contour! } as Lens;
+      const r = await exploreApi.studioSearch(ws!, searchBody(lens, { lensId: '', name: '', filters: [] }, undefined, d.depth), vq);
+      if (r.tooLarge) return null;
+      const spec = lensSpec(lens);
+      const flow = lens.shape === 'flow' ? spec.steps : null;
+      const shown = new Map<number, number>();
+      for (const l of Object.values(r.levels ?? {})) shown.set(l, (shown.get(l) ?? 0) + 1);
+      const folded = new Map<number, number>();
+      for (const g of (r.groups ?? []) as LensGroup[]) folded.set(g.level, (folded.get(g.level) ?? 0) + g.count);
+      const levels = [...new Set([...shown.keys(), ...folded.keys()])].sort((a, b) => (flow ? flowRank(flow, a) - flowRank(flow, b) : a - b));
+      return {
+        columns: levels.map((l) => ({ label: flow ? flowStage(flow, l) : l === 0 ? 'Roots' : `Level ${l}`, shown: shown.get(l) ?? 0, folded: folded.get(l) ?? 0 })),
+        truncated: !!r.truncated,
+      };
+    },
+  });
+
   const openEditor = (e: Editing) => {
     setEditorError(null);
     setDraft(e.initial);
@@ -293,10 +329,16 @@ export function GraphStudio() {
     if (!element) return;
     setPins([...pins, { element, relationships: pinned.relationships.filter((x) => x.fromId === id || x.toId === id) }]);
   };
+  // A Flow lens draws its levels as columns (D88), on its own steps also after a drill.
+  const flowSteps = useMemo(() => {
+    const lens = lensOf(search);
+    return lens?.shape === 'flow' && !step?.connect ? lensSpec(lens).steps : null;
+  }, [search, lenses, step?.connect]);
   const graph = useMemo(
-    () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf) : null),
-    [pinned, pins, registry.data, modelView.asOf],
+    () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf, flowSteps) : null),
+    [pinned, pins, registry.data, modelView.asOf, flowSteps],
   );
+  const [impactOpen, setImpactOpen] = useState(false);
 
   // A large result opens in the Overview, once per step; after that the view is the user's.
   useEffect(() => {
@@ -313,17 +355,19 @@ export function GraphStudio() {
     // A lens opens with its own depth, layout and view (LS-6).
     if (lens) {
       setDepth(lens.depth);
-      // A Hierarchy lens is a tree from its roots (D85).
-      setLayout(lens.shape === 'tree' ? 'hier' : lens.layout);
+      // A Hierarchy lens is a tree from its roots (D85), a Flow lens columns (D88).
+      setLayout(lens.shape === 'tree' ? 'hier' : lens.shape === 'flow' ? 'flow' : lens.layout);
       setFollow(!!lens.follow);
     }
     // A new Search starts a new focus path (DD-3).
     setSteps([{ label: describe(lens, v), selectedId: null, view: lens?.view ?? carried(step?.view) }]);
+    if (lens?.shape !== 'flow') setImpactOpen(false);
   };
   const clear = () => {
     setSearch(null);
     setSteps([]);
     setPins([]);
+    setImpactOpen(false);
     setFilter({ nodeTypes: [], relationshipTypes: [] });
   };
   /** "Save as lens" (LS-7): the editor, filled in from the search that ran. */
@@ -363,6 +407,12 @@ export function GraphStudio() {
     });
   };
 
+  /** A step showing how two nodes are connected (D89), on the focus path like a drill. */
+  const connectNodes = (from: string, to: string) => {
+    const n = (id: string) => graph?.byId.get(id)?.name ?? id;
+    setSteps((s) => [...s, { label: `${n(from)} ↔ ${n(to)}`, connect: { from, to }, selectedId: null, view: carried(s.at(-1)?.view) }]);
+  };
+
   const drill = (id: string) => {
     if (id.startsWith(GROUP)) return void openGroup(id.slice(GROUP.length));
     const name = graph?.byId.get(id)?.name ?? id;
@@ -400,6 +450,7 @@ export function GraphStudio() {
           lenses={lenses}
           profile={profile.data}
           preview={preview.data}
+          firstScreen={firstScreen.data}
           roles={roles}
           onRolesChange={setRoles}
           onDraftChange={onDraftChange}
@@ -447,13 +498,21 @@ export function GraphStudio() {
             nodes={graph?.nodes ?? []}
             edges={graph?.edges ?? []}
             rootIds={graph?.rootIds ?? []}
-            loading={!!body && result.isLoading}
+            loading={connect ? paths.isLoading : !!body && result.isLoading}
             emptyMessage={emptyMessage}
             layers={reg.metamodel.layers}
             selectedId={step?.selectedId ?? null}
             view={step?.view ?? 'graph'}
             expandedIds={step?.expandedIds}
             layout={layout}
+            columns={graph?.columns}
+            caption={
+              flowSteps && graph?.rootIds.length ? (
+                <button type="button" className="button ghost small" aria-pressed={impactOpen} onClick={() => setImpactOpen(!impactOpen)}>
+                  Impact table
+                </button>
+              ) : undefined
+            }
             depth={depth}
             crumbs={steps.map((s) => ({ label: s.label }))}
             // A group opens on a click: it has nothing to inspect (D85).
@@ -490,8 +549,23 @@ export function GraphStudio() {
           onSelect={(id) => patch({ selectedId: id })}
           onFocus={drill}
           onPin={togglePin}
+          connectTo={pins.map((p) => ({ id: p.element.id, name: String(p.element.attrs['name'] ?? p.element.id) }))}
+          onConnect={connectNodes}
           editTo={selected ? `/w/${ws}/e/${selected.id}/edit` : undefined}
         />
+        {connect && (
+          <Connections
+            paths={paths.data}
+            loading={paths.isLoading}
+            error={paths.error}
+            chosen={connect.chosen ?? null}
+            onChoose={(i) => patch({ connect: { ...connect, ...{ chosen: i ?? undefined } }, viewport: undefined })}
+            onClose={() => setSteps((s) => s.slice(0, -1))}
+          />
+        )}
+        {impactOpen && flowSteps && graph && !connect && (
+          <ImpactTable ws={ws!} rootIds={graph.rootIds} steps={flowSteps} view={vq} onSelect={(id) => patch({ selectedId: id })} onClose={() => setImpactOpen(false)} />
+        )}
       </div>
     </div>
   );
@@ -539,19 +613,37 @@ function withPins(r: StudioResult, pins: readonly Pin[]): StudioResult {
   return { ...r, elements: [...r.elements, ...extra], relationships: [...rels.values()] };
 }
 
+/** The paths between two nodes as a result (D89): both ends as roots; one path when chosen, else all. */
+function pathResult(p: Awaited<ReturnType<typeof exploreApi.studioPaths>>, c: NonNullable<Step['connect']>): StudioResult {
+  const chosen = c.chosen !== undefined ? p.paths[c.chosen] : undefined;
+  const nodeIds = new Set(chosen ? chosen.nodeIds : p.paths.flatMap((x) => x.nodeIds));
+  const relIds = new Set(chosen ? chosen.relationshipIds : p.paths.flatMap((x) => x.relationshipIds));
+  const ends = new Set([c.from, c.to]);
+  const elements = p.elements.filter((e) => nodeIds.has(e.id));
+  return {
+    roots: elements.filter((e) => ends.has(e.id)),
+    elements: elements.filter((e) => !ends.has(e.id)),
+    relationships: p.relationships.filter((r) => relIds.has(r.id)),
+    tooLarge: false,
+    nodeCount: elements.length,
+  };
+}
+
 function withPages(r: StudioResult, pages: readonly GroupPage[]): StudioResult {
   if (!pages.length) return r;
   const elements = new Map(r.elements.map((e) => [e.id, e]));
   const rels = new Map(r.relationships.map((x) => [x.id, x]));
   const groups = new Map((r.groups ?? []).map((g) => [g.id, g]));
+  const levels = { ...r.levels };
   for (const p of pages) {
+    Object.assign(levels, p.levels);
     for (const e of p.elements) elements.set(e.id, e);
     for (const x of p.relationships) rels.set(x.id, x);
     for (const g of p.groups) groups.set(g.id, g);
     groups.set(p.group.id, p.group);
   }
   // A member shown since may still be counted in a group fetched earlier; counts are as the server gave them.
-  return { ...r, elements: [...elements.values()], relationships: [...rels.values()], groups: [...groups.values()].filter((g) => g.count > 0) };
+  return { ...r, levels, elements: [...elements.values()], relationships: [...rels.values()], groups: [...groups.values()].filter((g) => g.count > 0) };
 }
 
 const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
@@ -560,7 +652,8 @@ const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
  * API result → GraphCanvas input. A node or relationship counts as planned when it only starts
  * after the date being viewed (today by default), as in the Explorer.
  */
-function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySet<string>, asOf?: string) {
+function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySet<string>, asOf?: string, flow?: readonly LensStep[] | null) {
+  const column = (level: number | undefined) => (flow && level !== undefined ? { column: flowRank(flow, level) } : {});
   const today = asOf || new Date().toISOString().slice(0, 10);
   const planned = (x: Element | Relationship) => !!x.validFrom && x.validFrom > today;
   const nameOf = (e: Element) => (typeof e.attrs['name'] === 'string' ? e.attrs['name'] : e.id);
@@ -575,6 +668,7 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySe
       owner: text(e.attrs['owner'] ?? e.attrs['ownerId']),
       changedAt: e.updatedAt ?? undefined,
       ...(pinnedIds.has(e.id) && { pinned: true }),
+      ...column(r.levels?.[e.id]),
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x) }));
@@ -583,12 +677,16 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySe
   for (const g of (r.groups ?? []) as LensGroup[]) {
     if (!ids.has(g.parent)) continue;
     const id = `${GROUP}${g.id}`;
-    nodes.push({ id, name: groupLabel(g), type: g.type, layer: reg.nodeType(g.type)?.layer ?? 'System', state: 'in-graph', group: g.count });
+    nodes.push({ id, name: groupLabel(g), type: g.type, layer: reg.nodeType(g.type)?.layer ?? 'System', state: 'in-graph', group: g.count, ...column(g.level) });
     edges.push({ id: `${id}:edge`, from: g.direction === 'OUT' ? g.parent : id, to: g.direction === 'OUT' ? id : g.parent, type: g.relationship, planned: false });
   }
+  // Flow column headings: each level's stage (D88).
+  const levels = new Set([...Object.values(r.levels ?? {}), ...((r.groups ?? []) as LensGroup[]).map((g) => g.level)]);
+  const columns = flow ? Object.fromEntries([...levels].map((l) => [flowRank(flow, l), flowStage(flow, l)])) : undefined;
   return {
     nodes,
     edges,
+    columns,
     rootIds: r.roots.map((e) => e.id),
     byId: new Map(nodes.map((n) => [n.id, n])),
     attrs: new Map(all.map((e) => [e.id, e.attrs])),

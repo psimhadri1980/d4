@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { describeFilter, lensChips, type Lens, type LensAttributeFilter, type LensFacet } from '@d4/core';
 import type { AttributeDef, MetamodelRegistry, NodeTypeRole } from '@d4/metamodel';
 import { attributeLabel } from './GraphInspector';
+import { LensTraversal } from './LensTraversal';
 import { LensQuerySource, type LensCatalogQuery, type LensQueryDraft, type SubmitQueryResult } from './LensQuerySource';
 import { typesByLayer } from './model';
 
@@ -20,10 +21,14 @@ export interface LensPreview {
   sample: string[];
 }
 
-/** A lens being edited: no contour yet means "Choose a node type…" (LE-9). */
-/** A Hierarchy lens follows containment down from its roots, level after level (D85). */
-const HIERARCHY_STEPS: Lens['steps'] = [{ kind: 'containment', direction: 'down', repeat: true }];
+/** The lens's first screen (D88): per column (level or stage), the nodes drawn and those folded into groups. */
+export interface LensFirstScreen {
+  columns: { label: string; shown: number; folded: number }[];
+  /** A step read more rows than allowed. */
+  truncated: boolean;
+}
 
+/** A lens being edited: no contour yet means "Choose a node type…" (LE-9). */
 export type LensDraft = Omit<Lens, 'id' | 'contour'> & { id?: string; contour: Lens['contour'] | null };
 
 export interface LensEditorProps {
@@ -34,6 +39,8 @@ export interface LensEditorProps {
   lenses: readonly Lens[];
   profile?: LensProfile | null;
   preview?: LensPreview | null;
+  /** What opening the lens draws first, for the Traversal section's live preview (D88). */
+  firstScreen?: LensFirstScreen | null;
   /** Node type roles for this session, over the metamodel's (LE-5). */
   roles?: Readonly<Record<string, NodeTypeRole>>;
   onRolesChange?(roles: Record<string, NodeTypeRole>): void;
@@ -69,7 +76,7 @@ const LAYOUTS: [Lens['layout'], string][] = [
  * contour's profile and the preview, and saves.
  */
 export function LensEditor(props: LensEditorProps) {
-  const { registry, initial, lenses, profile, preview, roles = {}, onRolesChange, onDraftChange, canShare = false, builtIn = false, onSave, onCancel, onDelete, limit = 1000, workspaceId = '', catalogQueries, onSubmitQuery } = props;
+  const { registry, initial, lenses, profile, preview, firstScreen, roles = {}, onRolesChange, onDraftChange, canShare = false, builtIn = false, onSave, onCancel, onDelete, limit = 1000, workspaceId = '', catalogQueries, onSubmitQuery } = props;
   const id = useId();
   const [draft, setDraft] = useState<LensDraft>(() => ({ ...EMPTY, ...initial }));
   const set = (patch: Partial<LensDraft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -161,7 +168,11 @@ export function LensEditor(props: LensEditorProps) {
             )}
           </Section>
 
-          <Section n={3} title="Quick filters" note="Attributes the smart bar offers to narrow this lens. None ticked: the contour's pick-list attributes.">
+          <Section n={3} title="Traversal" note="What the lens follows from its roots, and how it is drawn.">
+            <LensTraversal registry={registry} draft={draft} onChange={set} />
+          </Section>
+
+          <Section n={4} title="Quick filters" note="Attributes the smart bar offers to narrow this lens. None ticked: the contour's pick-list attributes.">
             {!draft.contour ? (
               <p className="lens-editor-hint">Choose a contour first.</p>
             ) : (
@@ -169,7 +180,7 @@ export function LensEditor(props: LensEditorProps) {
             )}
           </Section>
 
-          <Section n={4} title="About">
+          <Section n={5} title="About">
             <div className="lens-editor-grid">
               <Field label="Name">{(fid) => <input id={fid} value={draft.name} onChange={(e) => set({ name: e.target.value })} required />}</Field>
               <Field label="Visible to">
@@ -188,20 +199,8 @@ export function LensEditor(props: LensEditorProps) {
             </div>
           </Section>
 
-          <Section n={5} title="When it is opened">
+          <Section n={6} title="When it is opened">
             <div className="lens-editor-grid">
-              <Field label="Shape">
-                {(fid) => (
-                  <select
-                    id={fid}
-                    value={draft.shape ?? 'ego'}
-                    onChange={(e) => set(e.target.value === 'tree' ? { shape: 'tree', steps: HIERARCHY_STEPS, layout: 'hier' } : { shape: 'ego', steps: undefined })}
-                  >
-                    <option value="ego">Around the roots</option>
-                    <option value="tree">Hierarchy: down through what they contain</option>
-                  </select>
-                )}
-              </Field>
               <Field label="Depth">
                 {(fid) => (
                   <select id={fid} value={draft.depth} onChange={(e) => set({ depth: Number(e.target.value) })}>
@@ -237,12 +236,12 @@ export function LensEditor(props: LensEditorProps) {
             </div>
           </Section>
 
-          <Section n={6} title="Node type roles" note="Which types can be a contour, a facet or both, for this session. The metamodel sets the starting role.">
+          <Section n={7} title="Node type roles" note="Which types can be a contour, a facet or both, for this session. The metamodel sets the starting role.">
             <RolesTable registry={registry} roles={roles} onChange={onRolesChange} />
           </Section>
         </div>
 
-        <PreviewPanel draft={draft} preview={preview} limit={limit} />
+        <PreviewPanel draft={draft} preview={preview} firstScreen={firstScreen} limit={limit} />
       </div>
     </div>
   );
@@ -772,7 +771,7 @@ function RolesTable({ registry, roles, onChange }: { registry: MetamodelRegistry
 
 // ── Preview (LE-6) ───────────────────────────────────────────────────────
 
-function PreviewPanel({ draft, preview, limit }: { draft: LensDraft; preview?: LensPreview | null; limit: number }) {
+function PreviewPanel({ draft, preview, firstScreen, limit }: { draft: LensDraft; preview?: LensPreview | null; firstScreen?: LensFirstScreen | null; limit: number }) {
   const contour = draft.contour;
   const total = preview?.funnel.at(-1);
   const sentence = contour ? lensChips({ ...draft, id: '', contour } as Lens).join(' · ') : 'Choose a node type to start.';
@@ -821,6 +820,23 @@ function PreviewPanel({ draft, preview, limit }: { draft: LensDraft; preview?: L
               </ul>
             </>
           )}
+        </>
+      )}
+      {contour && firstScreen && (
+        <>
+          <h4>First screen</h4>
+          <ol className="lens-first-screen" aria-label="First screen by column">
+            {firstScreen.columns.map((c, i) => (
+              <li key={i}>
+                {c.label}
+                <span className="lens-count">
+                  {c.shown.toLocaleString()}
+                  {c.folded ? ` + ${c.folded.toLocaleString()} folded` : ''}
+                </span>
+              </li>
+            ))}
+          </ol>
+          {firstScreen.truncated && <p className="lens-editor-hint">Some links were cut: a step read too many rows.</p>}
         </>
       )}
     </aside>

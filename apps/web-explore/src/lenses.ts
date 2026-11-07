@@ -12,8 +12,8 @@ const CREDIT = ['d4-credit-graph'];
 export const offeredOn = (l: BuiltInLens, id: string) => (l.only ? l.only.includes(id) : !l.except.includes(id));
 
 /**
- * Lenses offered before anyone has saved one (LS-7): five for the starter metamodel (and the
- * metamodels built on it, except the credit graph), thirteen for the credit graph only (CG-4, D85).
+ * Lenses offered before anyone has saved one (LS-7): eight for the starter metamodel (and the
+ * metamodels built on it, except the credit graph), fourteen for the credit graph only (CG-4, D85, D88).
  */
 const STARTER_LENSES: BuiltInLens[] = [
   {
@@ -73,6 +73,51 @@ const STARTER_LENSES: BuiltInLens[] = [
     match: 'all',
     depth: 2,
     layout: 'layers',
+    view: 'graph',
+    except: CREDIT,
+  },
+  {
+    id: 'data-lineage',
+    name: 'Data lineage',
+    description: 'Where each data product comes from: upstream along data flows, as far as they go.',
+    contour: { type: 'DataProduct' },
+    facets: [],
+    match: 'all',
+    shape: 'flow',
+    steps: [{ kind: 'flow', direction: 'up', repeat: true }],
+    depth: 3,
+    layout: 'flow',
+    view: 'graph',
+    except: CREDIT,
+  },
+  {
+    id: 'data-store-impact',
+    name: 'What depends on a data store',
+    description: 'What breaks if a data store goes: the applications and components that use it, and what depends on them.',
+    contour: { type: 'DataStore' },
+    facets: [],
+    match: 'all',
+    shape: 'flow',
+    steps: [{ kind: 'dependency', direction: 'up', repeat: true }],
+    depth: 2,
+    layout: 'flow',
+    view: 'graph',
+    except: CREDIT,
+  },
+  {
+    id: 'capability-to-data',
+    name: 'Capability to data',
+    description: 'A viewpoint chain: each capability, the applications that realize it, and the data stores they use.',
+    contour: { type: 'Capability' },
+    facets: [],
+    match: 'all',
+    shape: 'flow',
+    steps: [
+      { relationships: ['REALIZES'], direction: 'both', types: ['Application'], stage: 'Applications' },
+      { relationships: ['USES'], direction: 'both', types: ['DataStore'], stage: 'Data stores' },
+    ],
+    depth: 2,
+    layout: 'flow',
     view: 'graph',
     except: CREDIT,
   },
@@ -203,6 +248,23 @@ const CREDIT_LENSES: BuiltInLens[] = [
     steps: [{ kind: 'containment', direction: 'down', repeat: true }],
     depth: 1,
     layout: 'hier',
+    view: 'graph',
+    only: CREDIT,
+  },
+  {
+    id: 'credit-facility-to-report',
+    name: 'Facility to report',
+    description: 'A viewpoint chain: each facility, its exposures, and the reports they are reported in.',
+    contour: { type: 'CreditFacility' },
+    facets: [],
+    match: 'all',
+    shape: 'flow',
+    steps: [
+      { relationships: ['HAS_EXPOSURE'], direction: 'down', types: ['CreditExposure'], stage: 'Exposures' },
+      { relationships: ['REPORTED_IN'], direction: 'down', types: ['Report'], stage: 'Reports' },
+    ],
+    depth: 2,
+    layout: 'flow',
     view: 'graph',
     only: CREDIT,
   },
