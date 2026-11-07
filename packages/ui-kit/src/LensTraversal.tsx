@@ -2,8 +2,8 @@ import { useId } from 'react';
 import type { Lens, LensRelationshipKind, LensStep } from '@d4/core';
 import type { MetamodelRegistry } from '@d4/metamodel';
 
-/** The lens patterns the editor offers (D85 section 4, D88): each a preset of steps and a shape. */
-export type LensPattern = 'ego' | 'tree' | 'lineage' | 'chain';
+/** The lens patterns the editor offers (D85 section 4, D88, D90, D91): each a preset of steps and a shape. */
+export type LensPattern = 'ego' | 'tree' | 'lineage' | 'chain' | 'matrix' | 'landscape';
 
 type Draft = Pick<Lens, 'steps' | 'shape' | 'layout' | 'depth'> & { contour: { type: string } | null };
 
@@ -20,6 +20,8 @@ const KINDS: [LensRelationshipKind, string][] = [
 /** Which pattern a lens is, from its shape and steps. */
 export function patternOf(d: Pick<Lens, 'steps' | 'shape'>): LensPattern {
   if (d.shape === 'tree') return 'tree';
+  if (d.shape === 'matrix') return 'matrix';
+  if (d.shape === 'landscape') return 'landscape';
   if (d.shape !== 'flow') return 'ego';
   const s = d.steps ?? [];
   return s.length === 1 && s[0]!.repeat && !s[0]!.types?.length ? 'lineage' : 'chain';
@@ -40,6 +42,12 @@ export function patternPreset(p: LensPattern, d: Draft, reg: MetamodelRegistry):
       const next = d.contour ? nextTypes(reg, d.contour.type)[0] : undefined;
       return { shape: 'flow', steps: [{ direction: 'both', ...(next && { types: [next], stage: next }) }], layout: 'flow', depth: 1 };
     }
+    case 'matrix': {
+      const next = d.contour ? nextTypes(reg, d.contour.type)[0] : undefined;
+      return { shape: 'matrix', steps: [{ direction: 'both', ...(next && { types: [next], stage: next }) }], depth: 1 };
+    }
+    case 'landscape':
+      return { shape: 'landscape', steps: [{ kind: 'containment', direction: 'down' }], depth: 1 };
   }
 }
 
@@ -80,13 +88,15 @@ export function LensTraversal({ registry: reg, draft, onChange }: { registry: Me
     ['tree', 'Hierarchy', 'Down through what the roots contain, as a tree.'],
     ['lineage', 'Lineage or impact', 'Where the roots come from, or what depends on them, as far as it goes.'],
     ['chain', 'Viewpoint chain', 'Typed steps from the roots, one column each: Capability → Application → Data.'],
+    ['matrix', 'Matrix', 'The roots as rows, one linked type as columns: which X relate to which Y, and which relate to none.'],
+    ['landscape', 'Landscape', 'Each root a box holding what it contains, coloured by an attribute: what is in this domain, and what state is it in?'],
   ];
   const noContainment = !reg.relationshipsOfKind('containment').length;
   return (
     <div className="lens-traversal">
       <div className="lens-editor-patterns" role="radiogroup" aria-label="Pattern">
         {PATTERNS.map(([p, label, note]) => {
-          const off = p === 'tree' && noContainment;
+          const off = (p === 'tree' || p === 'landscape') && noContainment;
           return (
             <label key={p} className={`lens-pattern${pattern === p ? ' current' : ''}${off ? ' off' : ''}`}>
               <input type="radio" name={`${id}-pattern`} checked={pattern === p} disabled={off} onChange={() => onChange(patternPreset(p, draft, reg))} />
@@ -98,6 +108,15 @@ export function LensTraversal({ registry: reg, draft, onChange }: { registry: Me
       </div>
 
       {pattern === 'lineage' && steps[0] && <LineageFields registry={reg} step={steps[0]} onChange={(s) => onChange({ steps: [s] })} />}
+      {(pattern === 'matrix' || pattern === 'landscape') &&
+        (draft.contour ? (
+          <ol className="lens-chain-steps" aria-label={pattern === 'matrix' ? 'Columns' : 'Contents'}>
+            <ChainStep n={1} registry={reg} from={draft.contour.type} step={steps[0] ?? { direction: 'both' }} onChange={(s) => onChange({ steps: [s], depth: 1 })} />
+          </ol>
+        ) : (
+          <p className="lens-editor-hint">Choose a contour first: {pattern === 'matrix' ? 'its nodes are the rows' : 'each of its nodes is a box'}.</p>
+        ))}
+      {pattern === 'matrix' && draft.contour && !steps[0]?.types?.length && <p className="lens-editor-hint">Choose the type of the columns.</p>}
       {pattern === 'chain' && <ChainSteps registry={reg} contour={draft.contour?.type ?? null} steps={steps} onChange={(s) => onChange({ steps: s, depth: Math.max(1, s.length) })} />}
     </div>
   );

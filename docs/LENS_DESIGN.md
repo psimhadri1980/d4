@@ -212,7 +212,9 @@ only `id` or `node` is today's anchors-only form.
   the editor's Traversal section (pattern, steps, live first-screen preview). A step's `to` is
   `types`; `where`, `require` and depth ranges per step are not built yet.
 - **Slice 3:** Matrix, Landscape, Connection; search phrases and templates; selection-gated actions.
-  Connection is done (D89): shortest paths between the selection and a pinned node.
+  Connection is done (D89): shortest paths between the selection and a pinned node. Matrix is
+  done (D90): the roots by the targets of one typed step, with gap rows and CSV export.
+  Landscape is done (D91): a box per root holding what it contains, coloured by an enum attribute.
 - **Slice 4:** Cypher projections; layers; the text form.
 - **Later:** time slice and diff, which need history in the graph.
 

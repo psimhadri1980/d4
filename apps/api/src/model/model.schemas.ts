@@ -223,7 +223,7 @@ export const StudioLensBody = z
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
     depth: z.number().int().min(1).max(6).default(2),
     steps: z.array(LensStepBody).min(1).max(10).optional(),
-    shape: z.enum(['ego', 'tree', 'flow']).optional(),
+    shape: z.enum(['ego', 'tree', 'flow', 'matrix', 'landscape']).optional(),
     disclosure: z
       .object({ budget: z.number().int().min(1).max(350).optional(), initialDepth: z.number().int().min(1).max(6).optional(), perNodeCap: z.number().int().min(1).max(100).optional() })
       .strict()
@@ -409,6 +409,25 @@ export const StudioImpactSchema = z
     truncated: z.boolean().openapi({ description: 'Stopped at maxNodes or 20 levels, or a step read too many rows' }),
   })
   .openapi('StudioImpact');
+
+export const StudioMatrixBody = z
+  .object({
+    ...View,
+    ids: z.array(z.string()).min(1).max(500).openapi({ description: 'The roots, one row each' }),
+    step: LensStepBody.openapi({ description: 'The step whose targets are the columns' }),
+    maxColumns: z.number().int().min(1).max(200).default(200),
+  })
+  .strict()
+  .openapi('StudioMatrixInput');
+
+export const StudioMatrixSchema = z
+  .object({
+    rows: z.array(ElementSchema),
+    columns: z.array(ElementSchema),
+    cells: z.array(z.object({ row: z.string(), column: z.string(), relationships: z.array(z.string()) })),
+    truncated: z.boolean().openapi({ description: 'More columns than maxColumns, or the step read too many rows' }),
+  })
+  .openapi('StudioMatrix');
 
 export const StudioPathsBody = z
   .object({

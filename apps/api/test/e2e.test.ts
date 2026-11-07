@@ -389,6 +389,39 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/studio/paths`, token, { from: a, to: d, maxLength: 7 })).status).toBe(400);
     });
 
+    it('lays a Matrix lens out: roots as rows, the targets of its step as columns (D90)', async () => {
+      const add = async (type: string, name: string) => (await call('POST', `${ws()}/elements`, token, { type, attrs: { name } })).body!['id'] as string;
+      const [r1, r2, r3] = [await add('DataProduct', 'Matrix row one'), await add('DataProduct', 'Matrix row two'), await add('DataProduct', 'Matrix row three')];
+      const [x, y] = [await add('Report', 'Matrix report x'), await add('Report', 'Matrix report y')];
+      await call('POST', `${ws()}/relationships`, token, { type: 'CONSUMES', fromId: x, toId: r1 });
+      await call('POST', `${ws()}/relationships`, token, { type: 'CONSUMES', fromId: y, toId: r1 });
+      await call('POST', `${ws()}/relationships`, token, { type: 'CONSUMES', fromId: y, toId: r2 });
+      // A link between two roots is not a column.
+      await call('POST', `${ws()}/relationships`, token, { type: 'RELATED_TO', fromId: r2, toId: r3 });
+
+      const m = await call('POST', `${ws()}/studio/matrix`, token, { ids: [r1, r2, r3], step: { direction: 'both', types: ['Report'] } });
+      expect(m.status).toBe(200);
+      expect(m.body!['rows'].map((e: any) => e.attrs.name)).toEqual(['Matrix row one', 'Matrix row three', 'Matrix row two']);
+      expect(m.body!['columns'].map((e: any) => e.id)).toEqual([x, y]);
+      expect(m.body!['cells']).toEqual(
+        expect.arrayContaining([
+          { row: r1, column: x, relationships: ['CONSUMES'] },
+          { row: r1, column: y, relationships: ['CONSUMES'] },
+          { row: r2, column: y, relationships: ['CONSUMES'] },
+        ]),
+      );
+      expect(m.body!['cells']).toHaveLength(3);
+      // The most linked column is kept when there is room for one.
+      const one = await call('POST', `${ws()}/studio/matrix`, token, { ids: [r1, r2, r3], step: { direction: 'both', types: ['Report'] }, maxColumns: 1 });
+      expect(one.body).toMatchObject({ truncated: true });
+      expect(one.body!['columns'].map((e: any) => e.id)).toEqual([y]);
+      const lens = { name: 'Matrix without columns', contour: { type: 'DataProduct' }, shape: 'matrix', steps: [{ direction: 'both' }] };
+      expect((await call('POST', `${ws()}/studio/lenses`, token, lens)).status).toBe(400);
+      const landscape = { name: 'Landscape without a step', contour: { type: 'DataProduct' }, shape: 'landscape' };
+      expect((await call('POST', `${ws()}/studio/lenses`, token, landscape)).status).toBe(400);
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...landscape, name: 'Landscape', steps: [{ kind: 'containment', direction: 'down' }] })).status).toBe(201);
+    });
+
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
       const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
       const created = await call('POST', `${ws()}/studio/lenses`, token, lens);

@@ -112,6 +112,18 @@ export interface StudioImpact {
   truncated: boolean;
 }
 
+/** Matrix limits (D90): columns drawn; rows are the roots, at most STUDIO_MAX_ROOTS. */
+export const MATRIX_MAX_COLUMNS = 200;
+
+/** A Matrix lens (D90): its roots as rows, what its first step reaches as columns, a cell per link. */
+export interface StudioMatrix {
+  rows: Element[];
+  columns: Element[];
+  /** The relationship types linking a row to a column, either way. */
+  cells: { row: string; column: string; relationships: string[] }[];
+  truncated: boolean;
+}
+
 /** Connection limits (D89): links per path and paths returned. */
 export const PATHS_MAX_LENGTH = 6;
 export const PATHS_MAX = 25;
@@ -282,6 +294,31 @@ export class StudioQueries {
       if (level === maxLevels - 1 && frontier.length && stepAt(steps, level + 1)) truncated = true;
     }
     return { rows, truncated };
+  }
+
+  /**
+   * The Matrix pattern (D90): which roots relate to which nodes of the step's types. Columns are the
+   * nodes the step reaches, most linked first, at most `maxColumns`; `truncated` when some were left out.
+   */
+  async matrix(ws: string, roots: Element[], step: LensStep, opts: { maxColumns?: number; view?: ModelView } = {}): Promise<StudioMatrix> {
+    const maxColumns = clamp(opts.maxColumns ?? MATRIX_MAX_COLUMNS, 1, MATRIX_MAX_COLUMNS);
+    const read = await this.stepRows(ws, roots.map((r) => r.id), step, null, opts.view);
+    const rootIds = new Set(roots.map((r) => r.id));
+    const nodes = new Map<string, Element>();
+    const links = new Map<string, Map<string, Set<string>>>();
+    for (const m of read.rows) {
+      // A root reached from another root is a row, not a column.
+      if (rootIds.has(m.node.id)) continue;
+      nodes.set(m.node.id, m.node);
+      const byRow = links.get(m.node.id) ?? new Map<string, Set<string>>();
+      byRow.set(m.parent, (byRow.get(m.parent) ?? new Set()).add(m.relationship));
+      links.set(m.node.id, byRow);
+    }
+    const ranked = [...nodes.values()].sort((a, b) => links.get(b.id)!.size - links.get(a.id)!.size || name(a).localeCompare(name(b)));
+    const columns = ranked.slice(0, maxColumns).sort((a, b) => name(a).localeCompare(name(b)));
+    const cells = columns.flatMap((c) => [...links.get(c.id)!].map(([row, rels]) => ({ row, column: c.id, relationships: [...rels].sort() })));
+    const rows = [...roots].sort((a, b) => name(a).localeCompare(name(b)));
+    return { rows, columns, cells, truncated: read.truncated || ranked.length > maxColumns };
   }
 
   /**
