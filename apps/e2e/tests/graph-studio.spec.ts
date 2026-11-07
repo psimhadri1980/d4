@@ -33,9 +33,11 @@ test.describe('graph studio', () => {
     await expect(result(page).getByLabel('Result summary')).toContainText('1 root');
     // The lens opens at its own depth, 1; Depth 2 loads more.
     await expect(result(page).getByRole('button', { name: 'Depth 1' })).toHaveAttribute('aria-pressed', 'true');
-    const one = await result(page).locator('.graph-canvas-node').count();
+    // Nodes, not group stubs: a deeper level opens groups into nodes, so there may be fewer stubs.
+    const nodes = result(page).locator('.graph-canvas-node:not(.group)');
+    const one = await nodes.count();
     await result(page).getByRole('button', { name: 'Depth 2' }).click();
-    await expect.poll(() => result(page).locator('.graph-canvas-node').count()).toBeGreaterThan(one);
+    await expect.poll(() => nodes.count()).toBeGreaterThan(one);
     // Labels show from the Label level up; a wide result opens fitted, maybe at Dot.
     await result(page).getByRole('toolbar', { name: 'Zoom' }).getByRole('button', { name: 'Card' }).click();
     await expect(result(page).locator('.graph-canvas-label').first()).toBeVisible();
@@ -80,6 +82,25 @@ test.describe('graph studio', () => {
     await expect(path.locator('[aria-current="location"]')).toHaveText('Data products · "Client Master"');
     // The selection at that step is back.
     await expect(card(page, name)).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('a pinned node stays on the canvas through a new search until it is unpinned (D85)', async ({ page }) => {
+    await findClientMaster(page);
+    await card(page, 'Client Master').click();
+    const pin = page.getByRole('complementary', { name: 'Client Master' }).getByRole('button', { name: 'Pin' });
+    await pin.click();
+    await expect(pin).toHaveAttribute('aria-pressed', 'true');
+    await expect(card(page, 'Client Master')).toHaveAttribute('aria-label', 'Client Master, DataProduct, Data, root, pinned');
+
+    await nameBox(page).fill('Product Reference');
+    await nameBox(page).press('Escape');
+    await nameBox(page).press('Enter');
+    await expect(card(page, 'Product Reference')).toHaveAttribute('aria-label', /, root$/);
+    await expect(card(page, 'Client Master')).toHaveAttribute('aria-label', 'Client Master, DataProduct, Data, pinned');
+
+    await card(page, 'Client Master').click();
+    await page.getByRole('complementary', { name: 'Client Master' }).getByRole('button', { name: 'Unpin' }).click();
+    await expect(result(page).locator('.graph-canvas-node.pinned')).toHaveCount(0);
   });
 
   test('Show only narrows both views to the ticked kinds, shown as chips', async ({ page }) => {

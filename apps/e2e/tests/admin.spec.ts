@@ -59,7 +59,7 @@ test.describe('administration', () => {
     await expect(create).toContainText('BIAN');
     await create.getByRole('button', { name: 'Create workspace' }).click();
     const row = page.getByRole('table', { name: 'All workspaces' }).locator('tr', { hasText: `${RUN.toLowerCase()}-bank` });
-    await expect(row).toContainText('d4-banking@0.1.0');
+    await expect(row).toContainText('d4-banking@0.1.1');
     page.once('dialog', (d) => void d.accept());
     await row.getByRole('button', { name: 'Archive' }).click();
     await expect(row.locator('.badge')).toHaveText('archived');

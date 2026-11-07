@@ -284,7 +284,19 @@ export function GraphStudio() {
     }
   };
 
-  const graph = useMemo(() => (shownResult && registry.data ? toCanvas(registry.data, shownResult, modelView.asOf) : null), [shownResult, registry.data, modelView.asOf]);
+  // Pinned nodes stay on the canvas through drills and new searches, with the links they had (D85).
+  const [pins, setPins] = useState<Pin[]>([]);
+  const pinned = useMemo(() => (shownResult ? withPins(shownResult, pins) : undefined), [shownResult, pins]);
+  const togglePin = (id: string) => {
+    if (pins.some((p) => p.element.id === id)) return setPins(pins.filter((p) => p.element.id !== id));
+    const element = pinned && [...pinned.roots, ...pinned.elements].find((e) => e.id === id);
+    if (!element) return;
+    setPins([...pins, { element, relationships: pinned.relationships.filter((x) => x.fromId === id || x.toId === id) }]);
+  };
+  const graph = useMemo(
+    () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf) : null),
+    [pinned, pins, registry.data, modelView.asOf],
+  );
 
   // A large result opens in the Overview, once per step; after that the view is the user's.
   useEffect(() => {
@@ -311,6 +323,7 @@ export function GraphStudio() {
   const clear = () => {
     setSearch(null);
     setSteps([]);
+    setPins([]);
     setFilter({ nodeTypes: [], relationshipTypes: [] });
   };
   /** "Save as lens" (LS-7): the editor, filled in from the search that ran. */
@@ -476,6 +489,7 @@ export function GraphStudio() {
           edges={graph?.edges ?? []}
           onSelect={(id) => patch({ selectedId: id })}
           onFocus={drill}
+          onPin={togglePin}
           editTo={selected ? `/w/${ws}/e/${selected.id}/edit` : undefined}
         />
       </div>
@@ -509,6 +523,22 @@ function searchBody(lens: Lens | null, v: GraphSearchValue, focusId: string | un
 type StudioResult = Awaited<ReturnType<typeof exploreApi.studioSearch>>;
 
 /** The result with opened group pages added: their members, links and groups; each group as it was left. */
+interface Pin {
+  element: Element;
+  relationships: Relationship[];
+}
+
+/** The result with pinned nodes added, and their links to nodes on the canvas. */
+function withPins(r: StudioResult, pins: readonly Pin[]): StudioResult {
+  if (!pins.length) return r;
+  const shown = new Set([...r.roots, ...r.elements].map((e) => e.id));
+  const extra = pins.map((p) => p.element).filter((e) => !shown.has(e.id));
+  for (const e of extra) shown.add(e.id);
+  const rels = new Map(r.relationships.map((x) => [x.id, x]));
+  for (const x of pins.flatMap((p) => p.relationships)) if (shown.has(x.fromId) && shown.has(x.toId)) rels.set(x.id, x);
+  return { ...r, elements: [...r.elements, ...extra], relationships: [...rels.values()] };
+}
+
 function withPages(r: StudioResult, pages: readonly GroupPage[]): StudioResult {
   if (!pages.length) return r;
   const elements = new Map(r.elements.map((e) => [e.id, e]));
@@ -530,7 +560,7 @@ const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
  * API result → GraphCanvas input. A node or relationship counts as planned when it only starts
  * after the date being viewed (today by default), as in the Explorer.
  */
-function toCanvas(reg: MetamodelRegistry, r: StudioResult, asOf?: string) {
+function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySet<string>, asOf?: string) {
   const today = asOf || new Date().toISOString().slice(0, 10);
   const planned = (x: Element | Relationship) => !!x.validFrom && x.validFrom > today;
   const nameOf = (e: Element) => (typeof e.attrs['name'] === 'string' ? e.attrs['name'] : e.id);
@@ -544,6 +574,7 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, asOf?: string) {
       state: planned(e) ? ('planned' as const) : ('in-graph' as const),
       owner: text(e.attrs['owner'] ?? e.attrs['ownerId']),
       changedAt: e.updatedAt ?? undefined,
+      ...(pinnedIds.has(e.id) && { pinned: true }),
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x) }));

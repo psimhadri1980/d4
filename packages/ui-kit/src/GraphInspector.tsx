@@ -17,6 +17,8 @@ export interface GraphInspectorProps {
   editTo?: string;
   /** Focus on this node: drill down to it (DD-1). */
   onFocus?(id: string): void;
+  /** Keep this node on the canvas, or let it go (D85). */
+  onPin?(id: string): void;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface GraphInspectorProps {
  * type and layer, every attribute its type defines (a dash when empty) plus any others it carries,
  * and its direct relationships in the result.
  */
-export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo, onFocus }: GraphInspectorProps) {
+export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo, onFocus, onPin }: GraphInspectorProps) {
   const headingId = useId();
   if (!node) {
     return (
@@ -57,6 +59,11 @@ export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSel
           {onFocus && (
             <button type="button" className="button small" onClick={() => onFocus(node.id)}>
               Focus on this node
+            </button>
+          )}
+          {onPin && (
+            <button type="button" className="button small ghost" aria-pressed={!!node.pinned} onClick={() => onPin(node.id)}>
+              {node.pinned ? 'Unpin' : 'Pin'}
             </button>
           )}
           {editTo && <Link to={editTo}>Edit in the element editor</Link>}

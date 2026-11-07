@@ -179,7 +179,15 @@ export class StudioQueries {
       }
       frontier = next;
     }
-    out.groups.push(...(await this.groupCounts(ws, frontier, steps, level, [...shown.keys()], view)));
+    const tail = await this.unfoldSingles(ws, await this.groupCounts(ws, frontier, steps, level, [...shown.keys()], view), steps, new Set(shown.keys()), d.budget - shown.size, view);
+    for (const m of tail.rows) {
+      shown.set(m.node.id, m.node);
+      rels.set(m.rel.id, m.rel);
+    }
+    for (const r of tail.links) rels.set(r.id, r);
+    Object.assign(out.levels, tail.levels);
+    out.truncated ||= tail.truncated;
+    out.groups.push(...tail.groups);
     out.elements = [...shown.values()].filter((e) => out.levels[e.id] !== 0);
     out.relationships = [...rels.values()];
     return out;
@@ -191,17 +199,52 @@ export class StudioQueries {
     const { rows, truncated } = await this.stepRows(ws, [group.parent], step, null, view);
     const shown = new Set(shownIds);
     const members = this.ranked(rows.filter((m) => m.relationship === group.relationship && m.direction === group.direction && m.type === group.type && !shown.has(m.node.id)));
-    const page = members.slice(0, d.perNodeCap);
+    // A page never leaves a group of one behind: the last member comes along.
+    const page = members.slice(0, members.length === d.perNodeCap + 1 ? members.length : d.perNodeCap);
     const levels = Object.fromEntries(page.map((m) => [m.node.id, group.level]));
     const ids = page.map((m) => m.node.id);
+    const all = new Set([...shown, ...ids]);
+    const tail = await this.unfoldSingles(ws, await this.groupCounts(ws, ids, steps, group.level, [...all], view), steps, all, d.budget - all.size, view);
     return {
-      elements: page.map((m) => m.node),
-      relationships: page.map((m) => m.rel),
-      groups: await this.groupCounts(ws, ids, steps, group.level, [...shown, ...ids], view),
-      levels,
+      elements: [...page, ...tail.rows].map((m) => m.node),
+      relationships: [...[...page, ...tail.rows].map((m) => m.rel), ...tail.links],
+      groups: tail.groups,
+      levels: { ...levels, ...tail.levels },
       group: { ...group, count: members.length - page.length, offset: group.offset + page.length },
-      truncated,
+      truncated: truncated || tail.truncated,
     };
+  }
+
+  /**
+   * A group of one is its member: drawn as the node, with its own next step counted, while the
+   * budget has room. Only one level past the last one opened, so a deeper Depth never shows less.
+   */
+  private async unfoldSingles(ws: string, groups: LensGroup[], steps: readonly LensStep[], shown: Set<string>, room: number, view?: ModelView) {
+    const rows: StepRow[] = [];
+    const links: Relationship[] = [];
+    const levels: Record<string, number> = {};
+    const singles = groups.filter((g) => g.count === 1).slice(0, Math.max(room, 0));
+    if (!singles.length) return { groups, rows, links, levels, truncated: false };
+    const byId = new Map(singles.map((g) => [g.id, g]));
+    const step: LensStep = { relationships: [...new Set(singles.map((g) => g.relationship))], direction: 'both' };
+    const read = await this.stepRows(ws, [...new Set(singles.map((g) => g.parent))], step, null, view);
+    const added = new Map<number, string[]>();
+    for (const m of read.rows) {
+      const g = byId.get(groupId(m));
+      if (!g) continue;
+      // Two singles can lead to the same node: it is drawn once, with both links.
+      if (shown.has(m.node.id)) {
+        links.push(m.rel);
+        continue;
+      }
+      shown.add(m.node.id);
+      levels[m.node.id] = g.level;
+      rows.push(m);
+      added.set(g.level, [...(added.get(g.level) ?? []), m.node.id]);
+    }
+    const rest = groups.filter((g) => !byId.has(g.id));
+    for (const [level, ids] of added) rest.push(...(await this.groupCounts(ws, ids, steps, level, [...shown], view)));
+    return { groups: rest, rows, links, levels, truncated: read.truncated };
   }
 
   /** Groups with counts for the step after `level`, from each of `parents`, leaving out what is shown. */
