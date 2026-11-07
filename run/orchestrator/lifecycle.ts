@@ -73,12 +73,19 @@ function withDependencies(targets: Target[]): { targets: Target[]; added: string
   const cons = containers();
   const extra: Target[] = [];
   const need = new Map<string, Component>();
-  for (const { comp } of targets) {
+  // A module on podman runs in its via component's container: that one is restarted even when it
+  // runs, so it picks up the image just built (podmanStart leaves it alone when nothing changed).
+  const servers = new Map<string, Component>();
+  for (const { comp, rt } of targets) {
     if (!isProcess(comp)) continue;
     for (const d of dependencies(comp)) need.set(d.name, d);
     if (comp.name !== 'gateway' && comp.category !== 'infra') need.set('gateway', component('gateway'));
     const via = comp.runtimes.podman?.via;
-    if (via) need.set(via, component(via));
+    if (via) (rt === 'podman' ? servers : need).set(via, component(via));
+  }
+  for (const d of servers.values()) {
+    need.delete(d.name);
+    if (!named.has(d.name)) extra.push({ comp: d, rt: 'podman' });
   }
   for (const d of need.values()) {
     if (named.has(d.name) || whereRunning(d, cons).length) continue;
@@ -148,7 +155,7 @@ export async function up(targets: Target[], o: { build: boolean }): Promise<void
   const t = Date.now();
   const procs = targets.filter((x) => isProcess(x.comp));
   const { targets: all, added } = withDependencies(procs);
-  if (added.length) log.info(`also starting what they need, which is not running: ${added.join(', ')}`);
+  if (added.length) log.info(`also starting what they need (not running, or serving them on podman): ${added.join(', ')}`);
   // Built first: a broken change fails here and leaves everything running as it was.
   let images = new Map<string, string>();
   const toBuild = o.build ? [...all, ...targets.filter((x) => !isProcess(x.comp))] : all.filter((x) => needsBuild(x));
