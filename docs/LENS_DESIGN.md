@@ -204,7 +204,7 @@ The disclosure engine then folds and budgets its result like any other lens. A q
 only `id` or `node` is today's anchors-only form.
 
 ## 9. Build order
-- **Slice 1:** relationship `kind` and `forward` in the metamodel; the spec in `@d4/core`, with
+- **Slice 1 (done, D86; Pin not yet):** relationship `kind` and `forward` in the metamodel; the spec in `@d4/core`, with
   today's lenses migrated; the server disclosure engine with group stubs and cursors; Ego and
   Hierarchy shapes; Expand, Open, Drill with breadcrumb and Pin. This answers the original
   complaint: few nodes first, then drill down.

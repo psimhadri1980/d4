@@ -167,10 +167,13 @@ Open: query lenses are left out of the "Not sure yet" counts (counting would run
 every pause in typing) and have no preview funnel; the editor has no test run of a new query yet
 (authors can test it in Query Studio before it is reviewed).
 
-### Phase 10: lenses as viewpoints (D85): designed
+### Phase 10: lenses as viewpoints (D85): slice 1 done (D86)
 The lens becomes one spec that every pattern renders: see [`LENS_DESIGN.md`](LENS_DESIGN.md),
 section 9 for the build order (slice 1: relationship kinds, the spec, the disclosure engine with
 group stubs, Ego and Hierarchy, drill with breadcrumb).
+Slice 1 is done (D86). Still open from it: Pin; a group of one member could simply show it;
+the lens editor offers only the two shapes, not its own steps; existing workspaces need a
+metamodel upgrade before their relationships have kinds.
 
 ### Later (not in this plan)
 - Ingestion Studio adopting GraphCanvas: needs a wider `state` input first (CT-6).
