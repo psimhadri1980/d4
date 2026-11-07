@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { describeFilter, lensChips, type Lens, type LensAttributeFilter, type LensFacet } from '@d4/core';
 import type { AttributeDef, MetamodelRegistry, NodeTypeRole } from '@d4/metamodel';
 import { attributeLabel } from './GraphInspector';
+import { LensQuerySource, type LensCatalogQuery, type LensQueryDraft, type SubmitQueryResult } from './LensQuerySource';
 import { typesByLayer } from './model';
 
 /** What the lens editor knows about the data for its contour (LE-1): from the host's profile call. */
@@ -44,6 +45,10 @@ export interface LensEditorProps {
   onDelete?(): void;
   /** The load limit the preview's meter shows against (GV-6). */
   limit?: number;
+  /** For query lenses (D84): the workspace (element parameters), the queries the user may pick, and for Query Authors a way to submit a new one. */
+  workspaceId?: string;
+  catalogQueries?: readonly LensCatalogQuery[];
+  onSubmitQuery?(draft: LensQueryDraft): Promise<SubmitQueryResult>;
 }
 
 const EMPTY: LensDraft = { name: '', contour: null, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph', follow: false, visibility: 'private' };
@@ -61,7 +66,7 @@ const LAYOUTS: [Lens['layout'], string][] = [
  * contour's profile and the preview, and saves.
  */
 export function LensEditor(props: LensEditorProps) {
-  const { registry, initial, lenses, profile, preview, roles = {}, onRolesChange, onDraftChange, canShare = false, builtIn = false, onSave, onCancel, onDelete, limit = 1000 } = props;
+  const { registry, initial, lenses, profile, preview, roles = {}, onRolesChange, onDraftChange, canShare = false, builtIn = false, onSave, onCancel, onDelete, limit = 1000, workspaceId = '', catalogQueries, onSubmitQuery } = props;
   const id = useId();
   const [draft, setDraft] = useState<LensDraft>(() => ({ ...EMPTY, ...initial }));
   const set = (patch: Partial<LensDraft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -70,7 +75,8 @@ export function LensEditor(props: LensEditorProps) {
   }, [draft, onDraftChange]);
   const roleOf = (t: string) => roles[t] ?? registry.roleOf(t);
   const contourType = draft.contour?.type ?? null;
-  const ready = !!contourType && !!draft.name.trim();
+  const byQuery = draft.query !== undefined;
+  const ready = !!contourType && !!draft.name.trim() && (!byQuery || !!draft.query?.id);
 
   // Escape leaves the editor without saving.
   useEffect(() => {
@@ -124,15 +130,43 @@ export function LensEditor(props: LensEditorProps) {
             )}
           </Section>
 
-          <Section n={2} title="Facets" note="Node types linked to the contour that qualify it.">
-            {!draft.contour ? (
+          <Section n={2} title={byQuery ? 'Roots' : 'Facets'} note={byQuery ? 'The roots come from a catalog query; the contour filters narrow them.' : 'Node types linked to the contour that qualify it.'}>
+            {catalogQueries && (
+              <div className="lens-editor-roots" role="radiogroup" aria-label="Roots from">
+                <label className="lens-editor-check">
+                  <input type="radio" name={`${id}-roots`} checked={!byQuery} onChange={() => set({ query: undefined })} />
+                  Facets
+                </label>
+                <label className="lens-editor-check">
+                  <input type="radio" name={`${id}-roots`} checked={byQuery} onChange={() => set({ query: { id: '' }, facets: [] })} />
+                  A catalog query
+                </label>
+              </div>
+            )}
+            {byQuery && catalogQueries ? (
+              <LensQuerySource
+                workspaceId={workspaceId}
+                queries={catalogQueries}
+                value={draft.query?.id ? draft.query : undefined}
+                onChange={(query) => set({ query: query ?? { id: '' } })}
+                onSubmitQuery={onSubmitQuery}
+              />
+            ) : !draft.contour ? (
               <p className="lens-editor-hint">Choose a contour first.</p>
             ) : (
               <Facets registry={registry} contour={draft.contour.type} facets={draft.facets} match={draft.match} profile={profile} allow={(t) => roleOf(t) !== 'contour'} onChange={(facets) => set({ facets })} onMatch={(match) => set({ match })} />
             )}
           </Section>
 
-          <Section n={3} title="About">
+          <Section n={3} title="Quick filters" note="Attributes the smart bar offers to narrow this lens. None ticked: the contour's pick-list attributes.">
+            {!draft.contour ? (
+              <p className="lens-editor-hint">Choose a contour first.</p>
+            ) : (
+              <QuickFilterPicker registry={registry} type={draft.contour.type} value={draft.quickFilters ?? []} onChange={(quickFilters) => set({ quickFilters: quickFilters.length ? quickFilters : undefined })} />
+            )}
+          </Section>
+
+          <Section n={4} title="About">
             <div className="lens-editor-grid">
               <Field label="Name">{(fid) => <input id={fid} value={draft.name} onChange={(e) => set({ name: e.target.value })} required />}</Field>
               <Field label="Visible to">
@@ -151,7 +185,7 @@ export function LensEditor(props: LensEditorProps) {
             </div>
           </Section>
 
-          <Section n={4} title="When it is opened">
+          <Section n={5} title="When it is opened">
             <div className="lens-editor-grid">
               <Field label="Depth">
                 {(fid) => (
@@ -188,7 +222,7 @@ export function LensEditor(props: LensEditorProps) {
             </div>
           </Section>
 
-          <Section n={5} title="Node type roles" note="Which types can be a contour, a facet or both, for this session. The metamodel sets the starting role.">
+          <Section n={6} title="Node type roles" note="Which types can be a contour, a facet or both, for this session. The metamodel sets the starting role.">
             <RolesTable registry={registry} roles={roles} onChange={onRolesChange} />
           </Section>
         </div>
@@ -196,6 +230,26 @@ export function LensEditor(props: LensEditorProps) {
         <PreviewPanel draft={draft} preview={preview} limit={limit} />
       </div>
     </div>
+  );
+}
+
+function QuickFilterPicker({ registry, type, value, onChange }: { registry: MetamodelRegistry; type: string; value: readonly string[]; onChange(v: string[]): void }) {
+  // The name is what the smart bar's text searches already; a description is too long to filter by.
+  const defs = registry.attributesFor(type).filter((d) => d.name !== 'name' && d.name !== 'description');
+  return (
+    <fieldset className="lens-editor-quick">
+      <legend className="sr-only">Quick filter attributes</legend>
+      {defs.map((d) => (
+        <label key={d.name} className="lens-editor-check">
+          <input
+            type="checkbox"
+            checked={value.includes(d.name)}
+            onChange={(e) => onChange(e.target.checked ? [...value, d.name] : value.filter((n) => n !== d.name))}
+          />
+          {attributeLabel(d.name)}
+        </label>
+      ))}
+    </fieldset>
   );
 }
 

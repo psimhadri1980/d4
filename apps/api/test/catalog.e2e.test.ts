@@ -267,4 +267,44 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
       expect((await h.call('PUT', `/v1/catalog/${q.id}/draft`, author, { cypher: GOOD })).status).toBe(409);
     });
   });
+
+  describe('Graph Studio query lenses (D84)', () => {
+    let id: string;
+    const ROOTS = `MATCH (a:Application) WHERE a.workspaceId = $workspace AND a.deleted = false
+                   AND ($criticality IS NULL OR a.criticality = $criticality)
+                   RETURN a.id AS id, a.name AS name ORDER BY name`;
+    const lens = (params: Record<string, unknown> = {}) => ({ name: 'Apps by criticality', contour: { type: 'Application' }, query: { id, params }, quickFilters: ['hosting'] });
+
+    it('a lens cannot point at a query the caller cannot see', async () => {
+      const created = await h.call('POST', '/v1/catalog', author, { slug: 'lens-apps', title: 'Applications for a lens', tags: ['lens'] });
+      id = created.body.id;
+      await h.call('PUT', `/v1/catalog/${id}/draft`, author, { cypher: ROOTS, params: [{ name: 'criticality', type: 'enum', values: ['LOW', 'MEDIUM', 'HIGH', 'MISSION_CRITICAL'] }] });
+      expect((await h.call('POST', `/v1/workspaces/${ws()}/studio/lenses`, admin, { ...lens(), query: { id: 'nope' } })).status).toBe(404);
+    });
+
+    it('finds nothing until the query is published and granted', async () => {
+      await h.call('POST', `/v1/catalog/${id}/submit`, author);
+      const res = await h.call('POST', `/v1/workspaces/${ws()}/studio/search`, viewer, { types: ['Application'], query: { id, params: {} }, depth: 1 });
+      expect(res.status).toBe(404);
+    });
+
+    it('takes its roots from the query, bound parameters and all; the contour and name still narrow them', async () => {
+      await h.call('POST', `/v1/catalog/${id}/review`, steward, { decision: 'publish' });
+      await h.call('PUT', `/v1/catalog/${id}/grants`, steward, [{ principalType: 'role', principal: 'viewer' }]);
+      const saved = await h.call('POST', `/v1/workspaces/${ws()}/studio/lenses`, viewer, lens({ criticality: 'MISSION_CRITICAL' }));
+      expect(saved.status).toBe(201);
+      expect(saved.body).toMatchObject({ query: { id, params: { criticality: 'MISSION_CRITICAL' } }, quickFilters: ['hosting'] });
+
+      const search = (body: object) => h.call('POST', `/v1/workspaces/${ws()}/studio/search`, viewer, { types: ['Application'], depth: 1, ...body });
+      const critical = await search({ query: { id, params: { criticality: 'MISSION_CRITICAL' } } });
+      expect(critical.status).toBe(200);
+      expect(critical.body.roots.map((r: any) => r.attrs.name).sort()).toEqual(['Core Banking System', 'Credit Risk Engine']);
+      expect(critical.body.elements.length).toBeGreaterThan(2);
+      const named = await search({ query: { id, params: { criticality: 'MISSION_CRITICAL' } }, name: 'credit' });
+      expect(named.body.roots.map((r: any) => r.attrs.name)).toEqual(['Credit Risk Engine']);
+      expect((await search({ query: { id, params: { criticality: 'EXTREME' } } })).status).toBe(422);
+      // Runs are logged like any other catalog run.
+      expect((await h.call('GET', `/v1/catalog/${id}/executions`, steward)).body.length).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

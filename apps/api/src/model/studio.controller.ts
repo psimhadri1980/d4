@@ -1,10 +1,13 @@
 import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Put } from '@nestjs/common';
-import { ulid } from '@d4/core';
+import { DomainError, ulid } from '@d4/core';
+import { queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
 import { StudioLensStore, type StudioLensRow } from '@d4/db';
 import { StudioCountsBody, StudioLensBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
+import { CatalogService } from '../catalog/catalog.service';
+import { QueryRunService } from '../catalog/query-run.service';
 import { resolveView } from './view';
 import { Workspace, type OpenWorkspace } from '../workspaces/workspace.decorator';
 import { z } from '../http/zod';
@@ -16,15 +19,32 @@ export class StudioController {
   constructor(
     @Inject(StudioLensStore) private readonly lenses: StudioLensStore,
     @Inject(WorkspaceAccess) private readonly access: WorkspaceAccess,
+    @Inject(QueryRunService) private readonly runner: QueryRunService,
+    @Inject(CatalogService) private readonly catalog: CatalogService,
   ) {}
 
   @Post('search')
   @HttpCode(200)
-  async search(@Workspace('read') { queries, studio, scope }: OpenWorkspace, @ValidBody(StudioSearchBody) b: z.output<typeof StudioSearchBody>) {
+  async search(
+    @CurrentPrincipal() p: Principal,
+    @Workspace('read') { queries, studio, scope }: OpenWorkspace,
+    @ValidBody(StudioSearchBody) b: z.output<typeof StudioSearchBody>,
+  ) {
     const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
+    let ids = b.ids;
+    if (b.query) {
+      // A query lens (D84): the catalog run path checks the grant, the version and the parameters.
+      const run = await this.runner.run(p, scope.workspaceId, b.query.id, { params: b.query.params, version: b.query.version });
+      const found = queryRootIds(run);
+      if (!found.length && run.rows.length) throw new DomainError('VALIDATION', 'The lens query must return element ids in an `id` column, or element nodes');
+      if (found.length > STUDIO_MAX_ROOTS || run.truncated) return { roots: [], elements: [], relationships: [], tooLarge: true, nodeCount: found.length };
+      const within = b.ids ? new Set(b.ids) : null;
+      ids = within ? found.filter((id) => within.has(id)) : found;
+      if (!ids.length) return { roots: [], elements: [], relationships: [], tooLarge: false, nodeCount: 0 };
+    }
     return studio.search(
       scope.workspaceId,
-      { ids: b.ids, types: b.types, name: b.name, attributes: b.attributes, facets: b.facets, match: b.match },
+      { ids, types: b.types, name: b.name, attributes: b.attributes, facets: b.facets, match: b.match },
       { depth: b.depth, maxNodes: b.maxNodes, view },
     );
   }
@@ -90,6 +110,8 @@ export class StudioController {
     for (const t of [b.contour.type, ...b.facets.flatMap((f) => f.types)]) if (!registry.nodeType(t)) throw new RangeError(`Unknown element type '${t}'`);
     for (const f of b.facets) if (f.relationship && !registry.relationshipType(f.relationship)) throw new RangeError(`Unknown relationship type '${f.relationship}'`);
     if (b.visibility === 'workspace') await this.access.resolve(p, workspaceId, 'write');
+    // A query the caller cannot see does not exist for them.
+    if (b.query) await this.catalog.entry(p, b.query.id);
   }
 }
 

@@ -120,4 +120,55 @@ describe('LensEditor', () => {
     expect(button('Save as my lens')).toBeDefined();
     act(() => root.unmount());
   });
+
+  it('takes the roots from a catalog query: pick one, fill its parameters, choose quick filters, save', () => {
+    const saved: LensDraft[] = [];
+    const queries = [
+      { id: 'cq1', title: 'Apps by owner', state: 'published' as const, params: [{ name: 'owner', type: 'string' as const, label: 'Owner' }] },
+      { id: 'cq2', title: 'Waiting one', state: 'review' as const, params: [] },
+    ];
+    const initial: LensDraft = { name: 'By owner', contour: { type: 'Application', attributes: [] }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph' };
+    const root = render(<LensEditor registry={registry} initial={initial} lenses={[]} catalogQueries={queries} onSave={(d) => saved.push(d)} onCancel={() => {}} />);
+    click([...host.querySelectorAll('input[type="radio"]')].find((r) => r.parentElement!.textContent === 'A catalog query')!);
+    // No query chosen yet: nothing to save.
+    expect(button('Save').disabled).toBe(true);
+    expect(host.textContent).not.toContain('Write a new query');
+    set(field<HTMLSelectElement>('Catalog query'), 'cq2');
+    expect(host.querySelector('[role="status"]')!.textContent).toContain('Waiting for review');
+    set(field<HTMLSelectElement>('Catalog query'), 'cq1');
+    set(field<HTMLInputElement>('Owner'), 'cdo');
+    click([...host.querySelectorAll('.lens-editor-quick label')].find((l) => l.textContent === 'Hosting')!.querySelector('input')!);
+    click(button('Save'));
+    expect(saved[0]).toMatchObject({ query: { id: 'cq1', params: { owner: 'cdo' } }, quickFilters: ['hosting'], facets: [] });
+    act(() => root.unmount());
+  });
+
+  it('lets a Query Author write a new query, which is submitted for review and then chosen', async () => {
+    const submitted: unknown[] = [];
+    const initial: LensDraft = { name: 'Mine', contour: { type: 'Application', attributes: [] }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph', query: { id: '' } };
+    const drafts: LensDraft[] = [];
+    const root = render(
+      <LensEditor
+        registry={registry}
+        initial={initial}
+        lenses={[]}
+        catalogQueries={[]}
+        onDraftChange={(d) => drafts.push(d)}
+        onSubmitQuery={async (d) => {
+          submitted.push(d);
+          return submitted.length === 1 ? { errors: ['the query must not write'] } : { id: 'new1' };
+        }}
+        onSave={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    click(button('Write a new query…'));
+    set(field<HTMLInputElement>('Query title'), 'Owned apps');
+    await act(async () => button('Submit for review').click());
+    expect(host.querySelector('.lens-query-errors')!.textContent).toBe('the query must not write');
+    await act(async () => button('Submit for review').click());
+    expect(submitted.at(-1)).toMatchObject({ title: 'Owned apps', params: [{ name: 'text', type: 'string', default: '' }] });
+    expect(drafts.at(-1)!.query).toEqual({ id: 'new1', params: {} });
+    act(() => root.unmount());
+  });
 });

@@ -1354,3 +1354,44 @@
 .lens-roles td {
   height: 32px;
 }
+
+/* Query lenses (D84): roots from a catalog query, its parameters, and the quick filter list. */
+.lens-editor-roots,
+.lens-query-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.lens-query,
+.lens-query-writer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+}
+.lens-query-writer {
+  padding: 12px;
+  border: 1px solid var(--border-subtle, #e0e0e0);
+}
+.lens-query-writer textarea {
+  width: 100%;
+}
+.lens-query-errors {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--support-error, #da1e28);
+}
+.lens-editor-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.graph-search-params .param-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}

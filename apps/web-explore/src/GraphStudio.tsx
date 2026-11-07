@@ -1,8 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { lensSearch, type Lens, type LensAttributeFilter } from '@d4/core';
-import { type Element, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
+import { D4ApiError, type Element, type QueryParamDef, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
   GraphCanvas,
@@ -17,7 +17,10 @@ import {
   type GraphCanvasNode,
   type GraphCanvasView,
   type GraphSearchValue,
+  type LensCatalogQuery,
   type LensDraft,
+  type LensQueryDraft,
+  type SubmitQueryResult,
 } from '@d4/ui-kit';
 import { exploreApi, type LensInput } from './api';
 import { offeredOn, PREDEFINED_LENSES, type BuiltInLens } from './lenses';
@@ -95,6 +98,50 @@ export function GraphStudio() {
     const fits = (l: BuiltInLens) => offeredOn(l, reg.metamodel.id) && [l.contour.type, ...l.facets.flatMap((f) => f.types)].every((t) => reg.nodeType(t));
     return [...PREDEFINED_LENSES.filter(fits), ...((saved.data ?? []) as Lens[])];
   }, [registry.data, saved.data]);
+  // ── Query lenses (D84): the catalog list for the editor, and each used query's parameters ──
+  const [editingOpen, setEditingOpen] = useState(false);
+  const canAuthor = !!me.data?.roles.includes('query-author');
+  const catalog = useQuery({ queryKey: ['catalog', 'lens-queries'], enabled: editingOpen, queryFn: () => exploreApi.catalog() });
+  const [draftQueryId, setDraftQueryId] = useState<string | undefined>();
+  const queryIds = useMemo(() => [...new Set([...lenses.flatMap((l) => (l.query?.id ? [l.query.id] : [])), ...(draftQueryId ? [draftQueryId] : [])])], [lenses, draftQueryId]);
+  const queryDetails = useQueries({
+    queries: queryIds.map((id) => ({ queryKey: ['catalog-detail', id], queryFn: () => exploreApi.catalogQuery(id), retry: false })),
+  });
+  const paramsOf = useMemo(() => {
+    const m = new Map<string, QueryParamDef[]>();
+    queryDetails.forEach((q, i) => {
+      const d = q.data;
+      if (!d) return;
+      // The published version's parameters, else the one being written or reviewed.
+      const v = d.versions.find((x) => x.version === d.publishedVersion) ?? d.versions.at(-1);
+      m.set(queryIds[i]!, (v?.params ?? []) as QueryParamDef[]);
+    });
+    return m;
+  }, [queryDetails, queryIds]);
+  const catalogQueries = useMemo<LensCatalogQuery[] | undefined>(
+    () =>
+      catalog.data?.map((e) => ({
+        id: e.id,
+        title: e.title,
+        state: e.publishedVersion ? 'published' : e.openStatus === 'in_review' ? 'review' : 'draft',
+        params: paramsOf.get(e.id) ?? [],
+      })),
+    [catalog.data, paramsOf],
+  );
+  const submitQuery = async (d: LensQueryDraft): Promise<SubmitQueryResult> => {
+    try {
+      const slug = `${d.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'lens'}-${Date.now().toString(36)}`;
+      const entry = await exploreApi.createQuery({ slug, title: d.title, tags: ['lens'] });
+      const saved = await exploreApi.saveQueryDraft(entry.id, { cypher: d.cypher, params: d.params, resultShape: 'table' });
+      if (saved.checks.errors.length) return { errors: saved.checks.errors };
+      await exploreApi.submitQuery(entry.id);
+      await queryClient.invalidateQueries({ queryKey: ['catalog'] });
+      return { id: entry.id };
+    } catch (e) {
+      return { errors: e instanceof D4ApiError && e.issues.length ? e.issues : [(e as Error).message] };
+    }
+  };
+
   const lensOf = (v: { lensId: string } | null) => (v ? (lenses.find((l) => l.id === v.lensId) ?? null) : null);
 
   const focusId = step?.focusId;
@@ -109,7 +156,9 @@ export function GraphStudio() {
     queryFn: () => exploreApi.studioSearch(ws!, body!, vq),
   });
 
-  // "Not sure yet": how many roots each lens finds for the text being typed (LS-5).
+  // "Not sure yet": how many roots each lens finds for the text being typed (LS-5). Query lenses
+  // are left out: counting them would run their query on every pause in typing.
+  const countable = useMemo(() => lenses.filter((l) => !l.query), [lenses]);
   const [undecided, setUndecided] = useState('');
   const [countText, setCountText] = useState<string | null>(null);
   useEffect(() => {
@@ -117,13 +166,13 @@ export function GraphStudio() {
     return () => clearTimeout(t);
   }, [undecided]);
   const counts = useQuery({
-    queryKey: ['studio-counts', ws, countText, lenses.map((l) => l.id), vq],
-    enabled: !!ws && !!countText && lenses.length > 0,
-    queryFn: () => exploreApi.studioCounts(ws!, lenses.map((l) => lensSearch(l, [], countText!)), vq),
+    queryKey: ['studio-counts', ws, countText, countable.map((l) => l.id), vq],
+    enabled: !!ws && !!countText && countable.length > 0,
+    queryFn: () => exploreApi.studioCounts(ws!, countable.map((l) => lensSearch(l, [], countText!)), vq),
   });
   const lensCounts = useMemo(
-    () => (counts.data && countText ? new Map(lenses.map((l, i) => [l.id, counts.data.counts[i]!])) : undefined),
-    [counts.data, countText, lenses],
+    () => (counts.data && countText ? new Map(countable.map((l, i) => [l.id, counts.data.counts[i]!])) : undefined),
+    [counts.data, countText, countable],
   );
 
   // ── Lens editor ──
@@ -131,7 +180,11 @@ export function GraphStudio() {
   const [roles, setRoles] = useState<Record<string, NodeTypeRole>>({});
   const [draft, setDraft] = useState<LensDraft | null>(null);
   const [editorError, setEditorError] = useState<unknown>(null);
-  const onDraftChange = useCallback((d: LensDraft) => setDraft(d), []);
+  const onDraftChange = useCallback((d: LensDraft) => {
+    setDraft(d);
+    setDraftQueryId(d.query?.id || undefined);
+  }, []);
+  useEffect(() => setEditingOpen(!!editing), [editing]);
   const contourType = editing ? draft?.contour?.type : undefined;
   const profileAttributes = useMemo(() => (contourType && registry.data ? registry.data.attributesFor(contourType).map((d) => d.name).slice(0, 20) : []), [contourType, registry.data]);
   const profile = useQuery({
@@ -147,7 +200,7 @@ export function GraphStudio() {
   // The funnel: the contour alone, then one facet more at a time (LE-6).
   const preview = useQuery({
     queryKey: ['studio-preview', ws, previewOf?.contour, previewOf?.facets, previewOf?.match, vq],
-    enabled: !!ws && !!previewOf?.contour,
+    enabled: !!ws && !!previewOf?.contour && !previewOf.query,
     queryFn: async () => {
       const d = previewOf!;
       const lens = { ...d, id: '', contour: d.contour! } as Lens;
@@ -168,8 +221,10 @@ export function GraphStudio() {
       description: d.description || undefined,
       visibility: d.visibility ?? 'private',
       contour: { type: d.contour.type, attributes: d.contour.attributes ?? [] },
-      facets: d.facets,
+      facets: d.query ? [] : d.facets,
       match: d.match,
+      ...(d.query?.id && { query: { id: d.query.id, ...(d.query.version && { version: d.query.version }), params: d.query.params ?? {} } }),
+      ...(d.quickFilters?.length && { quickFilters: d.quickFilters }),
       depth: d.depth,
       layout: d.layout,
       view: d.view,
@@ -309,6 +364,9 @@ export function GraphStudio() {
           onSave={saveLens}
           onCancel={() => setEditing(null)}
           onDelete={editing.savedId ? () => void deleteLens(editing.savedId!) : undefined}
+          workspaceId={ws}
+          catalogQueries={catalogQueries ?? []}
+          onSubmitQuery={canAuthor ? submitQuery : undefined}
         />
       </>
     );
@@ -329,6 +387,11 @@ export function GraphStudio() {
           onEditLens={editLens}
           onNewLens={() => openEditor({ initial: null, builtIn: false })}
           onSaveAsLens={search ? saveAsLens : undefined}
+          queryParams={(id) => {
+            const q = lenses.find((l) => l.id === id)?.query;
+            return q ? paramsOf.get(q.id) : undefined;
+          }}
+          workspaceId={ws}
         />
       </div>
       {result.error && <ErrorBanner error={result.error} />}
@@ -402,7 +465,7 @@ function describe(lens: Lens | null, v: GraphSearchValue): string {
 function searchBody(lens: Lens | null, v: GraphSearchValue, focusId: string | undefined, depth: number) {
   const base = { depth, match: 'all' as const, maxNodes: 1000 };
   if (focusId) return { ...base, ids: [focusId] };
-  return { ...base, ...lensSearch(lens, v.filters, v.name) };
+  return { ...base, ...lensSearch(lens, v.filters, v.name, v.params) };
 }
 
 type StudioResult = Awaited<ReturnType<typeof exploreApi.studioSearch>>;

@@ -8,5 +8,6 @@ import { QueryRunService } from './query-run.service';
 @Module({
   controllers: [CatalogController, CatalogRunController],
   providers: [PackInstaller, CatalogService, QueryRunService],
+  exports: [CatalogService, QueryRunService],
 })
 export class CatalogModule {}

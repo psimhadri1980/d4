@@ -23,6 +23,19 @@ export interface LensFacet {
   attributes?: LensAttributeFilter[];
 }
 
+/**
+ * A catalog query a lens takes its roots from (D84), instead of its contour and facets. The query
+ * returns element ids in an `id` column, or element nodes.
+ */
+export interface LensQuery {
+  /** The catalog entry. */
+  id: string;
+  /** A fixed published version; the latest published one when absent. */
+  version?: number;
+  /** The lens's values for the query's parameters; the query's defaults apply to the rest. */
+  params?: Record<string, unknown>;
+}
+
 export interface Lens {
   id: string;
   name: string;
@@ -31,6 +44,10 @@ export interface Lens {
   facets: LensFacet[];
   /** Every facet must hold, or any one of them. */
   match: 'all' | 'any';
+  /** Roots from a catalog query (D84); the contour then only says what type they are. */
+  query?: LensQuery;
+  /** Attributes offered as quick filters; the contour's pick-list attributes when absent. */
+  quickFilters?: string[];
   /** How the result opens (LS-6); the user can still change them on the canvas. */
   depth: number;
   layout: 'hier' | 'flow' | 'layers' | 'radial' | 'force';
@@ -51,6 +68,7 @@ export interface QuickFilter extends LensAttributeFilter {
 
 /** "DataProduct · 1 facet": the lens picker's short note. */
 export function lensNote(lens: Lens): string {
+  if (lens.query) return `${lens.contour.type} · catalog query`;
   const n = lens.facets.length;
   return n ? `${lens.contour.type} · ${n} ${n === 1 ? 'facet' : 'facets'}` : lens.contour.type;
 }
@@ -58,6 +76,7 @@ export function lensNote(lens: Lens): string {
 /** The criteria a lens fixes, as locked chips ("DataStore from lens", "Linked to Application from lens"). */
 export function lensChips(lens: Lens): string[] {
   const attrs = (fs: LensAttributeFilter[] = []) => fs.map(describeFilter);
+  if (lens.query) return [`${lens.contour.type} from a catalog query`, ...attrs(lens.contour.attributes)];
   return [
     lens.contour.type,
     ...attrs(lens.contour.attributes),
@@ -79,14 +98,20 @@ export function describeFilter(f: LensAttributeFilter): string {
   return `${name} ${op}${v}`;
 }
 
-/** The Graph Studio search request for a lens (or none), the user's quick filters and name text. */
-export function lensSearch(lens: Lens | null, quick: readonly QuickFilter[], name: string) {
+/**
+ * The Graph Studio search request for a lens (or none), the user's quick filters and name text.
+ * `params` are the smart bar's values for a query lens's parameters, over the lens's own.
+ */
+export function lensSearch(lens: Lens | null, quick: readonly QuickFilter[], name: string, params?: Record<string, unknown>) {
   const strip = (q: QuickFilter): LensAttributeFilter => ({ attribute: q.attribute, op: q.op, value: q.value });
+  const q = lens?.query;
   return {
     types: lens ? [lens.contour.type] : undefined,
     name: name.trim() || undefined,
     attributes: [...(lens?.contour.attributes ?? []), ...quick.map(strip)],
-    facets: lens?.facets ?? [],
+    // A query lens's roots are the query's; its facets do not apply.
+    facets: q ? [] : (lens?.facets ?? []),
     match: lens?.match ?? ('all' as const),
+    ...(q && { query: { id: q.id, ...(q.version && { version: q.version }), params: { ...q.params, ...params } } }),
   };
 }
