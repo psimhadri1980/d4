@@ -466,6 +466,20 @@ test.describe('graph studio', () => {
       await expect(landscape.getByRole('list', { name: 'Legend' })).toHaveCount(0);
     });
 
+    test('a search phrase opens its lens on the named node, and Open as runs another lens from it (D92)', async ({ page }) => {
+      await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+      await nameBox(page).fill('reports for Swiss Residential Mortgage CL-1-1');
+      await search(page).getByRole('option', { name: /^reports for Swiss Residential Mortgage CL-1-1/ }).click();
+      await expect(search(page).getByLabel('Lens', { exact: true })).toHaveValue('credit-facility-to-report');
+      await result(page).getByRole('tab', { name: 'Graph' }).click();
+      await expect(result(page).locator('.graph-canvas-column')).toHaveText(['Start', 'Exposures', 'Reports']);
+      await card(page, 'Swiss Residential Mortgage CL-1-1').first().click();
+      const inspector = page.getByRole('complementary', { name: 'Swiss Residential Mortgage CL-1-1' });
+      await inspector.getByLabel('Open as').selectOption('credit-facility-breakdown');
+      await expect(result(page).getByRole('navigation', { name: 'Focus path' })).toContainText('Facility breakdown · Swiss Residential Mortgage CL-1-1');
+      await expect(result(page).locator('.graph-canvas-column')).toHaveCount(0);
+    });
+
     test('only credit lenses show on the credit workspace, and none on the default one', async ({ page }) => {
       await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
       const options = search(page).getByLabel('Lens', { exact: true }).locator('option');

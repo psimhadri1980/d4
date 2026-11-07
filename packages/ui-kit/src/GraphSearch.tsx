@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { describeFilter, lensChips, lensNote, type Lens, type QuickFilter } from '@d4/core';
+import { describeFilter, lensChips, lensNote, matchPhrases, type Lens, type PhraseMatch, type QuickFilter } from '@d4/core';
 import type { MetamodelRegistry } from '@d4/metamodel';
 import type { QueryParamDef } from '@d4/web-platform';
 import { ParamForm, paramsFromForm, type ParamValues } from './ParamForm';
@@ -40,7 +40,7 @@ export interface GraphSearchProps {
   workspaceId?: string;
 }
 
-type Option = { id: string; group: 'lens' | 'filter' | 'name'; text: string; note?: string; pick(): void };
+type Option = { id: string; group: 'phrase' | 'lens' | 'filter' | 'name'; text: string; note?: string; pick(): void };
 
 /** Suggestions offered per attribute at most, and in all. */
 const PER_ATTRIBUTE = 6;
@@ -98,7 +98,16 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
     return out;
   }, [registry, lens, draft.filters, text]);
 
+  // Search phrases (D92), only before a lens is chosen: a filled one opens its lens on the slot's text.
+  const phrases = lens ? [] : matchPhrases(lenses, draft.name);
   const options: Option[] = [
+    ...phrases.map((m, i): Option => ({
+      id: `phrase-${i}`,
+      group: 'phrase',
+      text: m.rest ? `${m.words} ${m.rest}` : m.phrase,
+      note: m.lens.name,
+      pick: () => pickPhrase(m),
+    })),
     ...(lens
       ? []
       : lenses
@@ -123,6 +132,15 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
     setDraft({ lensId, name: lens ? draft.name : '', filters: [] });
     setOpen(false);
     setActive(-1);
+  };
+  const pickPhrase = (m: PhraseMatch) => {
+    setActive(-1);
+    if (!m.rest) return setDraft({ ...draft, name: `${m.words} ` });
+    const v = { lensId: m.lens.id, name: m.rest, filters: [] };
+    setDraft(v);
+    setOpen(false);
+    setMissing(false);
+    onSearch(v);
   };
   const addFilter = (f: QuickFilter) => {
     setDraft({ ...draft, name: '', filters: [...draft.filters, f] });
@@ -156,7 +174,7 @@ export function GraphSearch({ registry, lenses, value = EMPTY_GRAPH_SEARCH, onSe
   };
 
   const listId = `${id}-list`;
-  const groupHead = { lens: 'Lenses that match', filter: lens ? `Filters in ${lens.name}` : 'Filters', name: '' };
+  const groupHead = { phrase: 'Search phrases', lens: 'Lenses that match', filter: lens ? `Filters in ${lens.name}` : 'Filters', name: '' };
   return (
     <form className="graph-search" role="search" aria-label="Find nodes" onSubmit={submit} noValidate>
       <div className="graph-search-row">

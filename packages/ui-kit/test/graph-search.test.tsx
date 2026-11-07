@@ -159,4 +159,19 @@ describe('GraphSearch (lens smart bar)', () => {
     });
     act(() => root.unmount());
   });
+
+  it('offers search phrases while no lens is chosen; a filled one runs its lens on the slot text (D92)', () => {
+    const ran: GraphSearchValue[] = [];
+    const phrased = [{ ...lenses[1]!, phrases: ['impact of $dataProduct'] }, lenses[0]!];
+    const root = render(<GraphSearch registry={registry} lenses={phrased} onSearch={(v) => ran.push(v)} />);
+    act(() => input().focus());
+    set(input(), 'imp');
+    expect(options()[0]).toBe('impact of $dataProductData products with a store');
+    pick('impact of');
+    expect(input().value).toBe('impact of ');
+    set(input(), 'impact of Payments');
+    pick('impact of Payments');
+    expect(ran).toEqual([{ lensId: 'held', name: 'Payments', filters: [] }]);
+    act(() => root.unmount());
+  });
 });

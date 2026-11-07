@@ -215,6 +215,8 @@ only `id` or `node` is today's anchors-only form.
   Connection is done (D89): shortest paths between the selection and a pinned node. Matrix is
   done (D90): the roots by the targets of one typed step, with gap rows and CSV export.
   Landscape is done (D91): a box per root holding what it contains, coloured by an enum attribute.
+  Search phrases and Open as are done (D92): a phrase is words then one slot at the end, and Open
+  as runs any lens on the selected node, which makes every lens a template.
 - **Slice 4:** Cypher projections; layers; the text form.
 - **Later:** time slice and diff, which need history in the graph.
 

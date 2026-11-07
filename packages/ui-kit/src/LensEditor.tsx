@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { describeFilter, lensChips, type Lens, type LensAttributeFilter, type LensFacet } from '@d4/core';
+import { describeFilter, LENS_PHRASE, lensChips, type Lens, type LensAttributeFilter, type LensFacet } from '@d4/core';
 import type { AttributeDef, MetamodelRegistry, NodeTypeRole } from '@d4/metamodel';
 import { attributeLabel } from './GraphInspector';
 import { LensTraversal } from './LensTraversal';
@@ -86,7 +86,10 @@ export function LensEditor(props: LensEditorProps) {
   const roleOf = (t: string) => roles[t] ?? registry.roleOf(t);
   const contourType = draft.contour?.type ?? null;
   const byQuery = draft.query !== undefined;
-  const ready = !!contourType && !!draft.name.trim() && (!byQuery || !!draft.query?.id);
+  // Phrases are edited as lines, so a new line can be typed before it holds a phrase (D92).
+  const [phraseText, setPhraseText] = useState(() => (initial?.phrases ?? []).join('\n'));
+  const badPhrases = (draft.phrases ?? []).filter((p) => !LENS_PHRASE.test(p));
+  const ready = !!contourType && !!draft.name.trim() && (!byQuery || !!draft.query?.id) && !badPhrases.length;
 
   // Escape leaves the editor without saving.
   useEffect(() => {
@@ -195,6 +198,30 @@ export function LensEditor(props: LensEditorProps) {
               </Field>
               <Field label="Description" wide>
                 {(fid) => <textarea id={fid} rows={2} value={draft.description ?? ''} onChange={(e) => set({ description: e.target.value })} />}
+              </Field>
+              <Field label="Search phrases" wide>
+                {(fid) => (
+                  <>
+                    <textarea
+                      id={fid}
+                      rows={2}
+                      value={phraseText}
+                      placeholder={`impact of $${(contourType ?? 'node').toLowerCase()}`}
+                      aria-describedby={`${fid}-hint`}
+                      aria-invalid={badPhrases.length > 0 || undefined}
+                      onChange={(e) => {
+                        setPhraseText(e.target.value);
+                        const lines = e.target.value.split('\n').map((l) => l.trim()).filter(Boolean);
+                        set({ phrases: lines.length ? lines : undefined });
+                      }}
+                    />
+                    <p id={`${fid}-hint`} className={badPhrases.length ? 'lens-editor-error' : 'lens-editor-hint'}>
+                      {badPhrases.length
+                        ? `End each phrase in one slot, such as $name: ${badPhrases.join(', ')}`
+                        : 'One per line, ending in a slot. Typing a phrase in the search box opens this lens, and the slot searches its names.'}
+                    </p>
+                  </>
+                )}
               </Field>
             </div>
           </Section>
