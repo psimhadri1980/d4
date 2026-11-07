@@ -12,7 +12,7 @@ import { applySchema, awaitSchemaOnline } from '@d4/cypher';
 import { processJob } from '@d4/jobs';
 import { JobQueue, S3ArtifactStore, startJobWorker } from '@d4/infra';
 import { createDb, LOCAL_TENANT, MetamodelStore, RoleStore, runMigrations, schema, seedLocal, TenantStore, UsageStore, WorkspaceStore, type DbHandle } from '@d4/db';
-import { loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
+import { loadMetamodelPack, loadStarterMetamodel, MetamodelRegistry } from '@d4/metamodel';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
 import { JWKS } from '../src/auth/identity';
@@ -302,8 +302,9 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
 
       const page = await call('POST', `${ws()}/studio/open`, token, { group, disclosure: { perNodeCap: 1 }, shown: [root] });
       expect(page.status).toBe(200);
-      expect(page.body!['elements'].map((e: any) => e.attrs.name)).toEqual(['Lake']);
-      expect(page.body!['group']).toMatchObject({ count: 1, offset: 1 });
+      // A page never leaves a group of one: the last member comes along.
+      expect(page.body!['elements'].map((e: any) => e.attrs.name).sort()).toEqual(['Lake', 'MDM Hub']);
+      expect(page.body!['group']).toMatchObject({ count: 0, offset: 2 });
       expect(page.body!['groups'].every((g: any) => g.level === 2)).toBe(true);
 
       const open = await call('POST', `${ws()}/studio/search`, token, { ...base, disclosure: {} });
@@ -314,6 +315,16 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const tree = await call('POST', `${ws()}/studio/search`, token, { ...base, steps: [{ kind: 'containment', direction: 'down', repeat: true }], disclosure: {} });
       expect(tree.body).toMatchObject({ elements: [], groups: [], truncated: false });
       expect((await call('POST', `${ws()}/studio/search`, token, { ...base, steps: [{ relationships: ['NOPE'], direction: 'down' }], disclosure: {} })).status).toBe(400);
+
+      // A group of one past the last level opened is drawn as its member.
+      const add = async (type: string, name: string) => (await call('POST', `${ws()}/elements`, token, { type, attrs: { name } })).body!['id'] as string;
+      const [product, store, set] = [await add('DataProduct', 'Solo product'), await add('DataStore', 'Solo store'), await add('DataSet', 'Solo set')];
+      await call('POST', `${ws()}/relationships`, token, { type: 'HOLDS', fromId: store, toId: product, attrs: { role: 'MASTER' } });
+      await call('POST', `${ws()}/relationships`, token, { type: 'STORED_IN', fromId: set, toId: store });
+      const chain = await call('POST', `${ws()}/studio/search`, token, { types: ['DataProduct'], name: 'Solo product', disclosure: {} });
+      expect(chain.body!['levels']).toEqual({ [product]: 0, [store]: 1, [set]: 2 });
+      expect(chain.body!['relationships']).toHaveLength(2);
+      expect(chain.body!['groups']).toEqual([]);
     });
 
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
@@ -724,7 +735,7 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('GET', '/v1/admin/metamodel-packs', admin)).body!.map((p: any) => p.id)).toEqual(['d4-starter', 'd4-banking', 'd4-insurance', 'd4-credit-graph']);
       expect((await call('POST', '/v1/admin/workspaces', admin, { slug: 'x-pack', name: 'x', metamodel: 'd4-unknown' })).status).toBe(400);
       const created = await call('POST', '/v1/admin/workspaces', admin, { slug: 'bank-lab', name: 'Bank lab', metamodel: 'd4-banking' });
-      expect(created).toMatchObject({ status: 201, body: { metamodel: 'd4-banking@0.1.0' } });
+      expect(created).toMatchObject({ status: 201, body: { metamodel: 'd4-banking@0.1.1' } });
       const bank = `/v1/workspaces/${created.body!['id']}`;
 
       const report = (await call('POST', `${bank}/elements`, admin, { type: 'RegulatoryReport', attrs: { name: 'COREP own funds', regime: 'BASEL_III', frequency: 'QUARTERLY', templateCode: 'C 01.00' } })).body!;
@@ -740,7 +751,35 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       const target = (await call('POST', `${ws()}/elements`, admin, { type: 'DataProduct', attrs: { name: 'Pack-test product' } })).body!;
       const holds = (await call('POST', `${ws()}/relationships`, admin, { type: 'HOLDS', fromId: store['id'], toId: target['id'], attrs: { role: 'REPLICA' } })).body!;
       expect((await call('GET', `${ws()}/relationships/${holds['id']}`, admin)).status).toBe(200);
-      expect((await call('GET', '/v1/admin/workspaces', admin)).body!.find((w: any) => w.slug === 'bank-lab')).toMatchObject({ metamodel: 'd4-banking@0.1.0' });
+      expect((await call('GET', '/v1/admin/workspaces', admin)).body!.find((w: any) => w.slug === 'bank-lab')).toMatchObject({ metamodel: 'd4-banking@0.1.1' });
+    });
+
+    it('upgrades a workspace to the newest shipped version of its metamodel, only when existing data stays valid', async () => {
+      const admin = await sign('tenant-admin', ['admin']);
+      const shipped = loadMetamodelPack('d4-credit-graph');
+      // An older version without lens kinds, as workspaces created before D86 have.
+      const older = { ...structuredClone(shipped), version: '0.0.9', relationshipTypes: shipped.relationshipTypes.map((r) => ({ ...r, kind: undefined, forward: undefined })) };
+      const mm = new MetamodelStore(handle.db);
+      const olderId = await mm.register(LOCAL_TENANT, older, 'test');
+      const w = await new WorkspaceStore(handle.db).create(LOCAL_TENANT, { slug: 'credit-old', name: 'Credit (old)', metamodelId: olderId });
+      const path = `/v1/admin/workspaces/${w.id}/metamodel-upgrade`;
+
+      expect((await call('GET', path, await sign('plain-viewer', ['viewer']))).status).toBe(403);
+      expect((await call('GET', path, admin)).body).toEqual({ from: 'd4-credit-graph@0.0.9', to: `d4-credit-graph@${shipped.version}`, issues: [] });
+      expect((await call('POST', path, admin)).body).toMatchObject({ id: w.id, metamodel: `d4-credit-graph@${shipped.version}` });
+      expect((await call('GET', `/v1/workspaces/${w.id}/metamodel`, admin)).body).toMatchObject({ version: shipped.version });
+      // Already on the newest version: nothing to do.
+      expect((await call('GET', path, admin)).body).toMatchObject({ to: null, issues: [] });
+      expect((await call('POST', path, admin)).status).toBe(409);
+
+      // An older version with a value the shipped one dropped cannot move without a migration.
+      const [enumName, values] = Object.entries(shipped.enums)[0]!;
+      const wider = { ...structuredClone(shipped), version: '0.0.8', enums: { ...shipped.enums, [enumName]: [...values, 'RETIRED_VALUE'] } };
+      const blocked = await new WorkspaceStore(handle.db).create(LOCAL_TENANT, { slug: 'credit-blocked', name: 'Credit (blocked)', metamodelId: await mm.register(LOCAL_TENANT, wider, 'test') });
+      const check = await call('GET', `/v1/admin/workspaces/${blocked.id}/metamodel-upgrade`, admin);
+      expect(check.body!['issues']).toEqual([`enum '${enumName}' drops value 'RETIRED_VALUE'`]);
+      const refused = await call('POST', `/v1/admin/workspaces/${blocked.id}/metamodel-upgrade`, admin);
+      expect(refused).toMatchObject({ status: 409, body: { message: expect.stringContaining('RETIRED_VALUE') } });
     });
 
     it('lets admins manage connectors: validated config and mapping, write-only secret, sync jobs', async () => {

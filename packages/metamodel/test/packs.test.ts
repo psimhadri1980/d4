@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composePack, describeMetamodelPacks, loadMetamodelPack, loadStarterMetamodel, MetamodelError, MetamodelRegistry, parsePack } from '../src';
+import { composePack, describeMetamodelPacks, loadMetamodelPack, loadStarterMetamodel, type Metamodel, MetamodelError, MetamodelRegistry, parsePack, upgradeIssues } from '../src';
 
 describe('industry packs', () => {
   it('compose into complete, valid metamodels with their own id', () => {
@@ -64,5 +64,53 @@ describe('lens semantics (D85)', () => {
     expect(reg.relationshipsOfKind('containment')).toContain('MEMBER_OF_GROUP');
     expect(reg.importanceOf('Application')).toEqual({ attribute: 'criticality', order: ['MISSION_CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] });
     expect(reg.importanceOf('Covenant')).toBeUndefined();
+  });
+});
+
+describe('workspace upgrades', () => {
+  const next = (mm: Metamodel, change: (m: Metamodel) => void = () => {}) => {
+    const m = structuredClone(mm);
+    m.version = '9.9.9';
+    change(m);
+    return m;
+  };
+  const credit = loadMetamodelPack('d4-credit-graph');
+
+  it('allow additions and lens semantics', () => {
+    expect(
+      upgradeIssues(
+        credit,
+        next(credit, (m) => {
+          m.nodeTypes.push({ name: 'Extra', layer: m.layers[0]!, attributes: [{ name: 'note', type: 'string', required: false }], internal: false });
+          m.relationshipTypes[0]!.kind = 'association';
+          m.relationshipTypes[0]!.attributes.push({ name: 'since', type: 'date', required: false });
+          m.enums[Object.keys(m.enums)[0]!]!.push('NEW_VALUE');
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('refuse what existing data relies on', () => {
+    const rel = credit.relationshipTypes.find((r) => !r.from.includes('*'))!;
+    const [enumName, values] = Object.entries(credit.enums)[0]!;
+    const issues = upgradeIssues(
+      credit,
+      next(credit, (m) => {
+        m.nodeTypes = m.nodeTypes.filter((t) => t.name !== 'Covenant');
+        m.relationshipTypes.find((r) => r.name === rel.name)!.from = rel.from.slice(1).length ? rel.from.slice(1) : ['Covenant'];
+        m.enums[enumName] = values.slice(1);
+        m.nodeTypes.find((t) => t.name === 'Client')!.attributes.push({ name: 'mustHave', type: 'string', required: true });
+      }),
+    );
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        "node type 'Covenant' is removed",
+        `relationship type '${rel.name}' no longer allows '${rel.from[0]}' as 'from'`,
+        `enum '${enumName}' drops value '${values[0]}'`,
+        "node type 'Client': new attribute 'mustHave' is required",
+      ]),
+    );
+    expect(upgradeIssues(credit, credit)).toEqual(['already on d4-credit-graph@' + credit.version]);
+    expect(upgradeIssues(credit, loadMetamodelPack('d4-banking'))[0]).toMatch(/is not a version of/);
   });
 });

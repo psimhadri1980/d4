@@ -18,6 +18,8 @@ export interface GraphCanvasNode {
   changedAt?: string;
   /** A group of folded links (D85): how many nodes it holds. It opens on a click. */
   group?: number;
+  /** Kept on the canvas by the user through drills and new searches. */
+  pinned?: boolean;
 }
 
 /** A relationship; the arrow points from `from` to `to` (CT-2). */

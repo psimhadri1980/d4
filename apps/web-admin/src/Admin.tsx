@@ -64,6 +64,12 @@ function Workspaces() {
   const slugId = useId();
   const packId = useId();
   const chosenPack = packs.data?.find((p) => p.id === pack);
+  // The newer version a workspace's metamodel ships in, if any (`name@version` against the packs).
+  const newerVersion = (label: string | null) => {
+    const [id, version] = (label ?? '').split('@');
+    const shipped = packs.data?.find((p) => p.id === id)?.version;
+    return shipped && shipped !== version ? shipped : undefined;
+  };
 
   const act = async (fn: () => Promise<unknown>) => {
     setError(null);
@@ -134,6 +140,18 @@ function Workspaces() {
                 <button className="button small ghost" onClick={() => setRenaming({ id: w.id, name: w.name })}>
                   Rename
                 </button>
+                {newerVersion(w.metamodel) && (
+                  <button
+                    className="button small ghost"
+                    onClick={() => {
+                      if (window.confirm(`Upgrade "${w.name}" to ${w.metamodel?.split('@')[0]}@${newerVersion(w.metamodel)}? It is refused if existing data would need migrating.`)) {
+                        void act(() => adminApi.upgradeMetamodel(w.id));
+                      }
+                    }}
+                  >
+                    Upgrade to {newerVersion(w.metamodel)}
+                  </button>
+                )}
                 <button
                   className="button small ghost"
                   onClick={() => {
