@@ -222,7 +222,13 @@ export function GraphCanvasGraph(props: Props) {
     report.current = { timer: setTimeout(() => ((report.current = null), send()), 250), send };
   };
   useEffect(() => () => flushReport(), []);
-  useEffect(reportViewport, [zoom]);
+  // Not the zoom it mounts with: that is no view anyone settled on, and reported, the host would
+  // restore it over the fit that follows, which reports again, and so on.
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (mounted.current) reportViewport();
+    mounted.current = true;
+  }, [zoom]);
 
   // ── Dragging ──────────────────────────────────────────────────────────
   const roots = new Set(rootIds);
