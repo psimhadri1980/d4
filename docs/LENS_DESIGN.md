@@ -166,6 +166,27 @@ and cannot be expanded past.
    text form modelled on dbt selectors (`2+Application+3 via dependency`) that compiles to the
    same spec.
 
+6. **Cypher (Query Authors):** the expert rung. The author writes Cypher in the lens editor, and it
+   follows the catalog path of D7 and D84:
+   1. **Write:** the Cypher, the parameters it declares, and the role it plays in the lens, either
+      **Anchors** or **Projection** (table below). The editor offers a starter for each role, and
+      `$workspace` is supplied.
+   2. **Check as you type:** the `@d4/cypher` checks run on the draft, so a write clause, a
+      missing `$workspace` filter or a missing `node`/`id` column shows straight away.
+   3. **Test run:** uses the catalog's existing test run for drafts. The author can run the draft,
+      and a steward can run a version in review. Runs are checked first and limited to 100 rows
+      and 10 s. The result is drawn in the lens preview through the disclosure engine, so the
+      author sees the real first screen. The steward reviews with the same preview.
+   4. **Submit for review:** a steward reviews the Cypher, and the role and columns it declares,
+      in the catalog. Until a version is published, the lens works only for its author, through
+      the test run and under its limits, with a "draft query" banner. Everyone else sees it as
+      waiting for review.
+   5. **Publish:** the lens points at a published version. A new edit starts a new draft version
+      and leaves the published one running.
+
+   Anyone else uses a Cypher lens as they would any lens. They can fill in its parameters, use its
+   quick filters and use every verb, but they never see or change the Cypher.
+
 **Cypher lenses** (D84) feed the same spec. The usual form is a reviewed query that supplies the
 anchors. A query may also return a projection, which the `@d4/cypher` check verifies when it is
 submitted:
