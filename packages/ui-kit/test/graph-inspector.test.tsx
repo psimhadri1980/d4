@@ -63,4 +63,17 @@ describe('GraphInspector', () => {
     expect(attributeLabel('targetDate')).toBe('Target date');
     expect(attributeLabel('piiType')).toBe('Pii type');
   });
+
+  it('opens the selected node as another lens (D92)', () => {
+    const opened: string[][] = [];
+    const root = render(<GraphInspector registry={registry} node={nodes[0]!} nodes={nodes} edges={edges} openAs={[{ id: 'goals', name: 'Goal tree' }]} onOpenAs={(id, lens) => opened.push([id, lens])} />);
+    const select = host.querySelector<HTMLSelectElement>('.graph-inspector-open-as select')!;
+    expect([...select.options].map((o) => o.text)).toEqual(['Choose a lens…', 'Goal tree']);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(select, 'goals');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(opened).toEqual([['g', 'goals']]);
+    act(() => root.unmount());
+  });
 });

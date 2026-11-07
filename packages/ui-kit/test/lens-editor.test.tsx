@@ -121,6 +121,25 @@ describe('LensEditor', () => {
     act(() => root.unmount());
   });
 
+  it('takes search phrases one per line, and will not save one without a slot at the end (D92)', () => {
+    const saved: LensDraft[] = [];
+    const initial: LensDraft = { name: 'Impact', contour: { type: 'Application', attributes: [] }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph' };
+    const root = render(<LensEditor registry={registry} initial={initial} lenses={[]} onSave={(d) => saved.push(d)} onCancel={() => {}} />);
+    const phrases = field<HTMLTextAreaElement>('Search phrases');
+    const type = (v: string) =>
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(phrases, v);
+        phrases.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    type('impact of $application\nimpact of');
+    expect(button('Save').disabled).toBe(true);
+    expect(host.textContent).toContain('End each phrase in one slot, such as $name: impact of');
+    type('impact of $application\n\nwhat uses $application');
+    click(button('Save'));
+    expect(saved[0]!.phrases).toEqual(['impact of $application', 'what uses $application']);
+    act(() => root.unmount());
+  });
+
   it('takes the roots from a catalog query: pick one, fill its parameters, choose quick filters, save', () => {
     const saved: LensDraft[] = [];
     const queries = [

@@ -22,6 +22,9 @@ export interface GraphInspectorProps {
   /** Pinned nodes to offer "How is it connected to…?" for (D89), the selected one left out. */
   connectTo?: readonly { id: string; name: string }[];
   onConnect?(fromId: string, toId: string): void;
+  /** Lenses that start from a node of this type, for "Open as" (D92): runs one with this node as its root. */
+  openAs?: readonly { id: string; name: string }[];
+  onOpenAs?(id: string, lensId: string): void;
 }
 
 /**
@@ -29,8 +32,9 @@ export interface GraphInspectorProps {
  * type and layer, every attribute its type defines (a dash when empty) plus any others it carries,
  * and its direct relationships in the result.
  */
-export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo, onFocus, onPin, connectTo = [], onConnect }: GraphInspectorProps) {
+export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo, onFocus, onPin, connectTo = [], onConnect, openAs = [], onOpenAs }: GraphInspectorProps) {
   const headingId = useId();
+  const openAsId = useId();
   if (!node) {
     return (
       <aside className="graph-inspector" aria-label="Inspector">
@@ -77,6 +81,19 @@ export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSel
                   How is it connected to {t.name}?
                 </button>
               ))}
+          {onOpenAs && openAs.length > 0 && (
+            <span className="graph-inspector-open-as">
+              <label htmlFor={openAsId}>Open as</label>
+              <select id={openAsId} value="" onChange={(e) => e.target.value && onOpenAs(node.id, e.target.value)}>
+                <option value="">Choose a lens…</option>
+                {openAs.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+          )}
           {editTo && <Link to={editTo}>Edit in the element editor</Link>}
         </div>
       </header>

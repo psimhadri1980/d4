@@ -289,6 +289,7 @@ export function GraphStudio() {
       match: d.match,
       ...(d.query?.id && { query: { id: d.query.id, ...(d.query.version && { version: d.query.version }), params: d.query.params ?? {} } }),
       ...(d.quickFilters?.length && { quickFilters: d.quickFilters }),
+      ...(d.phrases?.length && { phrases: d.phrases }),
       ...(d.steps?.length && { steps: d.steps }),
       ...(d.shape && { shape: d.shape }),
       ...(d.disclosure && { disclosure: d.disclosure }),
@@ -362,7 +363,8 @@ export function GraphStudio() {
   if (!registry.data) return <div className="splash">Loading metamodel…</div>;
   const reg = registry.data;
 
-  const run = (v: GraphSearchValue, known?: Lens) => {
+  /** With `focus`, the lens runs from that one node, as "Open as" does (D92). */
+  const run = (v: GraphSearchValue, known?: Lens, focus?: { id: string; name: string }) => {
     const lens = known ?? lensOf(v);
     setSearch(v);
     // A lens opens with its own depth, layout and view (LS-6).
@@ -373,7 +375,8 @@ export function GraphStudio() {
       setFollow(!!lens.follow);
     }
     // A new Search starts a new focus path (DD-3).
-    setSteps([{ label: describe(lens, v), selectedId: null, view: lens?.view ?? carried(step?.view) }]);
+    const view = lens?.view ?? carried(step?.view);
+    setSteps([focus ? { label: `${lens?.name ?? ''} · ${focus.name}`, focusId: focus.id, selectedId: focus.id, view } : { label: describe(lens, v), selectedId: null, view }]);
     if (lens?.shape !== 'flow') setImpactOpen(false);
     setMatrixOpen(true);
   };
@@ -434,6 +437,11 @@ export function GraphStudio() {
   };
 
   const selected = step?.selectedId ? (graph?.byId.get(step.selectedId) ?? null) : null;
+  // "Open as" (D92): every other lens whose contour the selected node is, a catalog query's aside.
+  const openAs = selected
+    ? lenses.filter((l) => !l.query && l.id !== search?.lensId && reg.lineage(selected.type).includes(l.contour.type)).map((l) => ({ id: l.id, name: l.name }))
+    : [];
+  const openAsLens = (id: string, lensId: string) => run({ lensId, name: '', filters: [] }, undefined, { id, name: graph?.byId.get(id)?.name ?? id });
   const tooLarge = result.data?.tooLarge === true;
   const emptyMessage = !search ? (
     <p>Find a node to start.</p>
@@ -569,6 +577,8 @@ export function GraphStudio() {
           onPin={togglePin}
           connectTo={pins.map((p) => ({ id: p.element.id, name: String(p.element.attrs['name'] ?? p.element.id) }))}
           onConnect={connectNodes}
+          openAs={openAs}
+          onOpenAs={openAsLens}
           editTo={selected ? `/w/${ws}/e/${selected.id}/edit` : undefined}
         />
         {connect && (

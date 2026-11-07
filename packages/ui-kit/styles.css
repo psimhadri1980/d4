@@ -646,6 +646,12 @@
   align-items: center;
   gap: 12px;
 }
+.graph-inspector-open-as {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
 .graph-canvas-filter {
   position: relative;
 }
@@ -965,6 +971,11 @@
   margin: 0;
   font-size: 12px;
   color: var(--text-secondary, #525252);
+}
+.lens-editor-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
 }
 .lens-editor-grid {
   display: grid;
