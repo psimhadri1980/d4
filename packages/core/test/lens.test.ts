@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, stepAt, type Lens } from '../src';
+import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, LENS_PHRASE, matchPhrases, stepAt, type Lens } from '../src';
 
 const mastered: Lens = {
   id: 'mastered',
@@ -86,5 +86,19 @@ describe('flow columns (D88)', () => {
   it('names a column by its stage, else its types, else its level', () => {
     const steps = [{ direction: 'down' as const, stage: 'Apps' }, { direction: 'down' as const, types: ['DataSet', 'DataStore'] }, { direction: 'down' as const }];
     expect([0, 1, 2, 3, 4].map((l) => flowStage(steps, l))).toEqual(['Start', 'Apps', 'DataSet or DataStore', 'Level 3', 'Level 4']);
+  });
+});
+
+describe('search phrases (D92)', () => {
+  const impact: Lens = { ...mastered, id: 'impact', phrases: ['impact of $application', 'what breaks if $application goes', 'bad phrase'] };
+  it('end in one slot', () => {
+    expect(['impact of $application', 'lineage of $report'].every((p) => LENS_PHRASE.test(p))).toBe(true);
+    expect(['$application', 'impact of', 'impact of $a and $b', 'impact $of x'].some((p) => LENS_PHRASE.test(p))).toBe(false);
+  });
+  it('fill the slot with what follows their words, and offer themselves while the words are typed', () => {
+    expect(matchPhrases([impact], 'Impact of  Pay').map((m) => [m.phrase, m.rest])).toEqual([['impact of $application', 'Pay']]);
+    expect(matchPhrases([impact], 'imp').map((m) => [m.words, m.rest])).toEqual([['impact of', '']]);
+    expect(matchPhrases([impact], 'i')).toEqual([]);
+    expect(matchPhrases([impact], 'payments')).toEqual([]);
   });
 });

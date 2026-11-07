@@ -422,6 +422,15 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/studio/lenses`, token, { ...landscape, name: 'Landscape', steps: [{ kind: 'containment', direction: 'down' }] })).status).toBe(201);
     });
 
+    it('keeps a lens\'s search phrases, each ending in one slot (D92)', async () => {
+      const lens = { name: 'Phrased', contour: { type: 'DataProduct' }, phrases: ['lineage of $dataProduct'] };
+      const saved = await call('POST', `${ws()}/studio/lenses`, token, lens);
+      expect(saved.status).toBe(201);
+      expect(saved.body).toMatchObject({ phrases: ['lineage of $dataProduct'] });
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, phrases: ['lineage of'] })).status).toBe(400);
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, phrases: ['$a then $b'] })).status).toBe(400);
+    });
+
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
       const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
       const created = await call('POST', `${ws()}/studio/lenses`, token, lens);

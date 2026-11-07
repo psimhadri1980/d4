@@ -88,6 +88,8 @@ export interface Lens {
   query?: LensQuery;
   /** Attributes offered as quick filters; the contour's pick-list attributes when absent. */
   quickFilters?: string[];
+  /** Search phrases that open it (D92), each ending in one slot: "impact of $application". */
+  phrases?: string[];
   /** The traversal (D85); absent means any relationship, both ways, to `depth`. */
   steps?: LensStep[];
   shape?: LensShape;
@@ -108,6 +110,39 @@ export interface Lens {
 export interface QuickFilter extends LensAttributeFilter {
   /** As shown on the chip, e.g. "Lifecycle LIVE". */
   label: string;
+}
+
+/** A phrase is words then one slot at the end, such as "impact of $application" (D92). */
+export const LENS_PHRASE = /^[^$]*[^\s$][^$]*\s\$[A-Za-z][A-Za-z0-9]*$/;
+
+export interface PhraseMatch {
+  lens: Lens;
+  phrase: string;
+  /** The words before the slot, as the phrase writes them. */
+  words: string;
+  /** What fills the slot: a name to search the lens's roots by; '' while it is still being typed. */
+  rest: string;
+}
+
+/**
+ * The lens phrases that fit the typed text (D92): text that starts with a phrase's words fills its
+ * slot with the rest ("impact of pay" fills "impact of $application" with "pay"); text that is the
+ * start of the words offers the phrase unfilled.
+ */
+export function matchPhrases(lenses: readonly Lens[], typed: string): PhraseMatch[] {
+  const t = typed.trimStart().replace(/\s+/g, ' ');
+  const lower = t.toLowerCase();
+  if (lower.trim().length < 2) return [];
+  const out: PhraseMatch[] = [];
+  for (const lens of lenses)
+    for (const phrase of lens.phrases ?? []) {
+      if (!LENS_PHRASE.test(phrase)) continue;
+      const words = phrase.slice(0, phrase.lastIndexOf('$')).trim().replace(/\s+/g, ' ');
+      const w = words.toLowerCase();
+      if (lower.startsWith(`${w} `)) out.push({ lens, phrase, words, rest: t.slice(w.length).trim() });
+      else if (w.startsWith(lower.trim())) out.push({ lens, phrase, words, rest: '' });
+    }
+  return out;
 }
 
 /** "DataProduct · 1 facet": the lens picker's short note. */

@@ -1625,6 +1625,16 @@
             "maxItems": 20,
             "description": "Attributes offered as quick filters"
           },
+          "phrases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "pattern": "^[^$]*[^\\s$][^$]*\\s\\$[A-Za-z][A-Za-z0-9]*$"
+            },
+            "maxItems": 10,
+            "description": "Search phrases that open the lens (D92)"
+          },
           "depth": {
             "type": "integer",
             "minimum": 1,
