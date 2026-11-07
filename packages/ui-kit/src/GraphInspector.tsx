@@ -19,6 +19,9 @@ export interface GraphInspectorProps {
   onFocus?(id: string): void;
   /** Keep this node on the canvas, or let it go (D85). */
   onPin?(id: string): void;
+  /** Pinned nodes to offer "How is it connected to…?" for (D89), the selected one left out. */
+  connectTo?: readonly { id: string; name: string }[];
+  onConnect?(fromId: string, toId: string): void;
 }
 
 /**
@@ -26,7 +29,7 @@ export interface GraphInspectorProps {
  * type and layer, every attribute its type defines (a dash when empty) plus any others it carries,
  * and its direct relationships in the result.
  */
-export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo, onFocus, onPin }: GraphInspectorProps) {
+export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSelect, editTo, onFocus, onPin, connectTo = [], onConnect }: GraphInspectorProps) {
   const headingId = useId();
   if (!node) {
     return (
@@ -66,6 +69,14 @@ export function GraphInspector({ registry, node, attrs = {}, nodes, edges, onSel
               {node.pinned ? 'Unpin' : 'Pin'}
             </button>
           )}
+          {onConnect &&
+            connectTo
+              .filter((t) => t.id !== node.id)
+              .map((t) => (
+                <button key={t.id} type="button" className="button small ghost" onClick={() => onConnect(node.id, t.id)}>
+                  How is it connected to {t.name}?
+                </button>
+              ))}
           {editTo && <Link to={editTo}>Edit in the element editor</Link>}
         </div>
       </header>

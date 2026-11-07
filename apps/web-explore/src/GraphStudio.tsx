@@ -23,6 +23,7 @@ import {
   type SubmitQueryResult,
 } from '@d4/ui-kit';
 import { exploreApi, type LensInput } from './api';
+import { Connections } from './Connections';
 import { ImpactTable } from './ImpactTable';
 import { offeredOn, PREDEFINED_LENSES, type BuiltInLens } from './lenses';
 
@@ -43,6 +44,8 @@ interface Step {
   viewport?: CanvasViewport;
   /** Group pages opened on this step, in order (D85). */
   pages?: GroupPage[];
+  /** A connection step (D89): the paths between two nodes, and the one chosen (all when absent). */
+  connect?: { from: string; to: string; chosen?: number };
 }
 
 type GroupPage = Awaited<ReturnType<typeof exploreApi.studioOpen>>;
@@ -163,8 +166,16 @@ export function GraphStudio() {
     enabled: !!ws && !!body,
     queryFn: () => exploreApi.studioSearch(ws!, body!, vq),
   });
+  // A connection step shows the paths between two nodes instead of the search (D89).
+  const connect = step?.connect;
+  const paths = useQuery({
+    queryKey: ['studio-paths', ws, connect?.from, connect?.to, vq],
+    enabled: !!ws && !!connect,
+    queryFn: () => exploreApi.studioPaths(ws!, { from: connect!.from, to: connect!.to }, vq),
+  });
+  const base = useMemo(() => (connect ? (paths.data ? pathResult(paths.data, connect) : undefined) : result.data), [connect, paths.data, result.data]);
   // The search's result with the groups opened on this step merged in (D85).
-  const shownResult = useMemo(() => (result.data ? withPages(result.data, step?.pages ?? NO_PAGES) : undefined), [result.data, step?.pages]);
+  const shownResult = useMemo(() => (base ? withPages(base, step?.pages ?? NO_PAGES) : undefined), [base, step?.pages]);
   const [opening, setOpening] = useState<string | null>(null);
   const [openError, setOpenError] = useState<unknown>(null);
   const openGroup = async (id: string) => {
@@ -321,8 +332,8 @@ export function GraphStudio() {
   // A Flow lens draws its levels as columns (D88), on its own steps also after a drill.
   const flowSteps = useMemo(() => {
     const lens = lensOf(search);
-    return lens?.shape === 'flow' ? lensSpec(lens).steps : null;
-  }, [search, lenses]);
+    return lens?.shape === 'flow' && !step?.connect ? lensSpec(lens).steps : null;
+  }, [search, lenses, step?.connect]);
   const graph = useMemo(
     () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf, flowSteps) : null),
     [pinned, pins, registry.data, modelView.asOf, flowSteps],
@@ -394,6 +405,12 @@ export function GraphStudio() {
       savedId: mine ? lens.id : undefined,
       builtIn: !lens.owner,
     });
+  };
+
+  /** A step showing how two nodes are connected (D89), on the focus path like a drill. */
+  const connectNodes = (from: string, to: string) => {
+    const n = (id: string) => graph?.byId.get(id)?.name ?? id;
+    setSteps((s) => [...s, { label: `${n(from)} ↔ ${n(to)}`, connect: { from, to }, selectedId: null, view: carried(s.at(-1)?.view) }]);
   };
 
   const drill = (id: string) => {
@@ -481,7 +498,7 @@ export function GraphStudio() {
             nodes={graph?.nodes ?? []}
             edges={graph?.edges ?? []}
             rootIds={graph?.rootIds ?? []}
-            loading={!!body && result.isLoading}
+            loading={connect ? paths.isLoading : !!body && result.isLoading}
             emptyMessage={emptyMessage}
             layers={reg.metamodel.layers}
             selectedId={step?.selectedId ?? null}
@@ -532,9 +549,21 @@ export function GraphStudio() {
           onSelect={(id) => patch({ selectedId: id })}
           onFocus={drill}
           onPin={togglePin}
+          connectTo={pins.map((p) => ({ id: p.element.id, name: String(p.element.attrs['name'] ?? p.element.id) }))}
+          onConnect={connectNodes}
           editTo={selected ? `/w/${ws}/e/${selected.id}/edit` : undefined}
         />
-        {impactOpen && flowSteps && graph && (
+        {connect && (
+          <Connections
+            paths={paths.data}
+            loading={paths.isLoading}
+            error={paths.error}
+            chosen={connect.chosen ?? null}
+            onChoose={(i) => patch({ connect: { ...connect, ...{ chosen: i ?? undefined } }, viewport: undefined })}
+            onClose={() => setSteps((s) => s.slice(0, -1))}
+          />
+        )}
+        {impactOpen && flowSteps && graph && !connect && (
           <ImpactTable ws={ws!} rootIds={graph.rootIds} steps={flowSteps} view={vq} onSelect={(id) => patch({ selectedId: id })} onClose={() => setImpactOpen(false)} />
         )}
       </div>
@@ -582,6 +611,22 @@ function withPins(r: StudioResult, pins: readonly Pin[]): StudioResult {
   const rels = new Map(r.relationships.map((x) => [x.id, x]));
   for (const x of pins.flatMap((p) => p.relationships)) if (shown.has(x.fromId) && shown.has(x.toId)) rels.set(x.id, x);
   return { ...r, elements: [...r.elements, ...extra], relationships: [...rels.values()] };
+}
+
+/** The paths between two nodes as a result (D89): both ends as roots; one path when chosen, else all. */
+function pathResult(p: Awaited<ReturnType<typeof exploreApi.studioPaths>>, c: NonNullable<Step['connect']>): StudioResult {
+  const chosen = c.chosen !== undefined ? p.paths[c.chosen] : undefined;
+  const nodeIds = new Set(chosen ? chosen.nodeIds : p.paths.flatMap((x) => x.nodeIds));
+  const relIds = new Set(chosen ? chosen.relationshipIds : p.paths.flatMap((x) => x.relationshipIds));
+  const ends = new Set([c.from, c.to]);
+  const elements = p.elements.filter((e) => nodeIds.has(e.id));
+  return {
+    roots: elements.filter((e) => ends.has(e.id)),
+    elements: elements.filter((e) => !ends.has(e.id)),
+    relationships: p.relationships.filter((r) => relIds.has(r.id)),
+    tooLarge: false,
+    nodeCount: elements.length,
+  };
 }
 
 function withPages(r: StudioResult, pages: readonly GroupPage[]): StudioResult {

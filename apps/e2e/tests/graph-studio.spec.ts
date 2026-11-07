@@ -103,6 +103,28 @@ test.describe('graph studio', () => {
     await expect(result(page).locator('.graph-canvas-node.pinned')).toHaveCount(0);
   });
 
+  test('how is it connected: a pinned node and the selected one, by their shortest paths (D89)', async ({ page }) => {
+    await findClientMaster(page);
+    await card(page, 'Client Master').click();
+    await page.getByRole('complementary', { name: 'Client Master' }).getByRole('button', { name: 'Pin' }).click();
+    await nameBox(page).fill('Product Reference');
+    await nameBox(page).press('Escape');
+    await nameBox(page).press('Enter');
+    await card(page, 'Product Reference').first().click();
+    await page.getByRole('complementary', { name: 'Product Reference' }).getByRole('button', { name: 'How is it connected to Client Master?' }).click();
+
+    const panel = page.getByRole('region', { name: 'Connections' });
+    await expect(panel).toContainText(/shortest paths?, \d links?/);
+    await expect(result(page)).toContainText('Product Reference ↔ Client Master');
+    await expect(card(page, 'Client Master')).toHaveAttribute('aria-label', /, root, pinned$/);
+    const first = panel.getByRole('listitem').first().getByRole('button');
+    await first.click();
+    await expect(first).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.getByRole('button', { name: 'All paths' })).toHaveAttribute('aria-pressed', 'false');
+    await panel.getByRole('button', { name: 'Close' }).click();
+    await expect(panel).toHaveCount(0);
+  });
+
   test('Show only narrows both views to the ticked kinds, shown as chips', async ({ page }) => {
     await findClientMaster(page);
     const all = await result(page).locator('.graph-canvas-node').count();
