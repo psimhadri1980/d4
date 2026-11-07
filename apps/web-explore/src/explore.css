@@ -372,6 +372,71 @@ table.matrix tbody tr:hover .row-head {
   align-items: center;
   gap: 4px;
 }
+/* Landscape lens (D91): a box per root, tiles coloured by an attribute on their left edge. */
+.graph-studio-landscape {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.graph-studio-landscape-box {
+  border: 1px solid var(--border-subtle);
+  background: var(--layer-01);
+  padding: 8px;
+}
+.graph-studio-landscape-box.empty {
+  box-shadow: inset 3px 0 0 var(--support-warning);
+}
+.graph-studio-landscape-box h4 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.graph-studio-landscape-box ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.graph-studio-landscape-tile {
+  border: 1px solid var(--border-subtle);
+  border-left: 6px solid var(--border-strong);
+  background: var(--layer-02);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.graph-studio-landscape-tile[aria-pressed='true'] {
+  outline: 2px solid var(--focus);
+}
+.graph-studio-landscape-colour {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.graph-studio-landscape-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 12px;
+}
+.graph-studio-landscape-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  vertical-align: middle;
+}
 /* Connections (D89): one button per path. */
 .graph-studio-paths {
   margin: 0;

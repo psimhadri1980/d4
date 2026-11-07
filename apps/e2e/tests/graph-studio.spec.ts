@@ -448,6 +448,24 @@ test.describe('graph studio', () => {
       await expect(page.getByRole('region', { name: 'Matrix' })).toBeVisible();
     });
 
+    test('a Landscape lens opens its boxes: client groups holding their clients, coloured by an attribute (D91)', async ({ page }) => {
+      await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
+      await search(page).getByLabel('Lens', { exact: true }).selectOption('credit-client-groups');
+      await search(page).getByRole('button', { name: 'Search' }).click();
+      const landscape = page.getByRole('region', { name: 'Landscape' });
+      await expect(landscape).toContainText(/\d+ boxes, \d+ inside/);
+      const colour = landscape.getByLabel('Colour by');
+      await colour.selectOption('rating');
+      await expect(landscape.getByRole('list', { name: 'Legend' }).getByRole('listitem').first()).toBeVisible();
+      const tile = landscape.locator('.graph-studio-landscape-tile').first();
+      await expect(tile).toHaveAttribute('title', /rating: /);
+      const name = (await tile.textContent())!;
+      await tile.click();
+      await expect(page.getByRole('complementary', { name })).toBeVisible();
+      await colour.selectOption('');
+      await expect(landscape.getByRole('list', { name: 'Legend' })).toHaveCount(0);
+    });
+
     test('only credit lenses show on the credit workspace, and none on the default one', async ({ page }) => {
       await page.goto(`/w/${await creditWorkspaceId()}/graph-studio`);
       const options = search(page).getByLabel('Lens', { exact: true }).locator('option');

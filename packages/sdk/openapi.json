@@ -1645,7 +1645,8 @@
               "ego",
               "tree",
               "flow",
-              "matrix"
+              "matrix",
+              "landscape"
             ]
           },
           "disclosure": {

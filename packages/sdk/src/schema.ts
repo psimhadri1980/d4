@@ -9122,7 +9122,7 @@ export interface components {
             depth: number;
             steps?: components["schemas"]["LensStep"][];
             /** @enum {string} */
-            shape?: "ego" | "tree" | "flow" | "matrix";
+            shape?: "ego" | "tree" | "flow" | "matrix" | "landscape";
             /** @description The lens's own disclosure settings; the rest default */
             disclosure?: {
                 budget?: number;

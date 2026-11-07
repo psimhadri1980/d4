@@ -223,7 +223,7 @@ export const StudioLensBody = z
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
     depth: z.number().int().min(1).max(6).default(2),
     steps: z.array(LensStepBody).min(1).max(10).optional(),
-    shape: z.enum(['ego', 'tree', 'flow', 'matrix']).optional(),
+    shape: z.enum(['ego', 'tree', 'flow', 'matrix', 'landscape']).optional(),
     disclosure: z
       .object({ budget: z.number().int().min(1).max(350).optional(), initialDepth: z.number().int().min(1).max(6).optional(), perNodeCap: z.number().int().min(1).max(100).optional() })
       .strict()

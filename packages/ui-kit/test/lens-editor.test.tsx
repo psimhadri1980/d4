@@ -212,6 +212,10 @@ describe('LensEditor', () => {
     set(field<HTMLSelectElement>('To'), 'Capability');
     expect(drafts.at(-1)!.steps).toEqual([{ direction: 'both', types: ['Capability'], stage: 'Capability' }]);
     expect(button('Add a step')).toBeUndefined();
+
+    // A landscape (D91): one step down through containment.
+    click(radio('Landscape'));
+    expect(drafts.at(-1)).toMatchObject({ shape: 'landscape', depth: 1, steps: [{ kind: 'containment', direction: 'down' }] });
     act(() => root.unmount());
   });
 });

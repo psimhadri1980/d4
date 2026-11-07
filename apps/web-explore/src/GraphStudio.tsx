@@ -25,6 +25,7 @@ import {
 import { exploreApi, type LensInput } from './api';
 import { Connections } from './Connections';
 import { ImpactTable } from './ImpactTable';
+import { LensLandscape } from './LensLandscape';
 import { LensMatrix } from './LensMatrix';
 import { offeredOn, PREDEFINED_LENSES, type BuiltInLens } from './lenses';
 
@@ -345,6 +346,11 @@ export function GraphStudio() {
     const lens = lensOf(search);
     return lens?.shape === 'matrix' && !step?.connect ? (lensSpec(lens).steps[0] ?? null) : null;
   }, [search, lenses, step?.connect]);
+  // A Landscape lens opens its boxes (D91): each root holding what its first step reaches.
+  const landscapeStep = useMemo(() => {
+    const lens = lensOf(search);
+    return lens?.shape === 'landscape' && !step?.connect ? (lensSpec(lens).steps[0] ?? null) : null;
+  }, [search, lenses, step?.connect]);
   const [matrixOpen, setMatrixOpen] = useState(true);
 
   // A large result opens in the Overview, once per step; after that the view is the user's.
@@ -519,9 +525,9 @@ export function GraphStudio() {
                 <button type="button" className="button ghost small" aria-pressed={impactOpen} onClick={() => setImpactOpen(!impactOpen)}>
                   Impact table
                 </button>
-              ) : matrixStep && graph?.rootIds.length ? (
+              ) : (matrixStep || landscapeStep) && graph?.rootIds.length ? (
                 <button type="button" className="button ghost small" aria-pressed={matrixOpen} onClick={() => setMatrixOpen(!matrixOpen)}>
-                  Matrix
+                  {matrixStep ? 'Matrix' : 'Landscape'}
                 </button>
               ) : undefined
             }
@@ -577,6 +583,9 @@ export function GraphStudio() {
         )}
         {matrixOpen && matrixStep && graph && (
           <LensMatrix ws={ws!} rootIds={graph.rootIds} rowLabel={lensOf(search)?.contour.type ?? ''} step={matrixStep} view={vq} selectedId={step?.selectedId ?? null} onSelect={(id) => patch({ selectedId: id })} onClose={() => setMatrixOpen(false)} />
+        )}
+        {matrixOpen && landscapeStep && graph && (
+          <LensLandscape ws={ws!} registry={reg} rootIds={graph.rootIds} step={landscapeStep} view={vq} selectedId={step?.selectedId ?? null} onSelect={(id) => patch({ selectedId: id })} onClose={() => setMatrixOpen(false)} />
         )}
         {impactOpen && flowSteps && graph && !connect && (
           <ImpactTable ws={ws!} rootIds={graph.rootIds} steps={flowSteps} view={vq} onSelect={(id) => patch({ selectedId: id })} onClose={() => setImpactOpen(false)} />
