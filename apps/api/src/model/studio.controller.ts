@@ -2,7 +2,7 @@ import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFound
 import { DomainError, lensSpec, ulid } from '@d4/core';
 import { queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
 import { StudioLensStore, type StudioLensRow } from '@d4/db';
-import { StudioCountsBody, StudioImpactBody, StudioLensBody, StudioPathsBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
+import { StudioCountsBody, StudioImpactBody, StudioLensBody, StudioMatrixBody, StudioPathsBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
@@ -69,6 +69,15 @@ export class StudioController {
     const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
     const found = await studio.findRoots(scope.workspaceId, { ids: b.ids }, STUDIO_MAX_ROOTS, view);
     return studio.impact(scope.workspaceId, found.roots, b.steps, { maxNodes: b.maxNodes, view });
+  }
+
+  /** A Matrix lens: roots by what its step reaches (D90). */
+  @Post('matrix')
+  @HttpCode(200)
+  async matrix(@Workspace('read') { queries, studio, scope }: OpenWorkspace, @ValidBody(StudioMatrixBody) b: z.output<typeof StudioMatrixBody>) {
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
+    const found = await studio.findRoots(scope.workspaceId, { ids: b.ids }, STUDIO_MAX_ROOTS, view);
+    return studio.matrix(scope.workspaceId, found.roots, b.step, { maxColumns: b.maxColumns, view });
   }
 
   /** How two elements are connected (D89). */
@@ -139,6 +148,8 @@ export class StudioController {
   private async checkLens(p: Principal, workspaceId: string, registry: OpenWorkspace['scope']['registry'], b: z.output<typeof StudioLensBody>) {
     for (const t of [b.contour.type, ...b.facets.flatMap((f) => f.types), ...(b.steps ?? []).flatMap((s) => s.types ?? [])]) if (!registry.nodeType(t)) throw new RangeError(`Unknown element type '${t}'`);
     for (const r of [...b.facets.map((f) => f.relationship), ...(b.steps ?? []).flatMap((s) => s.relationships ?? [])]) if (r && !registry.relationshipType(r)) throw new RangeError(`Unknown relationship type '${r}'`);
+    // A matrix's columns are one step's targets: the step names them.
+    if (b.shape === 'matrix' && !b.steps?.[0]?.types?.length) throw new RangeError('A matrix lens needs a step with the types of its columns');
     if (b.visibility === 'workspace') await this.access.resolve(p, workspaceId, 'write');
     // A query the caller cannot see does not exist for them.
     if (b.query) await this.catalog.entry(p, b.query.id);

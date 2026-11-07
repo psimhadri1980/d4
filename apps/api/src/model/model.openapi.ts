@@ -1,4 +1,4 @@
-import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioGroupPageSchema, StudioImpactBody, StudioImpactSchema, StudioPathsBody, StudioPathsSchema, StudioOpenBody, StudioProjectionSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
+import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioGroupPageSchema, StudioImpactBody, StudioImpactSchema, StudioMatrixBody, StudioMatrixSchema, StudioPathsBody, StudioPathsSchema, StudioOpenBody, StudioProjectionSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
 import { json, errors, writeErrors, ws, id, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
@@ -95,6 +95,15 @@ export function registerModelRoutes(route: ApiRoute) {
     description: 'Everything a lens reaches from its roots, without a budget (D88): the impact table of a lineage or impact lens, each node once with its level and the link that first reached it.',
     request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioImpactBody } } } },
     responses: { 200: json(StudioImpactSchema, 'The nodes reached, level by level'), ...errors },
+  });
+
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/studio/matrix',
+    tags: ['Elements'],
+    description: 'A Matrix lens (D90): its roots as rows, the nodes its step reaches as columns, and the relationship types in each cell.',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioMatrixBody } } } },
+    responses: { 200: json(StudioMatrixSchema, 'Rows, columns and the linked cells'), ...errors },
   });
 
   route({

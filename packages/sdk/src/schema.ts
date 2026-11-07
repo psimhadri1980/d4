@@ -1023,6 +1023,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{ws}/studio/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A Matrix lens (D90): its roots as rows, the nodes its step reaches as columns, and the relationship types in each cell. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioMatrixInput"];
+                };
+            };
+            responses: {
+                /** @description Rows, columns and the linked cells */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioMatrix"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{ws}/studio/paths": {
         parameters: {
             query?: never;
@@ -8853,6 +8931,31 @@ export interface components {
             /** @default 5000 */
             maxNodes: number;
         };
+        StudioMatrix: {
+            rows: components["schemas"]["Element"][];
+            columns: components["schemas"]["Element"][];
+            cells: {
+                row: string;
+                column: string;
+                relationships: string[];
+            }[];
+            /** @description More columns than maxColumns, or the step read too many rows */
+            truncated: boolean;
+        };
+        StudioMatrixInput: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            /** @description The roots, one row each */
+            ids: string[];
+            step: components["schemas"]["LensStep"] & unknown;
+            /** @default 200 */
+            maxColumns: number;
+        };
         StudioPaths: {
             paths: {
                 nodeIds: string[];
@@ -9019,7 +9122,7 @@ export interface components {
             depth: number;
             steps?: components["schemas"]["LensStep"][];
             /** @enum {string} */
-            shape?: "ego" | "tree" | "flow";
+            shape?: "ego" | "tree" | "flow" | "matrix";
             /** @description The lens's own disclosure settings; the rest default */
             disclosure?: {
                 budget?: number;
