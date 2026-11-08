@@ -77,6 +77,8 @@ export interface StudioProjection {
   groups: LensGroup[];
   /** Each shown node's level: 0 for the roots. */
   levels: Record<string, number>;
+  /** A projection query's interest per node, from its `weight` column (D96). */
+  weights?: Record<string, number>;
   /** A step read more rows than allowed, so some links are missing. */
   truncated: boolean;
 }
@@ -174,7 +176,12 @@ export interface QueryProjection {
   anchorIds: string[];
   /** From the `level` column, where given. */
   levels: Record<string, number>;
+  /** From the `weight` column, where given: the node's interest, highest kept first (D96). */
+  weights: Record<string, number>;
 }
+
+const numberOf = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : typeof (v as { toNumber?: unknown })?.toNumber === 'function' ? (v as { toNumber(): number }).toNumber() : null;
 
 const elementId = (v: unknown): string | null => {
   if (typeof v === 'string') return v;
@@ -190,6 +197,7 @@ export function queryProjection(result: { columns: readonly string[]; rows: read
   const links = new Map<string, { from: string; to: string; rel?: string }>();
   const anchors = new Set<string>();
   const levels: Record<string, number> = {};
+  const weights: Record<string, number> = {};
   for (const [i, r] of result.rows.entries()) {
     const node = elementId(r['node']);
     if (!node) return { error: `Row ${i + 1}: the node column must be an element id or an element node` };
@@ -202,14 +210,19 @@ export function queryProjection(result: { columns: readonly string[]; rows: read
       links.set(`${parent}\u0000${node}\u0000${rel ?? ''}`, { from: parent, to: node, ...(rel && { rel }) });
     }
     if (r['anchor'] === true) anchors.add(node);
-    const level = r['level'];
-    if (typeof level === 'number' && Number.isInteger(level) && level >= 0) levels[node] = level;
-    else if (typeof (level as { toNumber?: unknown })?.toNumber === 'function') levels[node] = (level as { toNumber(): number }).toNumber();
+    const level = numberOf(r['level']);
+    if (level !== null && Number.isInteger(level) && level >= 0) levels[node] = level;
+    if (r['weight'] != null) {
+      const weight = numberOf(r['weight']);
+      if (weight === null) return { error: `Row ${i + 1}: the weight column must be a number` };
+      // A node on several rows keeps its highest weight.
+      weights[node] = Math.max(weights[node] ?? -Infinity, weight);
+    }
   }
   const nodeIds = [...ids];
   const reached = new Set([...links.values()].map((l) => l.to));
   const anchorIds = result.columns.includes('anchor') ? nodeIds.filter((id) => anchors.has(id)) : nodeIds.filter((id) => !reached.has(id));
-  return { nodeIds, links: [...links.values()], anchorIds, levels };
+  return { nodeIds, links: [...links.values()], anchorIds, levels, weights };
 }
 
 export class StudioQueries {
@@ -289,12 +302,17 @@ export class StudioQueries {
   }
 
   /**
-   * A projection query's result drawn as a lens (D94): its nodes up to the budget, in row order, and
-   * the stored relationships between them that it declares. Levels come from the query or, where it
+   * A projection query's result drawn as a lens (D94): its nodes up to the budget, and the stored
+   * relationships between them that it declares. The anchors are kept first, then the highest
+   * weight, then row order (D96); a node without a weight counts as 0. Levels come from the query or, where it
    * gives none, from the anchors along its links. Nodes cut by the budget mark the result truncated.
    */
   async projectQuery(ws: string, q: QueryProjection, d: LensDisclosure, view?: ModelView): Promise<StudioProjection> {
-    const kept = q.nodeIds.slice(0, d.budget);
+    const anchorSet = new Set(q.anchorIds);
+    const rank = q.nodeIds.map((id, i) => ({ id, i, a: anchorSet.has(id) ? 0 : 1, w: q.weights[id] ?? 0 }));
+    rank.sort((x, y) => x.a - y.a || y.w - x.w || x.i - y.i);
+    const keep = new Set(rank.slice(0, d.budget).map((x) => x.id));
+    const kept = q.nodeIds.filter((id) => keep.has(id));
     const { roots: found } = await this.findRoots(ws, { ids: kept }, kept.length, view);
     const byId = new Map(found.map((e) => [e.id, e]));
     const ids = kept.filter((id) => byId.has(id));
@@ -334,6 +352,7 @@ export class StudioQueries {
       relationships: [...rels.values()],
       groups: [],
       levels,
+      ...(Object.keys(q.weights).length && { weights: Object.fromEntries(ids.filter((id) => q.weights[id] !== undefined).map((id) => [id, q.weights[id]!])) }),
       truncated: q.nodeIds.length > kept.length,
     };
   }

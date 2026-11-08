@@ -8768,6 +8768,10 @@ export interface components {
             levels?: {
                 [key: string]: number;
             };
+            /** @description A projection query's weight column: each shown node's interest */
+            weights?: {
+                [key: string]: number;
+            };
             /** @description With disclosure: a step read more rows than allowed */
             truncated?: boolean;
         };

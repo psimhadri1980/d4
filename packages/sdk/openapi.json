@@ -544,6 +544,13 @@
                 },
                 "description": "With disclosure: each shown node's level, 0 for roots"
               },
+              "weights": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "description": "A projection query's weight column: each shown node's interest"
+              },
               "truncated": {
                 "type": "boolean",
                 "description": "With disclosure: a step read more rows than allowed"

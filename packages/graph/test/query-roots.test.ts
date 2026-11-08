@@ -26,12 +26,19 @@ describe('query projections (D94)', () => {
       links: [{ from: 'a', to: 'b', rel: 'USES' }, { from: 'b', to: 'c' }],
       anchorIds: ['a'],
       levels: {},
+      weights: {},
     });
   });
 
   it('take from, anchor and level when given', () => {
     const rows = [{ node: 'a', anchor: false, level: 2 }, { node: 'b', from: 'a', anchor: true, level: 0 }];
     expect(queryProjection({ columns: ['node', 'from', 'anchor', 'level'], rows })).toMatchObject({ anchorIds: ['b'], levels: { a: 2, b: 0 }, links: [{ from: 'a', to: 'b' }] });
+  });
+
+  it('take the highest weight a node is given, and name the row whose weight is not a number (D96)', () => {
+    const rows = [{ node: 'a', weight: 1 }, { node: 'b', weight: { toNumber: () => 5 } }, { node: 'a', weight: 3 }, { node: 'c', weight: null }];
+    expect(queryProjection({ columns: ['node', 'weight'], rows })).toMatchObject({ weights: { a: 3, b: 5 } });
+    expect(queryProjection({ columns: ['node', 'weight'], rows: [{ node: 'a', weight: 'high' }] })).toEqual({ error: 'Row 1: the weight column must be a number' });
   });
 
   it('are not projections without a node column, and name the row whose node is not an element', () => {

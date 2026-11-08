@@ -336,5 +336,29 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
       const one = await search(1);
       expect(one.body).toMatchObject({ truncated: true, nodeCount: 1 });
     });
+
+    it('a weight column picks what fills the budget: anchors first, then the highest weight (D96)', async () => {
+      const WEIGHTED = `MATCH (a:Application) WHERE a.workspaceId = $workspace AND a.deleted = false AND a.criticality = 'MISSION_CRITICAL'
+                        OPTIONAL MATCH (a)-[:USES]->(s:DataStore) WHERE s.deleted = false
+                        WITH a, collect(s) AS ss
+                        UNWIND [{n: a.id, p: null, w: 0}] + [x IN ss | {n: x.id, p: a.id, w: size(x.name)}] AS row
+                        RETURN row.n AS node, row.p AS parent, row.w AS weight`;
+      const created = await h.call('POST', '/v1/catalog', author, { slug: 'lens-app-stores-weighted', title: 'Critical applications and their stores, weighted', tags: ['lens'] });
+      const pid = created.body.id;
+      await h.call('PUT', `/v1/catalog/${pid}/draft`, author, { cypher: WEIGHTED, params: [] });
+      await h.call('POST', `/v1/catalog/${pid}/submit`, author);
+      await h.call('POST', `/v1/catalog/${pid}/review`, steward, { decision: 'publish' });
+      await h.call('PUT', `/v1/catalog/${pid}/grants`, steward, [{ principalType: 'role', principal: 'viewer' }]);
+      const search = (budget: number) =>
+        h.call('POST', `/v1/workspaces/${ws()}/studio/search`, viewer, { types: ['Application'], query: { id: pid, params: {} }, disclosure: { budget, initialDepth: 1, perNodeCap: 12 } });
+      const all = await search(150);
+      expect(all.status).toBe(200);
+      const longest = Math.max(...all.body.elements.map((e: any) => e.attrs.name.length));
+      for (const e of all.body.elements) expect(all.body.weights[e.id]).toBe(e.attrs.name.length);
+      const three = await search(3);
+      expect(three.body).toMatchObject({ truncated: true, nodeCount: 3 });
+      expect(three.body.roots).toHaveLength(2);
+      expect(three.body.elements.map((e: any) => e.attrs.name.length)).toEqual([longest]);
+    });
   });
 });

@@ -707,7 +707,8 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySe
       ...(pinnedIds.has(e.id) && { pinned: true }),
       ...column(r.levels?.[e.id]),
     }))
-    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    // A projection's weight (D96) puts the most interesting nodes first, then by name.
+    .sort((a, b) => (r.weights?.[b.id] ?? 0) - (r.weights?.[a.id] ?? 0) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x) }));
   // Folded links (D85): one node per group, joined to its parent by the group's relationship.
   const ids = new Set(nodes.map((n) => n.id));
