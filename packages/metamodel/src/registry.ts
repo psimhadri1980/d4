@@ -34,6 +34,16 @@ export class MetamodelRegistry {
     return [...this.rels.values()];
   }
 
+  /**
+   * The node types in `layers` that a step to `types` may reach (D95): those whose lineage holds one
+   * of `types`, or every type of the layers when `types` is absent.
+   */
+  typesInLayers(layers: readonly string[], types?: readonly string[]): string[] {
+    return this.nodeTypes()
+      .filter((t) => layers.includes(t.layer) && (!types?.length || this.lineage(t.name).some((a) => types.includes(a))))
+      .map((t) => t.name);
+  }
+
   /** The type's lens role: its own, else the nearest ancestor's, else `both`. */
   roleOf(name: string): NodeTypeRole {
     for (const t of this.lineage(name)) {

@@ -9118,6 +9118,8 @@ export interface components {
             };
             /** @description Attributes offered as quick filters */
             quickFilters?: string[];
+            /** @description Metamodel layers its steps keep to (D95) */
+            layers?: string[];
             /** @description Search phrases that open the lens (D92) */
             phrases?: string[];
             /** @default 2 */

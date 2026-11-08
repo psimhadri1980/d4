@@ -102,3 +102,16 @@ describe('search phrases (D92)', () => {
     expect(matchPhrases([impact], 'payments')).toEqual([]);
   });
 });
+
+describe('lens layers (D95)', () => {
+  const types = { Business: ['Capability', 'Process'], Application: ['Application'] } as Record<string, string[]>;
+  const inLayers = (layers: readonly string[], t?: readonly string[]) => layers.flatMap((l) => types[l] ?? []).filter((x) => !t?.length || t.includes(x));
+  const lens: Lens = { id: 'l', name: 'L', contour: { type: 'Capability' }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph' };
+  it('keep each step to the types of the layers, and end the chain at a step that reaches none', () => {
+    const steps = [{ direction: 'down' as const, types: ['Application'] }, { direction: 'down' as const, types: ['Process'] }];
+    expect(lensSpec({ ...lens, steps, layers: ['Business'] }, inLayers).steps).toEqual([{ direction: 'both', repeat: true, types: ['Capability', 'Process'] }]);
+    expect(lensSpec({ ...lens, steps, layers: ['Application'] }, inLayers).steps).toEqual([{ direction: 'down', types: ['Application'] }]);
+    expect(lensSpec({ ...lens, layers: ['Business'] }, inLayers).steps).toEqual([{ direction: 'both', repeat: true, types: ['Capability', 'Process'] }]);
+    expect(lensSpec({ ...lens, steps, layers: ['Business'] }).steps).toBe(steps);
+  });
+});
