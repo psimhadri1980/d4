@@ -242,6 +242,25 @@ test.describe('graph studio', () => {
     await expect(result(page).getByRole('navigation', { name: 'Focus path' })).toContainText('Data products · Lifecycle LIVE');
   });
 
+  test('a lens written as text fills the editor, and a built-in lens shows as text (D93)', async ({ page }) => {
+    await page.goto('/');
+    await openNav(page, 'Graph Studio');
+    await search(page).getByRole('button', { name: '＋ New lens…' }).click();
+    const editor = page.getByRole('dialog', { name: 'New lens' });
+    const text = editor.getByLabel('Write it as text');
+    await text.fill('DataStore+2 via dependency as flow');
+    await editor.getByRole('button', { name: 'Apply' }).click();
+    await expect(editor.getByRole('button', { name: /DataStore/ }).first()).toBeVisible();
+    await expect(editor.getByRole('complementary', { name: 'Preview' })).toContainText('roots');
+    await text.fill('NoSuchType');
+    await editor.getByRole('button', { name: 'Apply' }).click();
+    await expect(editor.getByRole('alert')).toHaveText('There is no node type NoSuchType');
+    await editor.getByRole('button', { name: 'Cancel' }).click();
+    await search(page).getByLabel('Lens', { exact: true }).selectOption('data-store-impact');
+    await search(page).getByRole('button', { name: 'Edit the lens What depends on a data store' }).click();
+    await expect(page.getByRole('dialog').getByLabel('Write it as text')).toHaveValue('2+DataStore via dependency as flow');
+  });
+
   test('a new lens is built in the editor from what the data links, saved, used, edited and deleted', async ({ page }) => {
     await page.goto('/');
     await openNav(page, 'Graph Studio');

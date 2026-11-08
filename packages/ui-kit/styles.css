@@ -939,6 +939,20 @@
   gap: 16px;
   min-width: 0;
 }
+.lens-editor-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lens-editor-text-row {
+  display: flex;
+  gap: 8px;
+}
+.lens-editor-text-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono, monospace);
+}
 .lens-editor-section {
   padding: 16px;
   border: 1px solid var(--border-subtle, #e0e0e0);
