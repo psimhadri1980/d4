@@ -3,6 +3,7 @@
  * number of facets (node types linked to it that qualify it), plus a name and how the result opens.
  * A search always runs inside a lens, or across every type when the user is not sure yet (LS-3).
  */
+import type { IsoDate } from './types';
 
 export type AttributeOp = 'eq' | 'in' | 'contains' | 'starts' | 'gte' | 'lte';
 
@@ -92,6 +93,8 @@ export interface Lens {
   phrases?: string[];
   /** Metamodel layers its steps keep to (D95), such as Business and Data; every layer when absent. */
   layers?: string[];
+  /** A time slice (D97): what is valid in the range is drawn as usual, the rest faded. */
+  time?: LensTime;
   /** The traversal (D85); absent means any relationship, both ways, to `depth`. */
   steps?: LensStep[];
   shape?: LensShape;
@@ -195,6 +198,28 @@ export function lensSearch(lens: Lens | null, quick: readonly QuickFilter[], nam
     match: lens?.match ?? ('all' as const),
     ...(q && { query: { id: q.id, ...(q.version && { version: q.version }), params: { ...q.params, ...params } } }),
   };
+}
+
+/** A range of business time, `from` included and `to` not, as `validFrom` and `validTo` are. */
+export interface LensTime {
+  from?: IsoDate;
+  to?: IsoDate;
+}
+
+export type TimeMark = { kind: 'outside' | 'starts' | 'ends' | 'added' | 'changed' | 'removed'; label: string } | null;
+
+/**
+ * How an item's validity stands against a time slice (D97): `outside` when it is not valid at any
+ * point of the range, `ends` or `starts` when its validity ends or starts inside it (ends wins),
+ * and null when it is valid throughout.
+ */
+export function timeMark(item: { validFrom?: IsoDate | null; validTo?: IsoDate | null }, time: LensTime | undefined): TimeMark {
+  if (!time || (!time.from && !time.to)) return null;
+  const { validFrom: vf, validTo: vt } = item;
+  if ((vt && time.from && vt <= time.from) || (vf && time.to && vf >= time.to)) return { kind: 'outside', label: 'Outside' };
+  if (vt && (!time.from || vt > time.from) && (!time.to || vt <= time.to)) return { kind: 'ends', label: `Ends ${vt.slice(0, 7)}` };
+  if (vf && time.from && vf >= time.from && (!time.to || vf < time.to)) return { kind: 'starts', label: `Starts ${vf.slice(0, 7)}` };
+  return null;
 }
 
 /** A lens's traversal, shape and disclosure (D85), with what older lenses imply filled in. */

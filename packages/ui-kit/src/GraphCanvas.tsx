@@ -22,6 +22,11 @@ export interface GraphCanvasNode {
   pinned?: boolean;
   /** Its column in the Flow layout (a Flow lens's level, D88); hops from the roots when absent. */
   column?: number;
+  /**
+   * How it stands against a time slice or a diff (D97): `outside` and `removed` are drawn faded,
+   * the others carry their label on the card.
+   */
+  mark?: { kind: 'outside' | 'starts' | 'ends' | 'added' | 'changed' | 'removed'; label: string };
 }
 
 /** A relationship; the arrow points from `from` to `to` (CT-2). */
@@ -31,6 +36,8 @@ export interface GraphCanvasEdge {
   to: string;
   type: string;
   planned: boolean;
+  /** Deleted since the day a diff compares with (D98): drawn faded. */
+  removed?: boolean;
 }
 
 export interface GraphCanvasProps {

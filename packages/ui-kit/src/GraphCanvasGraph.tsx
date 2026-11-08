@@ -361,7 +361,7 @@ export function GraphCanvasGraph(props: Props) {
             const b = geometry.boxes.get(n.id)!;
             const root = roots.has(n.id);
             const selected = n.id === selectedId;
-            const state = [root && 'root', selected && 'selected', n.state === 'planned' && 'planned', n.group !== undefined && 'group', n.pinned && 'pinned', movable && 'movable'].filter(Boolean).join(' ');
+            const state = [root && 'root', selected && 'selected', n.state === 'planned' && 'planned', n.group !== undefined && 'group', n.pinned && 'pinned', n.mark && `mark-${n.mark.kind}`, movable && 'movable'].filter(Boolean).join(' ');
             return (
               <g
                 key={n.id}
@@ -370,7 +370,7 @@ export function GraphCanvasGraph(props: Props) {
                 role="button"
                 tabIndex={0}
                 aria-pressed={selected}
-                aria-label={n.group !== undefined ? `${n.name.replace(/^▸ /, '')}, group, click to open` : `${n.name}, ${n.type}, ${n.layer}${root ? ', root' : ''}${n.pinned ? ', pinned' : ''}${n.state === 'planned' ? ', planned' : ''}`}
+                aria-label={n.group !== undefined ? `${n.name.replace(/^▸ /, '')}, group, click to open` : `${n.name}, ${n.type}, ${n.layer}${root ? ', root' : ''}${n.pinned ? ', pinned' : ''}${n.state === 'planned' ? ', planned' : ''}${n.mark ? `, ${n.mark.label}` : ''}`}
                 aria-keyshortcuts={movable ? 'ArrowUp ArrowDown ArrowLeft ArrowRight' : undefined}
                 data-node-id={n.id}
                 onPointerDown={(e) => start(e, { kind: 'node', id: n.id, from: { x: e.clientX, y: e.clientY }, origin: centreOf(n.id), moved: false })}
@@ -462,8 +462,13 @@ function NodeBody({ node: n, level, w, h, root, relationships }: { node: GraphCa
       <rect className="graph-canvas-card" width={w} height={h} rx={6} />
       <rect className="graph-canvas-swatch" x={10} y={12} width={10} height={10} rx={2} style={{ fill: layerColor(n.layer) }} />
       <text className="graph-canvas-name" x={28} y={22}>
-        {truncate(n.name, 21)}
+        {truncate(n.name, n.mark ? 11 : 21)}
       </text>
+      {n.mark && (
+        <text className="graph-canvas-mark" x={w - 10} y={22} textAnchor="end">
+          {truncate(n.mark.label, 12)}
+        </text>
+      )}
       <text className="graph-canvas-meta" x={10} y={42}>
         {truncate(`${n.type} · ${n.layer}`, root ? 18 : 28)}
       </text>
@@ -506,7 +511,7 @@ function Connector({ route, edge, marker, lit, showLabel, onLinePointerDown, onL
   const d = route.control ? `M${p.x},${p.y} Q${route.control.x},${route.control.y} ${q.x},${q.y}` : route.points.map((pt, i) => `${i ? 'L' : 'M'}${pt.x},${pt.y}`).join(' ');
   const cursor = route.bend ? (route.bend.axis === 'y' ? 'ns' : 'ew') : 'move';
   return (
-    <g className={`graph-canvas-edge${edge.planned ? ' planned' : ''}${lit ? ' lit' : ''}`} data-edge-id={route.id}>
+    <g className={`graph-canvas-edge${edge.planned ? ' planned' : ''}${edge.removed ? ' removed' : ''}${lit ? ' lit' : ''}`} data-edge-id={route.id}>
       <path d={d} markerEnd={`url(#${marker})`} />
       <path className={`graph-canvas-hit ${cursor}`} d={d} onPointerDown={onLinePointerDown} onClick={(e) => e.stopPropagation()}>
         <title>Drag to move this connector</title>

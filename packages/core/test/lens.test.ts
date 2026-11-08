@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, LENS_PHRASE, matchPhrases, stepAt, type Lens } from '../src';
+import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, LENS_PHRASE, matchPhrases, stepAt, timeMark, changesSince, type Lens } from '../src';
 
 const mastered: Lens = {
   id: 'mastered',
@@ -113,5 +113,41 @@ describe('lens layers (D95)', () => {
     expect(lensSpec({ ...lens, steps, layers: ['Application'] }, inLayers).steps).toEqual([{ direction: 'down', types: ['Application'] }]);
     expect(lensSpec({ ...lens, layers: ['Business'] }, inLayers).steps).toEqual([{ direction: 'both', repeat: true, types: ['Capability', 'Process'] }]);
     expect(lensSpec({ ...lens, steps, layers: ['Business'] }).steps).toBe(steps);
+  });
+});
+
+describe('time slices (D97)', () => {
+  const y2027 = { from: '2027-01-01', to: '2028-01-01' };
+  it('fade what is not valid in the range, and mark what starts or ends inside it', () => {
+    expect(timeMark({ validFrom: null, validTo: null }, y2027)).toBeNull();
+    expect(timeMark({ validTo: '2026-06-30' }, y2027)).toEqual({ kind: 'outside', label: 'Outside' });
+    expect(timeMark({ validFrom: '2028-01-01' }, y2027)).toEqual({ kind: 'outside', label: 'Outside' });
+    expect(timeMark({ validTo: '2027-09-30' }, y2027)).toEqual({ kind: 'ends', label: 'Ends 2027-09' });
+    expect(timeMark({ validFrom: '2027-03-01' }, y2027)).toEqual({ kind: 'starts', label: 'Starts 2027-03' });
+    expect(timeMark({ validFrom: '2027-03-01', validTo: '2027-09-30' }, y2027)).toMatchObject({ kind: 'ends' });
+  });
+  it('are no slice without a range', () => {
+    expect(timeMark({ validTo: '2020-01-01' }, undefined)).toBeNull();
+    expect(timeMark({ validTo: '2020-01-01' }, {})).toBeNull();
+  });
+});
+
+describe('changes since an instant (D98)', () => {
+  const ev = (type: string, subjectId: string, at: string, data: Record<string, unknown> = {}) => ({ type, subjectId, actor: `u-${at}`, occurredAt: at, data });
+  it('fold into one change per item: added, changed with its fields, removed; created and removed is left out', () => {
+    const events = [
+      ev('ElementUpdated', 'a', 't1', { changes: { 'attrs.owner': {}, validTo: {} } }),
+      ev('ElementCreated', 'b', 't2'),
+      ev('ElementUpdated', 'b', 't3', { changes: { 'attrs.name': {} } }),
+      ev('RelationshipDeleted', 'r', 't4'),
+      ev('ElementCreated', 'c', 't5'),
+      ev('ElementDeleted', 'c', 't6'),
+      ev('ElementUpdated', 'a', 't7', { changes: { 'attrs.owner': {}, 'attrs.cost': {} } }),
+    ];
+    expect(changesSince(events)).toEqual([
+      { id: 'a', change: 'changed', fields: ['owner', 'validTo', 'cost'], by: 'u-t7', at: 't7' },
+      { id: 'b', change: 'added', fields: [], by: 'u-t3', at: 't3' },
+      { id: 'r', change: 'removed', fields: [], by: 'u-t4', at: 't4' },
+    ]);
   });
 });

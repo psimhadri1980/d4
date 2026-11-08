@@ -222,6 +222,12 @@ export const StudioLensBody = z
     query: LensQueryBody.optional(),
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
     layers: z.array(z.string()).max(20).optional().openapi({ description: 'Metamodel layers its steps keep to (D95)' }),
+    time: z
+      .object({ from: IsoDate.optional(), to: IsoDate.optional() })
+      .strict()
+      .refine((t) => !t.from || !t.to || t.from < t.to, 'from must be before to')
+      .optional()
+      .openapi({ description: 'A time slice (D97): business time, from included and to not' }),
     phrases: z.array(z.string().trim().max(120).regex(LENS_PHRASE, 'a phrase is words then one slot at the end, such as "impact of $application"')).max(10).optional().openapi({ description: 'Search phrases that open the lens (D92)' }),
     depth: z.number().int().min(1).max(6).default(2),
     steps: z.array(LensStepBody).min(1).max(10).optional(),
@@ -431,6 +437,27 @@ export const StudioMatrixSchema = z
     truncated: z.boolean().openapi({ description: 'More columns than maxColumns, or the step read too many rows' }),
   })
   .openapi('StudioMatrix');
+
+export const StudioChangesBody = z
+  .object({
+    ...View,
+    ids: z.array(z.string().min(1)).min(1).max(400).openapi({ description: 'The elements and relationships the lens shows' }),
+    since: z.string().datetime({ offset: true }).openapi({ description: 'Changes after this instant', example: '2026-11-01T00:00:00Z' }),
+  })
+  .strict()
+  .openapi('StudioChangesInput');
+
+export const StudioChangesSchema = z
+  .object({
+    changes: z
+      .array(z.object({ id: z.string(), change: z.enum(['added', 'changed', 'removed']), fields: z.array(z.string()), by: z.string(), at: z.string() }))
+      .openapi({ description: 'One per shown or removed item that changed, in the order they first changed' }),
+    removed: z
+      .object({ elements: z.array(ElementSchema), relationships: z.array(RelationshipSchema) })
+      .openapi({ description: "Deleted links of the shown elements, with deleted nodes at their other end" }),
+    truncated: z.boolean().openapi({ description: 'More events or removed links than one answer holds' }),
+  })
+  .openapi('StudioChanges');
 
 export const StudioPathsBody = z
   .object({

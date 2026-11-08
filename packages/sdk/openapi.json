@@ -1253,6 +1253,117 @@
         ],
         "additionalProperties": false
       },
+      "StudioChanges": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "change": {
+                  "type": "string",
+                  "enum": [
+                    "added",
+                    "changed",
+                    "removed"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "by": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "change",
+                "fields",
+                "by",
+                "at"
+              ]
+            },
+            "description": "One per shown or removed item that changed, in the order they first changed"
+          },
+          "removed": {
+            "type": "object",
+            "properties": {
+              "elements": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Element"
+                }
+              },
+              "relationships": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Relationship"
+                }
+              }
+            },
+            "required": [
+              "elements",
+              "relationships"
+            ],
+            "description": "Deleted links of the shown elements, with deleted nodes at their other end"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "More events or removed links than one answer holds"
+          }
+        },
+        "required": [
+          "changes",
+          "removed",
+          "truncated"
+        ]
+      },
+      "StudioChangesInput": {
+        "type": "object",
+        "properties": {
+          "asOf": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Only items valid on this date",
+            "example": "2026-10-17"
+          },
+          "scenario": {
+            "type": "string",
+            "description": "Scenario element id: the baseline plus this scenario"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "maxItems": 400,
+            "description": "The elements and relationships the lens shows"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Changes after this instant",
+            "example": "2026-11-01T00:00:00Z"
+          }
+        },
+        "required": [
+          "ids",
+          "since"
+        ],
+        "additionalProperties": false
+      },
       "StudioCountsResult": {
         "type": "object",
         "properties": {
@@ -1639,6 +1750,23 @@
             },
             "maxItems": 20,
             "description": "Metamodel layers its steps keep to (D95)"
+          },
+          "time": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "example": "2026-10-17"
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "example": "2026-10-17"
+              }
+            },
+            "additionalProperties": false,
+            "description": "A time slice (D97): business time, from included and to not"
           },
           "phrases": {
             "type": "array",
@@ -5615,6 +5743,90 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StudioPaths"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No access to the workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/workspaces/{ws}/studio/changes": {
+      "post": {
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Elements"
+        ],
+        "description": "What changed after an instant in what a lens shows (D98), from the event log: items added, changed (with the fields) and removed, and the deleted links of the shown elements.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "ws",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioChangesInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changes, oldest first, and what was removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioChanges"
                 }
               }
             }

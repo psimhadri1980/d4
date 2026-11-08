@@ -302,6 +302,32 @@ export class StudioQueries {
   }
 
   /**
+   * What was removed next to the shown nodes after an instant (D98): deleted relationships of
+   * theirs, with the deleted nodes at their other end. At most `limit` links, most recent first.
+   */
+  async removedNear(ws: string, ids: readonly string[], since: string, view?: ModelView, limit = 100): Promise<{ elements: Element[]; relationships: Relationship[]; truncated: boolean }> {
+    if (!ids.length) return { elements: [], relationships: [], truncated: false };
+    const rows = await this.read(
+      `MATCH (a:Element)-[r]-(b:Element)
+       WHERE a.workspaceId = $ws AND a.id IN $ids AND a.deleted = false AND r.deleted = true AND r.updatedAt > $since AND ${inView('r')}
+       RETURN properties(r) AS p, type(r) AS t, startNode(r).id AS f, endNode(r).id AS o, CASE WHEN b.deleted THEN properties(b) END AS bp
+       ORDER BY r.updatedAt DESC LIMIT toInteger($limit)`,
+      { ws, ids: [...ids], since, limit: limit + 1, ...viewParams(view) },
+    );
+    const elements = new Map<string, Element>();
+    const relationships = new Map<string, Relationship>();
+    for (const row of rows.slice(0, limit)) {
+      const r = propsToRelationship(row['p'] as Row, row['t'] as string, row['f'] as string, row['o'] as string);
+      relationships.set(r.id, r);
+      if (row['bp']) {
+        const e = propsToElement(row['bp'] as Row);
+        elements.set(e.id, e);
+      }
+    }
+    return { elements: [...elements.values()], relationships: [...relationships.values()], truncated: rows.length > limit };
+  }
+
+  /**
    * A projection query's result drawn as a lens (D94): its nodes up to the budget, and the stored
    * relationships between them that it declares. The anchors are kept first, then the highest
    * weight, then row order (D96); a node without a weight counts as 0. Levels come from the query or, where it

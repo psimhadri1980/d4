@@ -222,7 +222,11 @@ only `id` or `node` is today's anchors-only form.
   Cypher projections are done (D94): a query with a `node` column draws its own nodes and links;
   its `weight` column decides what fills the budget (D96).
   Layers are done (D95): a lens keeps its steps to the layers it names.
-- **Later:** time slice and diff, which need history in the graph.
+- **Later:** time slice and diff. The graph already keeps both kinds of time: business time in
+  each item's `validFrom` and `validTo`, record time in the append-only event log. The time slice
+  is done (D97): a lens's `time` range fades what is not valid in it and marks what starts or ends
+  in it. Diff is done (D98): Changes since a day marks what the canvas shows as added or changed,
+  and adds the links deleted since, with deleted nodes at their far end, faded.
 
 ## 10. Open points
 1. Budget, per-node cap and depth ceilings are starting values. Log truncations, expands and
@@ -231,5 +235,5 @@ only `id` or `node` is today's anchors-only form.
    explicit step for now; revisit if packs need both.
 3. Whether a lens may override importance freely, or only choose between rules the metamodel
    declares.
-4. Diff and time slice need versioned or dated graph data; out of scope until the graph keeps
-   history.
+4. The time slice marks nodes only; links keep their planned dashes. What a retirement leaves
+   uncovered is for a Matrix or Connection lens over the same range.

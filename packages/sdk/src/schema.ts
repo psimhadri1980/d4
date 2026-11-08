@@ -1179,6 +1179,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{ws}/studio/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description What changed after an instant in what a lens shows (D98), from the event log: items added, changed (with the fields) and removed, and the deleted links of the shown elements. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ws: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StudioChangesInput"];
+                };
+            };
+            responses: {
+                /** @description Changes, oldest first, and what was removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudioChanges"];
+                    };
+                };
+                /** @description Malformed request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No access to the workspace */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{ws}/studio/counts": {
         parameters: {
             query?: never;
@@ -8994,6 +9072,41 @@ export interface components {
             /** @default 25 */
             limit: number;
         };
+        StudioChanges: {
+            /** @description One per shown or removed item that changed, in the order they first changed */
+            changes: {
+                id: string;
+                /** @enum {string} */
+                change: "added" | "changed" | "removed";
+                fields: string[];
+                by: string;
+                at: string;
+            }[];
+            /** @description Deleted links of the shown elements, with deleted nodes at their other end */
+            removed: {
+                elements: components["schemas"]["Element"][];
+                relationships: components["schemas"]["Relationship"][];
+            };
+            /** @description More events or removed links than one answer holds */
+            truncated: boolean;
+        };
+        StudioChangesInput: {
+            /**
+             * @description Only items valid on this date
+             * @example 2026-10-17
+             */
+            asOf?: string;
+            /** @description Scenario element id: the baseline plus this scenario */
+            scenario?: string;
+            /** @description The elements and relationships the lens shows */
+            ids: string[];
+            /**
+             * Format: date-time
+             * @description Changes after this instant
+             * @example 2026-11-01T00:00:00Z
+             */
+            since: string;
+        };
         StudioCountsResult: {
             counts: {
                 count: number;
@@ -9124,6 +9237,13 @@ export interface components {
             quickFilters?: string[];
             /** @description Metamodel layers its steps keep to (D95) */
             layers?: string[];
+            /** @description A time slice (D97): business time, from included and to not */
+            time?: {
+                /** @example 2026-10-17 */
+                from?: string;
+                /** @example 2026-10-17 */
+                to?: string;
+            };
             /** @description Search phrases that open the lens (D92) */
             phrases?: string[];
             /** @default 2 */

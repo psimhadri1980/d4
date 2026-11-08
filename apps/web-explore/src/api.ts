@@ -7,6 +7,7 @@ type StudioCountSearch = Schemas['StudioCounts']['searches'][number];
 type StudioOpen = Omit<Schemas['StudioOpen'], 'asOf' | 'scenario'>;
 type StudioPaths = Omit<Schemas['StudioPathsInput'], 'asOf' | 'scenario' | 'maxLength' | 'limit'>;
 type StudioMatrix = Omit<Schemas['StudioMatrixInput'], 'asOf' | 'scenario' | 'maxColumns'>;
+type StudioChanges = Omit<Schemas['StudioChangesInput'], 'asOf' | 'scenario'>;
 type StudioImpact = Omit<Schemas['StudioImpactInput'], 'asOf' | 'scenario' | 'maxNodes'>;
 export type LensInput = Schemas['StudioLensInput'];
 
@@ -34,6 +35,9 @@ export const exploreApi = {
   /** How two elements are connected: the shortest paths between them (D89). */
   studioPaths: (ws: string, body: StudioPaths, v: ViewParams = {}) =>
     d4().post('/v1/workspaces/{ws}/studio/paths', { path: { ws }, body: { ...body, maxLength: 6, limit: 25, ...view(v) } }),
+  /** What changed after an instant in what the canvas shows, from the event log (D98). */
+  studioChanges: (ws: string, body: StudioChanges, v: ViewParams = {}) =>
+    d4().post('/v1/workspaces/{ws}/studio/changes', { path: { ws }, body: { ...body, ...view(v) } }),
   studioCounts: (ws: string, searches: StudioCountSearch[], v: ViewParams = {}, sample = 0) =>
     d4().post('/v1/workspaces/{ws}/studio/counts', { path: { ws }, body: { searches, cap: 1000, sample, ...view(v) } }),
   /** For the lens editor: a contour type's count, links and attribute values. */

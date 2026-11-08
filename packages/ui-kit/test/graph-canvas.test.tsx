@@ -40,6 +40,20 @@ describe('GraphCanvas', () => {
     act(() => root.unmount());
   });
 
+  it('marks a node against a time slice or a diff: the label on the card and in its name, faded when outside (D97)', () => {
+    const marked: GraphCanvasNode[] = [
+      { ...nodes[0]!, mark: { kind: 'ends', label: 'Ends 2027-09' } },
+      { ...nodes[1]!, mark: { kind: 'outside', label: 'Outside' } },
+      nodes[2]!,
+    ];
+    const root = render(<GraphCanvas nodes={marked} edges={edges} rootIds={['r1']} />);
+    expect(node('r1').getAttribute('aria-label')).toBe('Customer Onboarding, BusinessService, Strategy, root, Ends 2027-09');
+    expect(node('r1').querySelector('.graph-canvas-mark')!.textContent).toBe('Ends 2027-09');
+    expect(node('iv').classList.contains('mark-outside')).toBe(true);
+    expect(node('sv').querySelector('.graph-canvas-mark')).toBeNull();
+    act(() => root.unmount());
+  });
+
   it('draws a group of folded links as its own node, which selects like any other (D85)', () => {
     const picked: (string | null)[] = [];
     const group: GraphCanvasNode = { id: 'group:r1~ENABLED_BY~OUT~Capability', name: '▸ 14 capabilities', type: 'Capability', layer: 'Business', state: 'in-graph', group: 14 };
