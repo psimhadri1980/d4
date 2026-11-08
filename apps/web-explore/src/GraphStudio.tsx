@@ -1,7 +1,7 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { flowRank, flowStage, groupLabel, lensSearch, lensSpec, type LayerTypes, type Lens, type LensAttributeFilter, type LensGroup, type LensStep } from '@d4/core';
+import { flowRank, flowStage, groupLabel, lensSearch, lensSpec, type LayerTypes, type Lens, type LensAttributeFilter, type LensGroup, type LensStep, type LensTime, timeMark } from '@d4/core';
 import { D4ApiError, type Element, type QueryParamDef, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
@@ -293,6 +293,7 @@ export function GraphStudio() {
       ...(d.quickFilters?.length && { quickFilters: d.quickFilters }),
       ...(d.phrases?.length && { phrases: d.phrases }),
       ...(d.layers?.length && { layers: d.layers }),
+      ...(d.time && { time: d.time }),
       ...(d.steps?.length && { steps: d.steps }),
       ...(d.shape && { shape: d.shape }),
       ...(d.disclosure && { disclosure: d.disclosure }),
@@ -340,9 +341,11 @@ export function GraphStudio() {
     const lens = lensOf(search);
     return lens?.shape === 'flow' && !step?.connect ? lensSpec(lens, inLayers).steps : null;
   }, [search, lenses, step?.connect]);
+  // A lens's time slice (D97) marks each node's validity against its range.
+  const timeSlice = lensOf(search)?.time;
   const graph = useMemo(
-    () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf, flowSteps) : null),
-    [pinned, pins, registry.data, modelView.asOf, flowSteps],
+    () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf, flowSteps, timeSlice) : null),
+    [pinned, pins, registry.data, modelView.asOf, flowSteps, timeSlice],
   );
   const [impactOpen, setImpactOpen] = useState(false);
   // A Matrix lens opens its matrix (D90): the roots by what its first step reaches.
@@ -689,7 +692,9 @@ const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
  * API result → GraphCanvas input. A node or relationship counts as planned when it only starts
  * after the date being viewed (today by default), as in the Explorer.
  */
-function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySet<string>, asOf?: string, flow?: readonly LensStep[] | null) {
+const markOf = (m: ReturnType<typeof timeMark>) => (m ? { mark: m } : {});
+
+function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySet<string>, asOf?: string, flow?: readonly LensStep[] | null, time?: LensTime) {
   const column = (level: number | undefined) => (flow && level !== undefined ? { column: flowRank(flow, level) } : {});
   const today = asOf || new Date().toISOString().slice(0, 10);
   const planned = (x: Element | Relationship) => !!x.validFrom && x.validFrom > today;
@@ -706,6 +711,7 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySe
       changedAt: e.updatedAt ?? undefined,
       ...(pinnedIds.has(e.id) && { pinned: true }),
       ...column(r.levels?.[e.id]),
+      ...markOf(timeMark(e, time)),
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x) }));

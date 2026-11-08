@@ -9120,6 +9120,13 @@ export interface components {
             quickFilters?: string[];
             /** @description Metamodel layers its steps keep to (D95) */
             layers?: string[];
+            /** @description A time slice (D97): business time, from included and to not */
+            time?: {
+                /** @example 2026-10-17 */
+                from?: string;
+                /** @example 2026-10-17 */
+                to?: string;
+            };
             /** @description Search phrases that open the lens (D92) */
             phrases?: string[];
             /** @default 2 */

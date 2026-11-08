@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { describeFilter, LENS_PHRASE, lensChips, type Lens, type LensAttributeFilter, type LensFacet } from '@d4/core';
+import { describeFilter, LENS_PHRASE, lensChips, type Lens, type LensAttributeFilter, type LensFacet, type LensTime } from '@d4/core';
 import type { AttributeDef, MetamodelRegistry, NodeTypeRole } from '@d4/metamodel';
 import { attributeLabel } from './GraphInspector';
 import { LensTextForm } from './LensTextForm';
@@ -176,6 +176,7 @@ export function LensEditor(props: LensEditorProps) {
           <Section n={3} title="Traversal" note="What the lens follows from its roots, and how it is drawn.">
             <LensTraversal registry={registry} draft={draft} onChange={set} />
             <LayerPicker registry={registry} draft={draft} onChange={(layers) => set({ layers: layers.length ? layers : undefined })} />
+            <TimeSlice value={draft.time} onChange={(time) => set({ time })} />
           </Section>
 
           <Section n={4} title="Quick filters" note="Attributes the smart bar offers to narrow this lens. None ticked: the contour's pick-list attributes.">
@@ -297,6 +298,34 @@ function LayerPicker({ registry, draft, onChange }: { registry: MetamodelRegistr
           : cut >= 0
             ? `Step ${cut + 1} reaches nothing in these layers, so the lens stops before it.`
             : 'The steps reach only node types in these layers; the roots are as the contour says.'}
+      </p>
+    </fieldset>
+  );
+}
+
+/** A time slice (D97): what is not valid in the range is faded, what starts or ends in it marked. */
+function TimeSlice({ value, onChange }: { value: LensTime | undefined; onChange(v: LensTime | undefined): void }) {
+  const fromId = useId();
+  const toId = useId();
+  const put = (t: LensTime) => onChange(t.from || t.to ? t : undefined);
+  const backwards = !!value?.from && !!value?.to && value.from >= value.to;
+  return (
+    <fieldset className="lens-editor-quick">
+      <legend>Time slice</legend>
+      <div className="lens-editor-field">
+        <label htmlFor={fromId}>From</label>
+        <input id={fromId} type="date" value={value?.from ?? ''} onChange={(e) => put({ ...value, from: e.target.value || undefined })} />
+      </div>
+      <div className="lens-editor-field">
+        <label htmlFor={toId}>Until</label>
+        <input id={toId} type="date" value={value?.to ?? ''} onChange={(e) => put({ ...value, to: e.target.value || undefined })} />
+      </div>
+      <p className={`lens-editor-hint lens-editor-field wide${backwards ? ' lens-editor-error' : ''}`}>
+        {backwards
+          ? 'From must be before Until.'
+          : value
+            ? 'Everything the lens reaches is drawn; what is not valid in this range is faded, and what starts or ends in it is marked.'
+            : 'No range: validity is not marked.'}
       </p>
     </fieldset>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, LENS_PHRASE, matchPhrases, stepAt, type Lens } from '../src';
+import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, LENS_PHRASE, matchPhrases, stepAt, timeMark, type Lens } from '../src';
 
 const mastered: Lens = {
   id: 'mastered',
@@ -113,5 +113,21 @@ describe('lens layers (D95)', () => {
     expect(lensSpec({ ...lens, steps, layers: ['Application'] }, inLayers).steps).toEqual([{ direction: 'down', types: ['Application'] }]);
     expect(lensSpec({ ...lens, layers: ['Business'] }, inLayers).steps).toEqual([{ direction: 'both', repeat: true, types: ['Capability', 'Process'] }]);
     expect(lensSpec({ ...lens, steps, layers: ['Business'] }).steps).toBe(steps);
+  });
+});
+
+describe('time slices (D97)', () => {
+  const y2027 = { from: '2027-01-01', to: '2028-01-01' };
+  it('fade what is not valid in the range, and mark what starts or ends inside it', () => {
+    expect(timeMark({ validFrom: null, validTo: null }, y2027)).toBeNull();
+    expect(timeMark({ validTo: '2026-06-30' }, y2027)).toEqual({ kind: 'outside', label: 'Outside' });
+    expect(timeMark({ validFrom: '2028-01-01' }, y2027)).toEqual({ kind: 'outside', label: 'Outside' });
+    expect(timeMark({ validTo: '2027-09-30' }, y2027)).toEqual({ kind: 'ends', label: 'Ends 2027-09' });
+    expect(timeMark({ validFrom: '2027-03-01' }, y2027)).toEqual({ kind: 'starts', label: 'Starts 2027-03' });
+    expect(timeMark({ validFrom: '2027-03-01', validTo: '2027-09-30' }, y2027)).toMatchObject({ kind: 'ends' });
+  });
+  it('are no slice without a range', () => {
+    expect(timeMark({ validTo: '2020-01-01' }, undefined)).toBeNull();
+    expect(timeMark({ validTo: '2020-01-01' }, {})).toBeNull();
   });
 });
