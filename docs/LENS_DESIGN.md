@@ -219,6 +219,7 @@ only `id` or `node` is today's anchors-only form.
   as runs any lens on the selected node, which makes every lens a template.
 - **Slice 4:** Cypher projections; layers; the text form. The text form is done (D93): one line
   such as `2+Application+2 via dependency where lifecycle=LIVE as flow`, read and written in the editor.
+  Cypher projections are done (D94): a query with a `node` column draws its own nodes and links.
 - **Later:** time slice and diff, which need history in the graph.
 
 ## 10. Open points

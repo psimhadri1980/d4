@@ -83,7 +83,7 @@ export function LensQuerySource({ workspaceId, queries, value, onChange, onSubmi
           <ParamForm workspaceId={workspaceId} defs={chosen.params} values={form} onChange={setParams} />
         </div>
       )}
-      <p className="lens-editor-hint">The query returns element ids in a column named id, or element nodes. They become the roots.</p>
+      <p className="lens-editor-hint">The query returns element ids in a column named id, or element nodes: they become the roots. A projection returns a node column, with parent (or from), rel, anchor and level if it likes: the lens draws those nodes and links.</p>
       {onSubmitQuery &&
         (writing ? (
           <QueryWriter
@@ -108,12 +108,23 @@ export function LensQuerySource({ workspaceId, queries, value, onChange, onSubmi
 }
 
 const STARTER = 'MATCH (n:Element {workspaceId: $workspace, deleted: false})\nWHERE n.name CONTAINS $text\nRETURN n.id AS id';
+/** A projection (D94): the query returns the nodes and the links to draw, a `node` row each. */
+const PROJECTION_STARTER = [
+  'MATCH (n:Element {workspaceId: $workspace, deleted: false})',
+  'WHERE n.name CONTAINS $text',
+  'OPTIONAL MATCH (n)-[r]->(m:Element {deleted: false})',
+  'WITH n, collect({m: m.id, rel: type(r)}) AS out',
+  'UNWIND [{node: n.id, parent: null, rel: null}] + [x IN out WHERE x.m IS NOT NULL | {node: x.m, parent: n.id, rel: x.rel}] AS row',
+  'RETURN row.node AS node, row.parent AS parent, row.rel AS rel',
+].join('\n');
+const ROLES = { anchors: STARTER, projection: PROJECTION_STARTER };
 const STARTER_PARAMS = '[\n  { "name": "text", "type": "string", "default": "" }\n]';
 
 /** Title, Cypher and parameter definitions (JSON, as in Query Studio), submitted for review. */
 function QueryWriter({ onSubmit, onCancel }: { onSubmit(d: LensQueryDraft): Promise<SubmitQueryResult>; onCancel(): void }) {
   const id = useId();
   const [title, setTitle] = useState('');
+  const [role, setRole] = useState<keyof typeof ROLES>('anchors');
   const [cypher, setCypher] = useState(STARTER);
   const [paramsText, setParamsText] = useState(STARTER_PARAMS);
   const [errors, setErrors] = useState<string[]>([]);
@@ -143,6 +154,24 @@ function QueryWriter({ onSubmit, onCancel }: { onSubmit(d: LensQueryDraft): Prom
         <label htmlFor={`${id}-title`}>Query title</label>
         <input id={`${id}-title`} value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
+      <fieldset className="lens-editor-field wide lens-query-role">
+        <legend>The query gives</legend>
+        {(['anchors', 'projection'] as const).map((r) => (
+          <label key={r}>
+            <input
+              type="radio"
+              name={`${id}-role`}
+              checked={role === r}
+              onChange={() => {
+                // An untouched starter follows the role; the author's own Cypher stays.
+                if (cypher === ROLES[role]) setCypher(ROLES[r]);
+                setRole(r);
+              }}
+            />
+            {r === 'anchors' ? 'Anchors: the roots, in an id column' : 'Projection: the nodes and links to draw'}
+          </label>
+        ))}
+      </fieldset>
       <div className="lens-editor-field wide">
         <label htmlFor={`${id}-cypher`}>Cypher</label>
         <textarea id={`${id}-cypher`} className="code" rows={8} spellCheck={false} value={cypher} onChange={(e) => setCypher(e.target.value)} />

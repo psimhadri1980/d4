@@ -210,6 +210,11 @@ describe('LensEditor', () => {
     await act(async () => button('Submit for review').click());
     expect(submitted.at(-1)).toMatchObject({ title: 'Owned apps', params: [{ name: 'text', type: 'string', default: '' }] });
     expect(drafts.at(-1)!.query).toEqual({ id: 'new1', params: {} });
+    // A projection starter (D94) replaces an untouched starter, never the author's own Cypher.
+    click(button('Write a new query…'));
+    const cypher = field<HTMLTextAreaElement>('Cypher');
+    click([...host.querySelectorAll('.lens-query-role label')].find((l) => l.textContent!.startsWith('Projection'))!.querySelector('input')!);
+    expect(cypher.value).toContain('RETURN row.node AS node, row.parent AS parent, row.rel AS rel');
     act(() => root.unmount());
   });
 

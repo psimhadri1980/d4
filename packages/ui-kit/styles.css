@@ -1421,6 +1421,18 @@
 .lens-query-writer textarea {
   width: 100%;
 }
+.lens-query-role {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.lens-query-role legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
 .lens-query-errors {
   margin: 0;
   padding-left: 20px;
