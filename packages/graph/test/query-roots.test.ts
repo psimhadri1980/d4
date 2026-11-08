@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { queryRootIds } from '../src/studio';
+import { queryProjection, queryRootIds } from '../src/studio';
 
 const node = (id: string, labels = ['Element', 'Application']) => ({ elementId: `4:x:${id}`, labels, properties: { id, name: id } });
 
@@ -15,5 +15,27 @@ describe('query lens roots', () => {
 
   it('are empty when the rows hold neither', () => {
     expect(queryRootIds({ columns: ['n'], rows: [{ n: 4 }] })).toEqual([]);
+  });
+});
+
+describe('query projections (D94)', () => {
+  it('are queries with a node column: nodes in order, parent links with their relationship, anchors where no link leads', () => {
+    const rows = [{ node: 'a', parent: null }, { node: node('b'), parent: 'a', rel: 'USES' }, { node: 'c', parent: 'b' }, { node: 'b', parent: 'a', rel: 'USES' }];
+    expect(queryProjection({ columns: ['node', 'parent', 'rel'], rows })).toEqual({
+      nodeIds: ['a', 'b', 'c'],
+      links: [{ from: 'a', to: 'b', rel: 'USES' }, { from: 'b', to: 'c' }],
+      anchorIds: ['a'],
+      levels: {},
+    });
+  });
+
+  it('take from, anchor and level when given', () => {
+    const rows = [{ node: 'a', anchor: false, level: 2 }, { node: 'b', from: 'a', anchor: true, level: 0 }];
+    expect(queryProjection({ columns: ['node', 'from', 'anchor', 'level'], rows })).toMatchObject({ anchorIds: ['b'], levels: { a: 2, b: 0 }, links: [{ from: 'a', to: 'b' }] });
+  });
+
+  it('are not projections without a node column, and name the row whose node is not an element', () => {
+    expect(queryProjection({ columns: ['id'], rows: [{ id: 'a' }] })).toBeNull();
+    expect(queryProjection({ columns: ['node'], rows: [{ node: 'a' }, { node: 4 }] })).toEqual({ error: 'Row 2: the node column must be an element id or an element node' });
   });
 });
