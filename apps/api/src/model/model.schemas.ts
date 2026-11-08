@@ -378,6 +378,7 @@ const StudioResultSchema = z
 export const StudioProjectionSchema = StudioResultSchema.extend({
   groups: z.array(LensGroupSchema).optional().openapi({ description: 'With disclosure: links folded into groups, to open with studio/open' }),
   levels: z.record(z.number().int()).optional().openapi({ description: "With disclosure: each shown node's level, 0 for roots" }),
+  weights: z.record(z.number()).optional().openapi({ description: "A projection query's weight column: each shown node's interest" }),
   truncated: z.boolean().optional().openapi({ description: 'With disclosure: a step read more rows than allowed' }),
 }).openapi('StudioProjection');
 

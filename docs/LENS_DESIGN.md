@@ -197,7 +197,7 @@ submitted:
 | `parent` or `from` | edge source, giving a tree or a DAG |
 | `rel` | relationship name or kind |
 | `level`, `stage` | layering |
-| `weight` | interest |
+| `weight` | interest: anchors first, then the highest weight fills the budget |
 | `anchor` | true for starting nodes |
 
 The disclosure engine then folds and budgets its result like any other lens. A query that returns
@@ -219,7 +219,8 @@ only `id` or `node` is today's anchors-only form.
   as runs any lens on the selected node, which makes every lens a template.
 - **Slice 4:** Cypher projections; layers; the text form. The text form is done (D93): one line
   such as `2+Application+2 via dependency where lifecycle=LIVE as flow`, read and written in the editor.
-  Cypher projections are done (D94): a query with a `node` column draws its own nodes and links.
+  Cypher projections are done (D94): a query with a `node` column draws its own nodes and links;
+  its `weight` column decides what fills the budget (D96).
   Layers are done (D95): a lens keeps its steps to the layers it names.
 - **Later:** time slice and diff. The graph already keeps both kinds of time: business time in
   each item's `validFrom` and `validTo`, record time in the append-only event log. The time slice

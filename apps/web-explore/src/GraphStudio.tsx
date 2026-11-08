@@ -760,7 +760,8 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySe
       // What changed since (D98) says more than the time slice, so it wins.
       ...markOf(changeMark(changed?.get(e.id)) ?? timeMark(e, time)),
     }))
-    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    // A projection's weight (D96) puts the most interesting nodes first, then by name.
+    .sort((a, b) => (r.weights?.[b.id] ?? 0) - (r.weights?.[a.id] ?? 0) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x), ...(x.deleted && { removed: true }) }));
   // Folded links (D85): one node per group, joined to its parent by the group's relationship.
   const ids = new Set(nodes.map((n) => n.id));
