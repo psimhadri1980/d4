@@ -217,7 +217,8 @@ only `id` or `node` is today's anchors-only form.
   Landscape is done (D91): a box per root holding what it contains, coloured by an enum attribute.
   Search phrases and Open as are done (D92): a phrase is words then one slot at the end, and Open
   as runs any lens on the selected node, which makes every lens a template.
-- **Slice 4:** Cypher projections; layers; the text form.
+- **Slice 4:** Cypher projections; layers; the text form. The text form is done (D93): one line
+  such as `2+Application+2 via dependency where lifecycle=LIVE as flow`, read and written in the editor.
 - **Later:** time slice and diff, which need history in the graph.
 
 ## 10. Open points

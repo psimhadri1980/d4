@@ -121,6 +121,28 @@ describe('LensEditor', () => {
     act(() => root.unmount());
   });
 
+  it('shows the lens as text, and applies a line checked against the metamodel (D93)', () => {
+    const drafts: LensDraft[] = [];
+    const initial: LensDraft = { name: 'Deps', contour: { type: 'Application', attributes: [] }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph' };
+    const root = render(<LensEditor registry={registry} initial={initial} lenses={[]} onDraftChange={(d) => drafts.push(d)} onSave={() => {}} onCancel={() => {}} />);
+    const text = field<HTMLInputElement>('Write it as text');
+    expect(text.value).toBe('Application');
+    set(text, 'Application+2 via NOT_A_RELATIONSHIP');
+    click(button('Apply'));
+    expect(host.querySelector('[role="alert"]')!.textContent).toBe('There is no relationship NOT_A_RELATIONSHIP');
+    set(text, '2+Application+2 via dependency where lifecycle=LIVE as flow');
+    click(button('Apply'));
+    expect(drafts.at(-1)).toMatchObject({
+      contour: { type: 'Application', attributes: [{ attribute: 'lifecycle', op: 'eq', value: 'LIVE' }] },
+      steps: [{ direction: 'both', kind: 'dependency', repeat: true }],
+      depth: 2,
+      shape: 'flow',
+      disclosure: { initialDepth: 2 },
+    });
+    expect(text.value).toBe('2+Application+2 via dependency where lifecycle=LIVE as flow');
+    act(() => root.unmount());
+  });
+
   it('takes search phrases one per line, and will not save one without a slot at the end (D92)', () => {
     const saved: LensDraft[] = [];
     const initial: LensDraft = { name: 'Impact', contour: { type: 'Application', attributes: [] }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph' };

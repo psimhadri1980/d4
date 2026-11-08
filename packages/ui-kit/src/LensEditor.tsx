@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { describeFilter, LENS_PHRASE, lensChips, type Lens, type LensAttributeFilter, type LensFacet } from '@d4/core';
 import type { AttributeDef, MetamodelRegistry, NodeTypeRole } from '@d4/metamodel';
 import { attributeLabel } from './GraphInspector';
+import { LensTextForm } from './LensTextForm';
 import { LensTraversal } from './LensTraversal';
 import { LensQuerySource, type LensCatalogQuery, type LensQueryDraft, type SubmitQueryResult } from './LensQuerySource';
 import { typesByLayer } from './model';
@@ -121,6 +122,7 @@ export function LensEditor(props: LensEditorProps) {
 
       <div className="lens-editor-body">
         <div className="lens-editor-sections">
+          <LensTextForm registry={registry} draft={draft} onApply={set} />
           <Section n={1} title="Contour" note="The node type every result is.">
             <TypePicker
               label="Contour type"
