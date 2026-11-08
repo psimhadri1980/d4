@@ -36,6 +36,8 @@ export interface GraphCanvasEdge {
   to: string;
   type: string;
   planned: boolean;
+  /** Deleted since the day a diff compares with (D98): drawn faded. */
+  removed?: boolean;
 }
 
 export interface GraphCanvasProps {

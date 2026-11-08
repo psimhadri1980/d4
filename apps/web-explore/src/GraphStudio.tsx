@@ -1,7 +1,7 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { flowRank, flowStage, groupLabel, lensSearch, lensSpec, type LayerTypes, type Lens, type LensAttributeFilter, type LensGroup, type LensStep, type LensTime, timeMark } from '@d4/core';
+import { flowRank, flowStage, groupLabel, lensSearch, lensSpec, type LayerTypes, type Lens, type LensAttributeFilter, type LensGroup, type ItemChange, type LensStep, type LensTime, timeMark } from '@d4/core';
 import { D4ApiError, type Element, type QueryParamDef, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
@@ -329,7 +329,20 @@ export function GraphStudio() {
 
   // Pinned nodes stay on the canvas through drills and new searches, with the links they had (D85).
   const [pins, setPins] = useState<Pin[]>([]);
-  const pinned = useMemo(() => (shownResult ? withPins(shownResult, pins) : undefined), [shownResult, pins]);
+  const withPinned = useMemo(() => (shownResult ? withPins(shownResult, pins) : undefined), [shownResult, pins]);
+  // Changes since (D98): what the canvas shows, marked by what happened to it after that day.
+  const [since, setSince] = useState('');
+  const shownIds = useMemo(
+    () => (withPinned ? [...withPinned.roots, ...withPinned.elements, ...withPinned.relationships].map((x) => x.id).slice(0, 400) : []),
+    [withPinned],
+  );
+  const changes = useQuery({
+    queryKey: ['studio-changes', ws, since, shownIds, vq],
+    enabled: !!ws && !!since && shownIds.length > 0,
+    queryFn: () => exploreApi.studioChanges(ws!, { ids: shownIds, since: new Date(`${since}T00:00:00`).toISOString() }, vq),
+  });
+  const pinned = useMemo(() => (withPinned && since && changes.data ? withRemoved(withPinned, changes.data.removed) : withPinned), [withPinned, since, changes.data]);
+  const changed = useMemo(() => (since && changes.data ? new Map(changes.data.changes.map((c) => [c.id, c as ItemChange])) : undefined), [since, changes.data]);
   const togglePin = (id: string) => {
     if (pins.some((p) => p.element.id === id)) return setPins(pins.filter((p) => p.element.id !== id));
     const element = pinned && [...pinned.roots, ...pinned.elements].find((e) => e.id === id);
@@ -344,8 +357,8 @@ export function GraphStudio() {
   // A lens's time slice (D97) marks each node's validity against its range.
   const timeSlice = lensOf(search)?.time;
   const graph = useMemo(
-    () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf, flowSteps, timeSlice) : null),
-    [pinned, pins, registry.data, modelView.asOf, flowSteps, timeSlice],
+    () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf, flowSteps, timeSlice, changed) : null),
+    [pinned, pins, registry.data, modelView.asOf, flowSteps, timeSlice, changed],
   );
   const [impactOpen, setImpactOpen] = useState(false);
   // A Matrix lens opens its matrix (D90): the roots by what its first step reaches.
@@ -535,7 +548,9 @@ export function GraphStudio() {
             layout={layout}
             columns={graph?.columns}
             caption={
-              flowSteps && graph?.rootIds.length ? (
+              <>
+                {(graph?.nodes.length || since) && <ChangesSince value={since} onChange={setSince} loading={changes.isFetching} count={changes.data?.changes.length} truncated={changes.data?.truncated} />}
+                {flowSteps && graph?.rootIds.length ? (
                 <button type="button" className="button ghost small" aria-pressed={impactOpen} onClick={() => setImpactOpen(!impactOpen)}>
                   Impact table
                 </button>
@@ -543,7 +558,8 @@ export function GraphStudio() {
                 <button type="button" className="button ghost small" aria-pressed={matrixOpen} onClick={() => setMatrixOpen(!matrixOpen)}>
                   {matrixStep ? 'Matrix' : 'Landscape'}
                 </button>
-              ) : undefined
+              ) : null}
+              </>
             }
             depth={depth}
             crumbs={steps.map((s) => ({ label: s.label }))}
@@ -692,9 +708,39 @@ const text = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
  * API result → GraphCanvas input. A node or relationship counts as planned when it only starts
  * after the date being viewed (today by default), as in the Explorer.
  */
+/** The diff's day (D98): the canvas marks what was added, changed or removed after it. */
+function ChangesSince({ value, onChange, loading, count, truncated }: { value: string; onChange(v: string): void; loading: boolean; count?: number; truncated?: boolean }) {
+  const id = useId();
+  return (
+    <span className="graph-studio-since">
+      <label htmlFor={id}>Changes since</label>
+      <input id={id} type="date" value={value} max={new Date().toISOString().slice(0, 10)} onChange={(e) => onChange(e.target.value)} />
+      {value && (
+        <span className="graph-studio-since-note" aria-live="polite">
+          {loading ? 'Reading changes…' : count === undefined ? '' : `${count === 0 ? 'No changes' : count === 1 ? '1 change' : `${count} changes`}${truncated ? ', more not shown' : ''}`}
+        </span>
+      )}
+    </span>
+  );
+}
+
 const markOf = (m: ReturnType<typeof timeMark>) => (m ? { mark: m } : {});
 
-function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySet<string>, asOf?: string, flow?: readonly LensStep[] | null, time?: LensTime) {
+const CHANGE_LABEL = { added: 'Added', changed: 'Changed', removed: 'Removed' } as const;
+const changeMark = (c: ItemChange | undefined): ReturnType<typeof timeMark> => (c ? { kind: c.change, label: CHANGE_LABEL[c.change] } : null);
+
+/** The links removed since the chosen day (D98), with the deleted nodes at their far end, added to the result. */
+function withRemoved(r: StudioResult, removed: { elements: Element[]; relationships: Relationship[] }): StudioResult {
+  if (!removed.elements.length && !removed.relationships.length) return r;
+  const ids = new Set([...r.roots, ...r.elements].map((e) => e.id));
+  const elements = [...r.elements, ...removed.elements.filter((e) => !ids.has(e.id))];
+  for (const e of removed.elements) ids.add(e.id);
+  const rels = new Set(r.relationships.map((x) => x.id));
+  const relationships = [...r.relationships, ...removed.relationships.filter((x) => !rels.has(x.id) && ids.has(x.fromId) && ids.has(x.toId))];
+  return { ...r, elements, relationships };
+}
+
+function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySet<string>, asOf?: string, flow?: readonly LensStep[] | null, time?: LensTime, changed?: ReadonlyMap<string, ItemChange>) {
   const column = (level: number | undefined) => (flow && level !== undefined ? { column: flowRank(flow, level) } : {});
   const today = asOf || new Date().toISOString().slice(0, 10);
   const planned = (x: Element | Relationship) => !!x.validFrom && x.validFrom > today;
@@ -711,10 +757,11 @@ function toCanvas(reg: MetamodelRegistry, r: StudioResult, pinnedIds: ReadonlySe
       changedAt: e.updatedAt ?? undefined,
       ...(pinnedIds.has(e.id) && { pinned: true }),
       ...column(r.levels?.[e.id]),
-      ...markOf(timeMark(e, time)),
+      // What changed since (D98) says more than the time slice, so it wins.
+      ...markOf(changeMark(changed?.get(e.id)) ?? timeMark(e, time)),
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-  const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x) }));
+  const edges: GraphCanvasEdge[] = r.relationships.map((x) => ({ id: x.id, from: x.fromId, to: x.toId, type: x.type, planned: planned(x), ...(x.deleted && { removed: true }) }));
   // Folded links (D85): one node per group, joined to its parent by the group's relationship.
   const ids = new Set(nodes.map((n) => n.id));
   for (const g of (r.groups ?? []) as LensGroup[]) {

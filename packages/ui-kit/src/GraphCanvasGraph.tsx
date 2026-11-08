@@ -511,7 +511,7 @@ function Connector({ route, edge, marker, lit, showLabel, onLinePointerDown, onL
   const d = route.control ? `M${p.x},${p.y} Q${route.control.x},${route.control.y} ${q.x},${q.y}` : route.points.map((pt, i) => `${i ? 'L' : 'M'}${pt.x},${pt.y}`).join(' ');
   const cursor = route.bend ? (route.bend.axis === 'y' ? 'ns' : 'ew') : 'move';
   return (
-    <g className={`graph-canvas-edge${edge.planned ? ' planned' : ''}${lit ? ' lit' : ''}`} data-edge-id={route.id}>
+    <g className={`graph-canvas-edge${edge.planned ? ' planned' : ''}${edge.removed ? ' removed' : ''}${lit ? ' lit' : ''}`} data-edge-id={route.id}>
       <path d={d} markerEnd={`url(#${marker})`} />
       <path className={`graph-canvas-hit ${cursor}`} d={d} onPointerDown={onLinePointerDown} onClick={(e) => e.stopPropagation()}>
         <title>Drag to move this connector</title>

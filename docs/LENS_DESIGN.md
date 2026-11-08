@@ -224,7 +224,8 @@ only `id` or `node` is today's anchors-only form.
 - **Later:** time slice and diff. The graph already keeps both kinds of time: business time in
   each item's `validFrom` and `validTo`, record time in the append-only event log. The time slice
   is done (D97): a lens's `time` range fades what is not valid in it and marks what starts or ends
-  in it. Diff, marks for what changed since an instant, read from the event log, is next.
+  in it. Diff is done (D98): Changes since a day marks what the canvas shows as added or changed,
+  and adds the links deleted since, with deleted nodes at their far end, faded.
 
 ## 10. Open points
 1. Budget, per-node cap and depth ceilings are starting values. Log truncations, expands and

@@ -463,3 +463,18 @@ table.matrix tbody tr:hover .row-head {
 .graph-studio-path-link {
   color: var(--text-secondary);
 }
+
+/* Changes since (D98): the diff's day, in the canvas caption. */
+.graph-studio-since {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-inline-end: 0.75rem;
+  font-size: 0.875rem;
+}
+.graph-studio-since input {
+  font: inherit;
+}
+.graph-studio-since-note {
+  color: var(--text-secondary);
+}
