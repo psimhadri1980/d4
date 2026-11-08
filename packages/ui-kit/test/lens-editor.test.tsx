@@ -143,6 +143,18 @@ describe('LensEditor', () => {
     act(() => root.unmount());
   });
 
+  it('keeps the steps to the layers ticked, and says where a step reaches none (D95)', () => {
+    const drafts: LensDraft[] = [];
+    const initial: LensDraft = { name: 'Biz', contour: { type: 'Capability', attributes: [] }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph', steps: [{ direction: 'both', types: ['DataStore'] }] };
+    const root = render(<LensEditor registry={registry} initial={initial} lenses={[]} onDraftChange={(d) => drafts.push(d)} onSave={() => {}} onCancel={() => {}} />);
+    const layers = [...host.querySelectorAll('fieldset')].find((f) => f.querySelector('legend')!.textContent === 'Keep to layers')!;
+    expect(layers.textContent).toContain('None ticked');
+    click([...layers.querySelectorAll('label')].find((l) => l.textContent === 'Business')!.querySelector('input')!);
+    expect(drafts.at(-1)!.layers).toEqual(['Business']);
+    expect(layers.textContent).toContain('Step 1 reaches nothing in these layers');
+    act(() => root.unmount());
+  });
+
   it('takes search phrases one per line, and will not save one without a slot at the end (D92)', () => {
     const saved: LensDraft[] = [];
     const initial: LensDraft = { name: 'Impact', contour: { type: 'Application', attributes: [] }, facets: [], match: 'all', depth: 2, layout: 'hier', view: 'graph' };
