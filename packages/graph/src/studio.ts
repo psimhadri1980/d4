@@ -161,6 +161,57 @@ export function queryRootIds(result: { columns: readonly string[]; rows: readonl
   return [...ids];
 }
 
+/**
+ * What a projection query declares (D94): its nodes, the links between them, and which are anchors
+ * and on which level. A query is a projection when it returns a `node` column.
+ */
+export interface QueryProjection {
+  /** In the order the rows give them, without repeats. */
+  nodeIds: string[];
+  /** `parent` (or `from`) to `node`, with the relationship name when the `rel` column gives one. */
+  links: { from: string; to: string; rel?: string }[];
+  /** From the `anchor` column, else the nodes no link leads to. */
+  anchorIds: string[];
+  /** From the `level` column, where given. */
+  levels: Record<string, number>;
+}
+
+const elementId = (v: unknown): string | null => {
+  if (typeof v === 'string') return v;
+  const n = v as { labels?: unknown; properties?: { id?: unknown } } | null;
+  return Array.isArray(n?.labels) && (n!.labels as string[]).includes('Element') && typeof n?.properties?.id === 'string' ? n.properties.id : null;
+};
+
+/** A projection query's rows read (D94), or null when the query has no `node` column (anchors only). */
+export function queryProjection(result: { columns: readonly string[]; rows: readonly Record<string, unknown>[] }): QueryProjection | { error: string } | null {
+  if (!result.columns.includes('node')) return null;
+  const parentCol = result.columns.includes('parent') ? 'parent' : result.columns.includes('from') ? 'from' : null;
+  const ids = new Set<string>();
+  const links = new Map<string, { from: string; to: string; rel?: string }>();
+  const anchors = new Set<string>();
+  const levels: Record<string, number> = {};
+  for (const [i, r] of result.rows.entries()) {
+    const node = elementId(r['node']);
+    if (!node) return { error: `Row ${i + 1}: the node column must be an element id or an element node` };
+    ids.add(node);
+    const parent = parentCol && r[parentCol] != null ? elementId(r[parentCol]) : null;
+    if (parentCol && r[parentCol] != null && !parent) return { error: `Row ${i + 1}: the ${parentCol} column must be an element id or an element node` };
+    if (parent && parent !== node) {
+      ids.add(parent);
+      const rel = typeof r['rel'] === 'string' ? r['rel'] : undefined;
+      links.set(`${parent}\u0000${node}\u0000${rel ?? ''}`, { from: parent, to: node, ...(rel && { rel }) });
+    }
+    if (r['anchor'] === true) anchors.add(node);
+    const level = r['level'];
+    if (typeof level === 'number' && Number.isInteger(level) && level >= 0) levels[node] = level;
+    else if (typeof (level as { toNumber?: unknown })?.toNumber === 'function') levels[node] = (level as { toNumber(): number }).toNumber();
+  }
+  const nodeIds = [...ids];
+  const reached = new Set([...links.values()].map((l) => l.to));
+  const anchorIds = result.columns.includes('anchor') ? nodeIds.filter((id) => anchors.has(id)) : nodeIds.filter((id) => !reached.has(id));
+  return { nodeIds, links: [...links.values()], anchorIds, levels };
+}
+
 export class StudioQueries {
   constructor(
     private readonly reg: MetamodelRegistry,
@@ -235,6 +286,56 @@ export class StudioQueries {
     out.elements = [...shown.values()].filter((e) => out.levels[e.id] !== 0);
     out.relationships = [...rels.values()];
     return out;
+  }
+
+  /**
+   * A projection query's result drawn as a lens (D94): its nodes up to the budget, in row order, and
+   * the stored relationships between them that it declares. Levels come from the query or, where it
+   * gives none, from the anchors along its links. Nodes cut by the budget mark the result truncated.
+   */
+  async projectQuery(ws: string, q: QueryProjection, d: LensDisclosure, view?: ModelView): Promise<StudioProjection> {
+    const kept = q.nodeIds.slice(0, d.budget);
+    const { roots: found } = await this.findRoots(ws, { ids: kept }, kept.length, view);
+    const byId = new Map(found.map((e) => [e.id, e]));
+    const ids = kept.filter((id) => byId.has(id));
+    const declared = q.links.filter((l) => byId.has(l.from) && byId.has(l.to));
+    const rows = declared.length
+      ? await this.read(
+          `MATCH (a:Element)-[r]->(b:Element)
+           WHERE a.workspaceId = $ws AND a.id IN $ids AND b.id IN $ids AND r.deleted = false AND ${inView('r')}
+           RETURN properties(r) AS p, type(r) AS t, a.id AS f, b.id AS o`,
+          { ws, ids, ...viewParams(view) },
+        )
+      : [];
+    const rels = new Map<string, Relationship>();
+    for (const row of rows) {
+      const [f, o, t] = [row['f'] as string, row['o'] as string, row['t'] as string];
+      if (declared.some((l) => ((l.from === f && l.to === o) || (l.from === o && l.to === f)) && (!l.rel || l.rel === t))) {
+        const r = propsToRelationship(row['p'] as Row, t, f, o);
+        rels.set(r.id, r);
+      }
+    }
+    const levels: Record<string, number> = {};
+    const anchors = q.anchorIds.filter((id) => byId.has(id));
+    for (const id of ids) if (q.levels[id] !== undefined) levels[id] = q.levels[id]!;
+    // Breadth first from the anchors, along the declared links, for nodes the query gave no level.
+    let frontier = anchors.filter((id) => levels[id] === undefined);
+    for (const id of frontier) levels[id] = 0;
+    for (let level = 1; frontier.length; level++) {
+      const next = declared.filter((l) => frontier.includes(l.from) && levels[l.to] === undefined).map((l) => l.to);
+      for (const id of next) levels[id] = level;
+      frontier = [...new Set(next)];
+    }
+    for (const id of ids) levels[id] ??= 0;
+    const rootSet = new Set(anchors.length ? anchors : ids.filter((id) => levels[id] === 0));
+    return {
+      roots: ids.filter((id) => rootSet.has(id)).map((id) => byId.get(id)!),
+      elements: ids.filter((id) => !rootSet.has(id)).map((id) => byId.get(id)!),
+      relationships: [...rels.values()],
+      groups: [],
+      levels,
+      truncated: q.nodeIds.length > kept.length,
+    };
   }
 
   /** The next page of a group (D85): its members ranked by importance, and their own groups. */

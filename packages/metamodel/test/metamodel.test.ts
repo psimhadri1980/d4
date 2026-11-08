@@ -52,6 +52,10 @@ describe('starter metamodel', () => {
     expect(reg.roleOf('Vision')).toBe('both');
     const sub = new MetamodelRegistry({ ...reg.metamodel, nodeTypes: [...reg.metamodel.nodeTypes, { name: 'MobileApp', layer: 'Application', extends: 'Application', attributes: [], internal: false }] });
     expect(sub.roleOf('MobileApp')).toBe('contour');
+    // A layer's types a step may reach (D95): subtypes match their supertype.
+    expect(sub.typesInLayers(['Application'], ['Application'])).toEqual(expect.arrayContaining(['Application', 'MobileApp']));
+    expect(sub.typesInLayers(['Strategy'], ['Application'])).toEqual([]);
+    expect(sub.typesInLayers(['Strategy'])).toContain('Vision');
   });
 
   it('accepts attributes the metamodel does not define, except reserved names and unstorable values', () => {

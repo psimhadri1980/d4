@@ -1,7 +1,7 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { flowRank, flowStage, groupLabel, lensSearch, lensSpec, type Lens, type LensAttributeFilter, type LensGroup, type LensStep } from '@d4/core';
+import { flowRank, flowStage, groupLabel, lensSearch, lensSpec, type LayerTypes, type Lens, type LensAttributeFilter, type LensGroup, type LensStep } from '@d4/core';
 import { D4ApiError, type Element, type QueryParamDef, type Relationship, useMe, useRegistry, useView, viewQuery } from '@d4/web-platform';
 import {
   ErrorBanner,
@@ -82,6 +82,8 @@ const COUNT_DELAY_MS = 300;
 export function GraphStudio() {
   const { ws } = useParams();
   const registry = useRegistry(ws);
+  // A lens with layers keeps its steps to their types (D95).
+  const inLayers: LayerTypes = (layers, types) => registry.data?.typesInLayers(layers, types) ?? [];
   const { view: modelView } = useView();
   const vq = viewQuery(modelView);
 
@@ -160,7 +162,7 @@ export function GraphStudio() {
   const focusId = step?.focusId;
   const started = !!step;
   const body = useMemo(
-    () => (search && started ? searchBody(lensOf(search), search, focusId, depth) : null),
+    () => (search && started ? searchBody(lensOf(search), search, focusId, depth, inLayers) : null),
     [search, lenses, started, focusId, depth],
   );
   const result = useQuery({
@@ -252,15 +254,15 @@ export function GraphStudio() {
 
   // The first screen (D88): the draft drawn as it would open, counted per column.
   const firstScreen = useQuery({
-    queryKey: ['studio-first-screen', ws, previewOf?.contour, previewOf?.facets, previewOf?.match, previewOf?.steps, previewOf?.shape, previewOf?.depth, vq],
+    queryKey: ['studio-first-screen', ws, previewOf?.contour, previewOf?.facets, previewOf?.match, previewOf?.steps, previewOf?.layers, previewOf?.shape, previewOf?.depth, vq],
     enabled: !!ws && !!previewOf?.contour && !previewOf.query,
     retry: false,
     queryFn: async () => {
       const d = previewOf!;
       const lens = { ...d, id: '', contour: d.contour! } as Lens;
-      const r = await exploreApi.studioSearch(ws!, searchBody(lens, { lensId: '', name: '', filters: [] }, undefined, d.depth), vq);
+      const r = await exploreApi.studioSearch(ws!, searchBody(lens, { lensId: '', name: '', filters: [] }, undefined, d.depth, inLayers), vq);
       if (r.tooLarge) return null;
-      const spec = lensSpec(lens);
+      const spec = lensSpec(lens, inLayers);
       const flow = lens.shape === 'flow' ? spec.steps : null;
       const shown = new Map<number, number>();
       for (const l of Object.values(r.levels ?? {})) shown.set(l, (shown.get(l) ?? 0) + 1);
@@ -290,6 +292,7 @@ export function GraphStudio() {
       ...(d.query?.id && { query: { id: d.query.id, ...(d.query.version && { version: d.query.version }), params: d.query.params ?? {} } }),
       ...(d.quickFilters?.length && { quickFilters: d.quickFilters }),
       ...(d.phrases?.length && { phrases: d.phrases }),
+      ...(d.layers?.length && { layers: d.layers }),
       ...(d.steps?.length && { steps: d.steps }),
       ...(d.shape && { shape: d.shape }),
       ...(d.disclosure && { disclosure: d.disclosure }),
@@ -335,7 +338,7 @@ export function GraphStudio() {
   // A Flow lens draws its levels as columns (D88), on its own steps also after a drill.
   const flowSteps = useMemo(() => {
     const lens = lensOf(search);
-    return lens?.shape === 'flow' && !step?.connect ? lensSpec(lens).steps : null;
+    return lens?.shape === 'flow' && !step?.connect ? lensSpec(lens, inLayers).steps : null;
   }, [search, lenses, step?.connect]);
   const graph = useMemo(
     () => (pinned && registry.data ? toCanvas(registry.data, pinned, new Set(pins.map((p) => p.element.id)), modelView.asOf, flowSteps) : null),
@@ -345,12 +348,12 @@ export function GraphStudio() {
   // A Matrix lens opens its matrix (D90): the roots by what its first step reaches.
   const matrixStep = useMemo(() => {
     const lens = lensOf(search);
-    return lens?.shape === 'matrix' && !step?.connect ? (lensSpec(lens).steps[0] ?? null) : null;
+    return lens?.shape === 'matrix' && !step?.connect ? (lensSpec(lens, inLayers).steps[0] ?? null) : null;
   }, [search, lenses, step?.connect]);
   // A Landscape lens opens its boxes (D91): each root holding what its first step reaches.
   const landscapeStep = useMemo(() => {
     const lens = lensOf(search);
-    return lens?.shape === 'landscape' && !step?.connect ? (lensSpec(lens).steps[0] ?? null) : null;
+    return lens?.shape === 'landscape' && !step?.connect ? (lensSpec(lens, inLayers).steps[0] ?? null) : null;
   }, [search, lenses, step?.connect]);
   const [matrixOpen, setMatrixOpen] = useState(true);
 
@@ -621,8 +624,8 @@ function describe(lens: Lens | null, v: GraphSearchValue): string {
  * The search request: the lens's roots (or the drilled node), drawn by disclosure along its steps
  * (D85). Depth on the canvas sets how many levels open at first.
  */
-function searchBody(lens: Lens | null, v: GraphSearchValue, focusId: string | undefined, depth: number) {
-  const spec = lensSpec(lens);
+function searchBody(lens: Lens | null, v: GraphSearchValue, focusId: string | undefined, depth: number, inLayers: LayerTypes) {
+  const spec = lensSpec(lens, inLayers);
   const base = { depth, match: 'all' as const, maxNodes: 1000, steps: spec.steps, disclosure: { ...spec.disclosure, initialDepth: depth } };
   if (focusId) return { ...base, ids: [focusId] };
   return { ...base, ...lensSearch(lens, v.filters, v.name, v.params) };

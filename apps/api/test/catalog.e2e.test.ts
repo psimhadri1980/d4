@@ -306,5 +306,35 @@ describe.skipIf(!PG || !NEO)('Query Catalog API', () => {
       // Runs are logged like any other catalog run.
       expect((await h.call('GET', `/v1/catalog/${id}/executions`, steward)).body.length).toBeGreaterThanOrEqual(2);
     });
+
+    it('a projection query gives the nodes and links itself, drawn within the budget (D94)', async () => {
+      const PROJECTION = `MATCH (a:Application) WHERE a.workspaceId = $workspace AND a.deleted = false AND a.criticality = 'MISSION_CRITICAL'
+                          OPTIONAL MATCH (a)-[:USES]->(s:DataStore) WHERE s.deleted = false
+                          WITH a, collect(s) AS ss
+                          UNWIND [{n: a.id, p: null, anc: true}] + [x IN ss | {n: x.id, p: a.id, anc: false}] AS row
+                          RETURN row.n AS node, row.p AS parent, 'USES' AS rel, row.anc AS anchor`;
+      const created = await h.call('POST', '/v1/catalog', author, { slug: 'lens-app-stores', title: 'Critical applications and their stores', tags: ['lens'] });
+      const pid = created.body.id;
+      await h.call('PUT', `/v1/catalog/${pid}/draft`, author, { cypher: PROJECTION, params: [] });
+      await h.call('POST', `/v1/catalog/${pid}/submit`, author);
+      await h.call('POST', `/v1/catalog/${pid}/review`, steward, { decision: 'publish' });
+      await h.call('PUT', `/v1/catalog/${pid}/grants`, steward, [{ principalType: 'role', principal: 'viewer' }]);
+      const search = (budget: number) =>
+        h.call('POST', `/v1/workspaces/${ws()}/studio/search`, viewer, { types: ['Application'], query: { id: pid, params: {} }, disclosure: { budget, initialDepth: 1, perNodeCap: 12 } });
+      const res = await search(150);
+      expect(res.status).toBe(200);
+      expect(res.body.roots.map((r: any) => r.attrs.name).sort()).toEqual(['Core Banking System', 'Credit Risk Engine']);
+      const rootIds = new Set(res.body.roots.map((r: any) => r.id));
+      expect(res.body.elements.length).toBeGreaterThan(0);
+      for (const e of res.body.elements) expect(res.body.levels[e.id]).toBe(1);
+      expect(res.body.relationships.length).toBeGreaterThan(0);
+      for (const r of res.body.relationships) {
+        expect(r).toMatchObject({ type: 'USES' });
+        expect(rootIds.has(r.fromId)).toBe(true);
+      }
+      expect(res.body).toMatchObject({ truncated: false, groups: [] });
+      const one = await search(1);
+      expect(one.body).toMatchObject({ truncated: true, nodeCount: 1 });
+    });
   });
 });

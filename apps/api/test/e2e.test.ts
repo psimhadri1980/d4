@@ -431,6 +431,14 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, phrases: ['$a then $b'] })).status).toBe(400);
     });
 
+    it('keeps a lens\'s layers, the metamodel\'s own (D95)', async () => {
+      const lens = { name: 'Business only', contour: { type: 'Capability' }, layers: ['Business', 'Strategy'] };
+      const saved = await call('POST', `${ws()}/studio/lenses`, token, lens);
+      expect(saved.status).toBe(201);
+      expect(saved.body).toMatchObject({ layers: ['Business', 'Strategy'] });
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, layers: ['Nowhere'] })).status).toBe(400);
+    });
+
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
       const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
       const created = await call('POST', `${ws()}/studio/lenses`, token, lens);

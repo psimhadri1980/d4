@@ -1,6 +1,6 @@
 import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Put } from '@nestjs/common';
 import { DomainError, lensSpec, ulid } from '@d4/core';
-import { queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
+import { queryProjection, queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
 import { StudioLensStore, type StudioLensRow } from '@d4/db';
 import { StudioCountsBody, StudioImpactBody, StudioLensBody, StudioMatrixBody, StudioPathsBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
 import type { Principal } from '../auth/identity';
@@ -35,6 +35,14 @@ export class StudioController {
     if (b.query) {
       // A query lens (D84): the catalog run path checks the grant, the version and the parameters.
       const run = await this.runner.run(p, scope.workspaceId, b.query.id, { params: b.query.params, version: b.query.version });
+      // A projection (D94): the query gives the nodes and links itself, drawn within the budget.
+      const projection = !b.ids && b.disclosure ? queryProjection(run) : null;
+      if (projection && 'error' in projection) throw new DomainError('VALIDATION', projection.error);
+      if (projection) {
+        if (run.truncated) return { roots: [], elements: [], relationships: [], tooLarge: true, nodeCount: projection.nodeIds.length };
+        const shown = await studio.projectQuery(scope.workspaceId, projection, b.disclosure!, view);
+        return { ...shown, tooLarge: false, nodeCount: shown.roots.length + shown.elements.length };
+      }
       const found = queryRootIds(run);
       if (!found.length && run.rows.length) throw new DomainError('VALIDATION', 'The lens query must return element ids in an `id` column, or element nodes');
       if (found.length > STUDIO_MAX_ROOTS || run.truncated) return { roots: [], elements: [], relationships: [], tooLarge: true, nodeCount: found.length };
@@ -152,6 +160,7 @@ export class StudioController {
     if (b.shape === 'matrix' && !b.steps?.[0]?.types?.length) throw new RangeError('A matrix lens needs a step with the types of its columns');
     // A landscape's boxes hold what its step reaches: it needs one.
     if (b.shape === 'landscape' && !b.steps?.length) throw new RangeError('A landscape lens needs a step to what its boxes hold');
+    for (const l of b.layers ?? []) if (!registry.metamodel.layers.includes(l)) throw new RangeError(`Unknown layer '${l}'`);
     if (b.visibility === 'workspace') await this.access.resolve(p, workspaceId, 'write');
     // A query the caller cannot see does not exist for them.
     if (b.query) await this.catalog.entry(p, b.query.id);
