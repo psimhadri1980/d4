@@ -454,6 +454,18 @@ export class EventStore {
     return rows.map(toDomain);
   }
 
+  /** What happened to some items after an instant (D98), oldest first, at most `limit` events. */
+  async forSubjectsSince(tenantId: string, workspaceId: string, subjectIds: readonly string[], since: Date, limit = 5000): Promise<StoredEvent[]> {
+    if (!subjectIds.length) return [];
+    const rows = await this.db
+      .select()
+      .from(events)
+      .where(and(eq(events.tenantId, tenantId), eq(events.workspaceId, workspaceId), inArray(events.subjectId, [...subjectIds]), gt(events.occurredAt, since)))
+      .orderBy(asc(events.seq))
+      .limit(limit);
+    return rows.map(toDomain);
+  }
+
   /** Ordered stream for a workspace, for rebuilds and change feeds. */
   async stream(tenantId: string, workspaceId: string, afterSeq = 0, limit = 500): Promise<StoredEvent[]> {
     const rows = await this.db

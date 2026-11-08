@@ -1,8 +1,8 @@
 import { Controller, Delete, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Put } from '@nestjs/common';
-import { DomainError, lensSpec, ulid } from '@d4/core';
+import { changesSince, DomainError, lensSpec, ulid } from '@d4/core';
 import { queryProjection, queryRootIds, STUDIO_MAX_ROOTS } from '@d4/graph';
 import { StudioLensStore, type StudioLensRow } from '@d4/db';
-import { StudioCountsBody, StudioImpactBody, StudioLensBody, StudioMatrixBody, StudioPathsBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
+import { StudioChangesBody, StudioCountsBody, StudioImpactBody, StudioLensBody, StudioMatrixBody, StudioPathsBody, StudioOpenBody, StudioProfileBody, StudioSearchBody } from './model.schemas';
 import type { Principal } from '../auth/identity';
 import { CurrentPrincipal } from '../auth/principal.decorator';
 import { WorkspaceAccess } from '../workspaces/workspace-access.service';
@@ -94,6 +94,22 @@ export class StudioController {
   async paths(@Workspace('read') { queries, studio, scope }: OpenWorkspace, @ValidBody(StudioPathsBody) b: z.output<typeof StudioPathsBody>) {
     const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
     return studio.paths(scope.workspaceId, b.from, b.to, { maxLength: b.maxLength, limit: b.limit, kind: b.kind, view });
+  }
+
+  /**
+   * What changed after an instant in what a lens shows (D98): the shown items' events folded into
+   * one change each, and the shown elements' links deleted since, with what they led to.
+   */
+  @Post('changes')
+  @HttpCode(200)
+  async changes(@Workspace('read') { queries, studio, events, scope }: OpenWorkspace, @ValidBody(StudioChangesBody) b: z.output<typeof StudioChangesBody>) {
+    const view = await resolveView(queries, scope.registry, scope.workspaceId, b);
+    const since = new Date(b.since);
+    const removed = await studio.removedNear(scope.workspaceId, b.ids, since.toISOString(), view);
+    const ids = [...new Set([...b.ids, ...removed.relationships.map((r) => r.id), ...removed.elements.map((e) => e.id)])];
+    const limit = 5000;
+    const log = await events.forSubjectsSince(scope.tenantId, scope.workspaceId, ids, since, limit);
+    return { changes: changesSince(log), removed: { elements: removed.elements, relationships: removed.relationships }, truncated: removed.truncated || log.length >= limit };
   }
 
   /** Root counts per search, for the lens list while the user has not chosen a lens (LS-5). */

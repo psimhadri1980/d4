@@ -1,4 +1,4 @@
-import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioGroupPageSchema, StudioImpactBody, StudioImpactSchema, StudioMatrixBody, StudioMatrixSchema, StudioPathsBody, StudioPathsSchema, StudioOpenBody, StudioProjectionSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
+import { ConnectionSchema, ConnectionsQuery, CreateElementBody, CreateProposalBody, CreateRelationshipBody, DecisionSchema, DiffQuery, DiffSchema, EditProposalBody, ElementPageSchema, ElementSchema, EventSchema, ExportQuery, ListElementsQuery, MatrixParams, MatrixSchema, NeighbourhoodQuery, ProposalOperation, RelationshipSchema, ReviewBody, RoadmapQuery, RoadmapSchema, StudioChangesBody, StudioChangesSchema, StudioCountsBody, StudioCountsSchema, StudioLensBody, StudioLensSchema, StudioProfileBody, StudioProfileSchema, StudioGroupPageSchema, StudioImpactBody, StudioImpactSchema, StudioMatrixBody, StudioMatrixSchema, StudioPathsBody, StudioPathsSchema, StudioOpenBody, StudioProjectionSchema, StudioSearchBody, SubgraphSchema, TableMappingSchema, TabularAnalyzeBody, TabularImportBody, UpdateBody, ViewArgsSchema } from './model.schemas';
 import { json, errors, writeErrors, ws, id, type ApiRoute } from '../http/api-doc';
 import { z } from '../http/zod';
 
@@ -113,6 +113,15 @@ export function registerModelRoutes(route: ApiRoute) {
     description: 'How two elements are connected (D89): the shortest paths between them, up to six links, shortest first.',
     request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioPathsBody } } } },
     responses: { 200: json(StudioPathsSchema, 'The shortest paths, with their elements and relationships'), ...errors },
+  });
+
+  route({
+    method: 'post',
+    path: '/v1/workspaces/{ws}/studio/changes',
+    tags: ['Elements'],
+    description: 'What changed after an instant in what a lens shows (D98), from the event log: items added, changed (with the fields) and removed, and the deleted links of the shown elements.',
+    request: { params: z.object({ ws }), body: { content: { 'application/json': { schema: StudioChangesBody } } } },
+    responses: { 200: json(StudioChangesSchema, 'Changes, oldest first, and what was removed'), ...errors },
   });
 
   route({

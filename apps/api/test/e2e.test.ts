@@ -448,6 +448,31 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, time: { from: '2027' } })).status).toBe(400);
     });
 
+    it('says what changed after an instant in what a lens shows, from the event log (D98)', async () => {
+      const add = async (type: string, name: string) => (await call('POST', `${ws()}/elements`, token, { type, attrs: { name } })).body!['id'] as string;
+      const [product, kept, gone] = [await add('DataProduct', 'Diff product'), await add('DataStore', 'Diff kept'), await add('DataStore', 'Diff gone')];
+      const held = (await call('POST', `${ws()}/relationships`, token, { type: 'HOLDS', fromId: kept, toId: product, attrs: { role: 'MASTER' } })).body!['id'] as string;
+      await call('POST', `${ws()}/relationships`, token, { type: 'HOLDS', fromId: gone, toId: product, attrs: { role: 'REPLICA' } });
+      await new Promise((r) => setTimeout(r, 5));
+      const since = new Date().toISOString();
+      await new Promise((r) => setTimeout(r, 5));
+      expect((await call('PATCH', `${ws()}/elements/${product}`, token, { expectedVersion: 1, set: { owner: 'Data office' } })).status).toBe(200);
+      expect((await call('DELETE', `${ws()}/elements/${gone}?expectedVersion=1`, token)).status).toBe(204);
+      const fresh = await add('DataStore', 'Diff fresh');
+      const res = await call('POST', `${ws()}/studio/changes`, token, { ids: [product, kept, held, fresh], since });
+      expect(res.status).toBe(200);
+      const byId = new Map(res.body!['changes'].map((c: any) => [c.id, c]));
+      expect(byId.get(product)).toMatchObject({ change: 'changed', fields: ['owner'] });
+      expect(byId.get(fresh)).toMatchObject({ change: 'added', fields: [] });
+      expect(byId.get(gone)).toMatchObject({ change: 'removed' });
+      expect(byId.has(kept)).toBe(false);
+      expect(res.body!['removed'].elements.map((e: any) => e.id)).toEqual([gone]);
+      expect(res.body!['removed'].relationships).toHaveLength(1);
+      expect(res.body!['removed'].relationships[0]).toMatchObject({ fromId: gone, toId: product, deleted: true });
+      expect(res.body!['truncated']).toBe(false);
+      expect((await call('POST', `${ws()}/studio/changes`, token, { ids: [product], since: 'yesterday' })).status).toBe(400);
+    });
+
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
       const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
       const created = await call('POST', `${ws()}/studio/lenses`, token, lens);

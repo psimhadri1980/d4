@@ -206,7 +206,7 @@ export interface LensTime {
   to?: IsoDate;
 }
 
-export type TimeMark = { kind: 'outside' | 'starts' | 'ends'; label: string } | null;
+export type TimeMark = { kind: 'outside' | 'starts' | 'ends' | 'added' | 'changed' | 'removed'; label: string } | null;
 
 /**
  * How an item's validity stands against a time slice (D97): `outside` when it is not valid at any

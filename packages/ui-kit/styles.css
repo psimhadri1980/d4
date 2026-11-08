@@ -179,6 +179,9 @@
 .graph-canvas-node:hover .graph-canvas-card {
   fill: var(--layer-hover, #e8e8e8);
 }
+.graph-canvas-edge.removed {
+  opacity: 0.4;
+}
 .graph-canvas-node.mark-outside,
 .graph-canvas-node.mark-removed {
   opacity: 0.4;
@@ -194,6 +197,9 @@
 .graph-canvas-node.mark-ends .graph-canvas-mark,
 .graph-canvas-node.mark-removed .graph-canvas-mark {
   fill: var(--support-error, #da1e28);
+}
+.graph-canvas-node.mark-changed .graph-canvas-mark {
+  fill: var(--support-info, #0043ce);
 }
 .graph-canvas-node.mark-starts .graph-canvas-mark,
 .graph-canvas-node.mark-added .graph-canvas-mark {

@@ -437,6 +437,27 @@ export const StudioMatrixSchema = z
   })
   .openapi('StudioMatrix');
 
+export const StudioChangesBody = z
+  .object({
+    ...View,
+    ids: z.array(z.string().min(1)).min(1).max(400).openapi({ description: 'The elements and relationships the lens shows' }),
+    since: z.string().datetime({ offset: true }).openapi({ description: 'Changes after this instant', example: '2026-11-01T00:00:00Z' }),
+  })
+  .strict()
+  .openapi('StudioChangesInput');
+
+export const StudioChangesSchema = z
+  .object({
+    changes: z
+      .array(z.object({ id: z.string(), change: z.enum(['added', 'changed', 'removed']), fields: z.array(z.string()), by: z.string(), at: z.string() }))
+      .openapi({ description: 'One per shown or removed item that changed, in the order they first changed' }),
+    removed: z
+      .object({ elements: z.array(ElementSchema), relationships: z.array(RelationshipSchema) })
+      .openapi({ description: "Deleted links of the shown elements, with deleted nodes at their other end" }),
+    truncated: z.boolean().openapi({ description: 'More events or removed links than one answer holds' }),
+  })
+  .openapi('StudioChanges');
+
 export const StudioPathsBody = z
   .object({
     ...View,

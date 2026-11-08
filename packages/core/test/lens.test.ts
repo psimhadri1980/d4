@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, LENS_PHRASE, matchPhrases, stepAt, timeMark, type Lens } from '../src';
+import { describeFilter, flowRank, flowStage, groupLabel, lensChips, lensNote, lensSearch, lensSpec, LENS_PHRASE, matchPhrases, stepAt, timeMark, changesSince, type Lens } from '../src';
 
 const mastered: Lens = {
   id: 'mastered',
@@ -129,5 +129,25 @@ describe('time slices (D97)', () => {
   it('are no slice without a range', () => {
     expect(timeMark({ validTo: '2020-01-01' }, undefined)).toBeNull();
     expect(timeMark({ validTo: '2020-01-01' }, {})).toBeNull();
+  });
+});
+
+describe('changes since an instant (D98)', () => {
+  const ev = (type: string, subjectId: string, at: string, data: Record<string, unknown> = {}) => ({ type, subjectId, actor: `u-${at}`, occurredAt: at, data });
+  it('fold into one change per item: added, changed with its fields, removed; created and removed is left out', () => {
+    const events = [
+      ev('ElementUpdated', 'a', 't1', { changes: { 'attrs.owner': {}, validTo: {} } }),
+      ev('ElementCreated', 'b', 't2'),
+      ev('ElementUpdated', 'b', 't3', { changes: { 'attrs.name': {} } }),
+      ev('RelationshipDeleted', 'r', 't4'),
+      ev('ElementCreated', 'c', 't5'),
+      ev('ElementDeleted', 'c', 't6'),
+      ev('ElementUpdated', 'a', 't7', { changes: { 'attrs.owner': {}, 'attrs.cost': {} } }),
+    ];
+    expect(changesSince(events)).toEqual([
+      { id: 'a', change: 'changed', fields: ['owner', 'validTo', 'cost'], by: 'u-t7', at: 't7' },
+      { id: 'b', change: 'added', fields: [], by: 'u-t3', at: 't3' },
+      { id: 'r', change: 'removed', fields: [], by: 'u-t4', at: 't4' },
+    ]);
   });
 });
