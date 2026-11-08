@@ -3,6 +3,7 @@ export * from './decisions';
 export * from './errors';
 export * from './ids';
 export * from './lens';
+export * from './lens-text';
 export * from './import';
 export * from './lifecycle';
 export * from './matrices';
