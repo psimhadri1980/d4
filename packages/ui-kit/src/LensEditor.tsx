@@ -175,6 +175,7 @@ export function LensEditor(props: LensEditorProps) {
 
           <Section n={3} title="Traversal" note="What the lens follows from its roots, and how it is drawn.">
             <LensTraversal registry={registry} draft={draft} onChange={set} />
+            <LayerPicker registry={registry} draft={draft} onChange={(layers) => set({ layers: layers.length ? layers : undefined })} />
           </Section>
 
           <Section n={4} title="Quick filters" note="Attributes the smart bar offers to narrow this lens. None ticked: the contour's pick-list attributes.">
@@ -273,6 +274,31 @@ export function LensEditor(props: LensEditorProps) {
         <PreviewPanel draft={draft} preview={preview} firstScreen={firstScreen} limit={limit} />
       </div>
     </div>
+  );
+}
+
+/** The layers a lens's steps keep to (D95): a business view leaves the technical layers out. */
+function LayerPicker({ registry, draft, onChange }: { registry: MetamodelRegistry; draft: LensDraft; onChange(v: string[]): void }) {
+  const value = draft.layers ?? [];
+  // The first step that reaches nothing in the chosen layers ends the chain there.
+  const cut = value.length ? (draft.steps ?? []).findIndex((s) => !registry.typesInLayers(value, s.types).length) : -1;
+  return (
+    <fieldset className="lens-editor-quick">
+      <legend>Keep to layers</legend>
+      {registry.metamodel.layers.map((l) => (
+        <label key={l} className="lens-editor-check">
+          <input type="checkbox" checked={value.includes(l)} onChange={(e) => onChange(e.target.checked ? [...value, l] : value.filter((n) => n !== l))} />
+          {l}
+        </label>
+      ))}
+      <p className="lens-editor-hint lens-editor-field wide">
+        {!value.length
+          ? 'None ticked: the steps reach every layer.'
+          : cut >= 0
+            ? `Step ${cut + 1} reaches nothing in these layers, so the lens stops before it.`
+            : 'The steps reach only node types in these layers; the roots are as the contour says.'}
+      </p>
+    </fieldset>
   );
 }
 
