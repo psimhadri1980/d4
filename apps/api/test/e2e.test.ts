@@ -439,6 +439,15 @@ describe.skipIf(!PG || !NEO)('API end to end', () => {
       expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, layers: ['Nowhere'] })).status).toBe(400);
     });
 
+    it('keeps a lens\'s time slice, from before to (D97)', async () => {
+      const lens = { name: 'Retiring in 2027', contour: { type: 'Application' }, time: { from: '2027-01-01', to: '2028-01-01' } };
+      const saved = await call('POST', `${ws()}/studio/lenses`, token, lens);
+      expect(saved.status).toBe(201);
+      expect(saved.body).toMatchObject({ time: { from: '2027-01-01', to: '2028-01-01' } });
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, time: { from: '2028-01-01', to: '2027-01-01' } })).status).toBe(400);
+      expect((await call('POST', `${ws()}/studio/lenses`, token, { ...lens, time: { from: '2027' } })).status).toBe(400);
+    });
+
     it('saves Graph Studio lenses: private to their owner, shared with write access, changed only by the owner', async () => {
       const lens = { name: 'Held products', contour: { type: 'DataProduct' }, facets: [{ types: ['DataStore'], relationship: 'HOLDS', direction: 'IN' }] };
       const created = await call('POST', `${ws()}/studio/lenses`, token, lens);

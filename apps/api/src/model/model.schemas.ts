@@ -222,6 +222,12 @@ export const StudioLensBody = z
     query: LensQueryBody.optional(),
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
     layers: z.array(z.string()).max(20).optional().openapi({ description: 'Metamodel layers its steps keep to (D95)' }),
+    time: z
+      .object({ from: IsoDate.optional(), to: IsoDate.optional() })
+      .strict()
+      .refine((t) => !t.from || !t.to || t.from < t.to, 'from must be before to')
+      .optional()
+      .openapi({ description: 'A time slice (D97): business time, from included and to not' }),
     phrases: z.array(z.string().trim().max(120).regex(LENS_PHRASE, 'a phrase is words then one slot at the end, such as "impact of $application"')).max(10).optional().openapi({ description: 'Search phrases that open the lens (D92)' }),
     depth: z.number().int().min(1).max(6).default(2),
     steps: z.array(LensStepBody).min(1).max(10).optional(),
