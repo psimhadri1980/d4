@@ -160,6 +160,7 @@ export class StudioController {
     if (b.shape === 'matrix' && !b.steps?.[0]?.types?.length) throw new RangeError('A matrix lens needs a step with the types of its columns');
     // A landscape's boxes hold what its step reaches: it needs one.
     if (b.shape === 'landscape' && !b.steps?.length) throw new RangeError('A landscape lens needs a step to what its boxes hold');
+    for (const l of b.layers ?? []) if (!registry.metamodel.layers.includes(l)) throw new RangeError(`Unknown layer '${l}'`);
     if (b.visibility === 'workspace') await this.access.resolve(p, workspaceId, 'write');
     // A query the caller cannot see does not exist for them.
     if (b.query) await this.catalog.entry(p, b.query.id);

@@ -113,7 +113,7 @@ const LensStepBody = z
     kind: RelKind.optional().openapi({ description: 'Follow the relationships of this kind in the metamodel' }),
     relationships: z.array(z.string()).max(50).optional().openapi({ description: 'Follow exactly these; any when neither this nor kind is given' }),
     direction: z.enum(['down', 'up', 'both']).openapi({ description: "down follows each relationship the way the metamodel reads it as down (its `forward`); up the reverse" }),
-    types: z.array(z.string()).max(50).optional().openapi({ description: 'Only to nodes of these types; supertypes match their subtypes' }),
+    types: z.array(z.string()).max(200).optional().openapi({ description: 'Only to nodes of these types; supertypes match their subtypes' }),
     stage: z.string().max(60).optional().openapi({ description: "The column this step's nodes are drawn in, in a Flow lens" }),
     repeat: z.boolean().optional().openapi({ description: 'Keep following this step, level after level' }),
   })
@@ -221,6 +221,7 @@ export const StudioLensBody = z
     match: z.enum(['all', 'any']).default('all'),
     query: LensQueryBody.optional(),
     quickFilters: z.array(z.string().regex(/^[a-z][A-Za-z0-9]*$/)).max(20).optional().openapi({ description: 'Attributes offered as quick filters' }),
+    layers: z.array(z.string()).max(20).optional().openapi({ description: 'Metamodel layers its steps keep to (D95)' }),
     phrases: z.array(z.string().trim().max(120).regex(LENS_PHRASE, 'a phrase is words then one slot at the end, such as "impact of $application"')).max(10).optional().openapi({ description: 'Search phrases that open the lens (D92)' }),
     depth: z.number().int().min(1).max(6).default(2),
     steps: z.array(LensStepBody).min(1).max(10).optional(),

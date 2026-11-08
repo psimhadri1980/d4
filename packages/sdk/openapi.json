@@ -646,7 +646,7 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 50,
+            "maxItems": 200,
             "description": "Only to nodes of these types; supertypes match their subtypes"
           },
           "stage": {
@@ -1624,6 +1624,14 @@
             },
             "maxItems": 20,
             "description": "Attributes offered as quick filters"
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "description": "Metamodel layers its steps keep to (D95)"
           },
           "phrases": {
             "type": "array",

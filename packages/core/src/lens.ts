@@ -90,6 +90,8 @@ export interface Lens {
   quickFilters?: string[];
   /** Search phrases that open it (D92), each ending in one slot: "impact of $application". */
   phrases?: string[];
+  /** Metamodel layers its steps keep to (D95), such as Business and Data; every layer when absent. */
+  layers?: string[];
   /** The traversal (D85); absent means any relationship, both ways, to `depth`. */
   steps?: LensStep[];
   shape?: LensShape;
@@ -196,9 +198,29 @@ export function lensSearch(lens: Lens | null, quick: readonly QuickFilter[], nam
 }
 
 /** A lens's traversal, shape and disclosure (D85), with what older lenses imply filled in. */
-export function lensSpec(lens: Lens | null): { steps: LensStep[]; shape: LensShape; disclosure: LensDisclosure } {
+/**
+ * The node types of `layers` that a step to `types` may reach (subtypes included), from the
+ * metamodel; every type of those layers when the step names none. The host supplies it (D95).
+ */
+export type LayerTypes = (layers: readonly string[], types: readonly string[] | undefined) => string[];
+
+/**
+ * With `inLayers`, a lens with layers keeps each step to the types of those layers (D95). A step
+ * that would reach none ends the chain there; when the first one would, the lens follows any
+ * relationship to the layers' types instead.
+ */
+export function lensSpec(lens: Lens | null, inLayers?: LayerTypes): { steps: LensStep[]; shape: LensShape; disclosure: LensDisclosure } {
   const shape = lens?.shape ?? 'ego';
-  const steps = lens?.steps?.length ? lens.steps : [{ direction: 'both' as const, repeat: true }];
+  let steps: LensStep[] = lens?.steps?.length ? lens.steps : [{ direction: 'both' as const, repeat: true }];
+  if (lens?.layers?.length && inLayers) {
+    const kept: LensStep[] = [];
+    for (const s of steps) {
+      const types = inLayers(lens.layers, s.types);
+      if (!types.length) break;
+      kept.push({ ...s, types });
+    }
+    steps = kept.length ? kept : [{ direction: 'both', repeat: true, types: inLayers(lens.layers, undefined) }];
+  }
   const d = { ...LENS_DISCLOSURE, ...(!lens?.steps?.length && lens?.depth ? { initialDepth: lens.depth } : {}), ...lens?.disclosure };
   return {
     shape,
