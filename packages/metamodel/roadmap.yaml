@@ -1,0 +1,416 @@
+# D4 roadmap and dependency-risk metamodel. Designed from docs/roadmap-metamodel-requirements.md and
+# docs/roadmap-metamodel-design.md (D99-D108). A standalone metamodel: it does not extend the starter.
+#
+# What the platform already provides and this model therefore does not define:
+#   - business time on nodes and relationships (validFrom / validTo), so ownership, parentage and every
+#     link are dated; "as of a date" views read these
+#   - scenarios (scenarioId): what-if and named scenarios are overlays, never written to the main model
+#   - record time and history (createdAt, updatedAt, the event log): baselines are named record times
+# What is deliberately not stored: findings (non-conformance to firm direction), float, exposure and the
+# risk signals. They are computed from this structure.
+# Not expressible as rules here, checked by the risk signals instead: every node has an accountable owner
+# (OWNED_BY), a use case's categories are satisfied by what serves it.
+id: d4-roadmap
+version: 0.4.0
+description: "Roadmap, target and current landscape, data products, firm-wide direction, ownership and debt, for tracing roadmap risk through dependencies."
+
+layers: [Strategy, Planning, Business, Application, Data, Direction, Governance, Organisation]
+
+enums:
+  ElementLifecycle: [PLANNED, BUILDING, LIVE, PHASING_OUT, RETIRED]
+  Confidence: [HIGH, MEDIUM, LOW]
+  Strength: [HARD, SOFT]
+  DeliveryResponsibility: [PRIMARY, CONTRIBUTING]
+  DependencyType: [FINISH_START, START_START, FINISH_FINISH, START_FINISH]
+  ProcessLevel: [L1, L2, L3, STEP]
+  ChangeKind: [AUTOMATE, DIGITISE, AUGMENT_WITH_AI, REPLACE_WITH_AGENT]
+  WriteOperation: [CREATE, UPDATE]
+  Participation: [PERFORMS, APPROVES, REVIEWS, OVERSEES]
+  InitiativeLevel: [PORTFOLIO, INITIATIVE, SUB_INITIATIVE]
+  InitiativeStatus: [PROPOSED, ACTIVE, ON_HOLD, DONE, CANCELLED]
+  ApplicationKind: [APPLICATION, PLATFORM, COMPONENT, MODULE, AI_USE_CASE, AI_APP, AI_FEATURE]
+  DataProductLevel: [SOURCE_ALIGNED, AGGREGATE, CONSUMER_ALIGNED]
+  ConstraintKind: [VENDOR, REGULATORY, FUNDING, CAPACITY]
+  Stance: [ADOPT, TOLERATE, PHASE_OUT, RETIRE]
+  RuleType: [MUST_USE, MUST_NOT_USE, MUST_FOLLOW, PRINCIPLE]
+  DebtKind: [TECHNOLOGY, ARCHITECTURE, SYSTEM, DATA]
+  DebtStatus: [IDENTIFIED, PLANNED, ACCEPTED, UNPLANNED, RESOLVED]
+  Severity: [LOW, MEDIUM, HIGH, CRITICAL]
+  OrgLevel: [GROUP, DIVISION, TOWER, STREAM, CREW]
+  OwnerRole: [TECHNICAL, DATA_OWNER, STEWARD]
+
+# Attributes every node carries. System fields (id, workspaceId, version, validFrom, validTo, scenarioId,
+# audit fields) are managed by the platform. lastVerified and verifiedBy feed the stale-facts signal.
+commonAttributes:
+  - { name: name, type: string, required: true }
+  - { name: description, type: text }
+  - { name: lastVerified, type: date, description: "When someone last confirmed this fact." }
+  - { name: verifiedBy, type: string }
+
+nodeTypes:
+  # ---- Strategy: the why ----
+  - name: Objective
+    layer: Strategy
+    description: "An outcome that initiatives contribute to. Objectives nest through PART_OF."
+    attributes:
+      - { name: statement, type: text }
+      - { name: period, type: string, description: "For example 2027-H1." }
+
+  # ---- Planning: initiatives, milestones, needs ----
+  - name: Initiative
+    layer: Planning
+    description: "A big rock, initiative or sub-initiative. Nests through PART_OF, so the roadmap reads at any level."
+    attributes:
+      - { name: level, type: enum, enum: InitiativeLevel }
+      - { name: status, type: enum, enum: InitiativeStatus }
+  - name: Epic
+    layer: Planning
+    description: "The detail inside a milestone: a high-level piece of work with its own start and end. Part of a milestone (PART_OF). The roadmap carries milestones and epics, not tasks."
+    attributes:
+      - { name: start, type: date }
+      - { name: end, type: date }
+      - { name: status, type: enum, enum: InitiativeStatus }
+  - name: Milestone
+    layer: Planning
+    description: "A line item of the roadmap with a start and an end, part of an initiative. It contains epics that show how it is reached. Only committed milestones are the dates that matter for lateness."
+    attributes:
+      - { name: start, type: date }
+      - { name: end, type: date, required: true, description: "The date the milestone is reached." }
+      - { name: confidence, type: enum, enum: Confidence }
+      - { name: committed, type: boolean }
+  - name: UseCase
+    layer: Planning
+    description: "A scoped change close to an initiative, triggered by pain points: it automates, digitises or augments a process or capability. It has no timeline of its own; it is timed through the initiative, milestone or epic that realises it (REALISES). An initiative can drive many use cases. It declares one or more categories."
+    attributes:
+      - { name: statement, type: text }
+      - { name: painPoints, type: text }
+  - name: UseCaseCategory
+    layer: Planning
+    description: "A governed category of use cases (owned by the central teams). Blueprints apply to categories."
+  - name: TransitionState
+    layer: Planning
+    description: "A named state of the landscape tied to a milestone. The long-term target is a transition state with target set."
+    attributes:
+      - { name: target, type: boolean }
+  - name: Baseline
+    layer: Planning
+    description: "A named record time. Slip is the current forecast minus the same fact as recorded at this time. It copies no data."
+    attributes:
+      - { name: recordedAt, type: datetime, required: true }
+      - { name: scope, type: string, description: "Portfolio or initiative the baseline covers." }
+  - name: ExternalConstraint
+    layer: Planning
+    description: "A vendor, regulatory, funding or capacity constraint with a date. It gates milestones and elements like any other dependency."
+    attributes:
+      - { name: kind, type: enum, enum: ConstraintKind, required: true }
+      - { name: constraintDate, type: date }
+
+  # ---- Elements: what we build and what exists. One registry; current and target are views as of a date. ----
+  - name: Element
+    layer: Application
+    description: "Common base of everything we build or run. One identity, one lifecycle. Current is live at a date, target is planned or live at a transition state."
+    internal: true
+    attributes:
+      - { name: lifecycle, type: enum, enum: ElementLifecycle }
+      - { name: plannedFrom, type: date }
+      - { name: buildingFrom, type: date }
+      - { name: liveFrom, type: date }
+      - { name: phasingOutFrom, type: date }
+      - { name: retiredFrom, type: date }
+      - { name: central, type: boolean, description: "Owned by a central team and offered to others to build on (a shared platform)." }
+  - name: Capability
+    layer: Business
+    extends: Element
+    description: "What the firm can do. Stable, and an optional anchor of a view. Realised by processes (REALISES_CAPABILITY), nests through PART_OF."
+  - name: Process
+    layer: Business
+    extends: Element
+    description: "A business process, sub-process or step. Shared: a sub-process can be part of several processes (PART_OF). Roles take part in it, it uses applications (USES) and reads and writes data. It has a lifecycle and dates like any element, and is changed by use cases."
+    attributes:
+      - { name: level, type: enum, enum: ProcessLevel }
+  - name: ApplicationElement
+    layer: Application
+    extends: Element
+    description: "An application, platform, component, module, AI use case or AI app. Composition through PART_OF."
+    attributes:
+      - { name: kind, type: enum, enum: ApplicationKind }
+  - name: DataPlatform
+    layer: Data
+    extends: Element
+    description: "A platform that hosts and serves data sets and data products."
+  - name: DataSet
+    layer: Data
+    extends: Element
+    description: "Data as it exists today, described as it is. Not forced into the data-product shape."
+    attributes:
+      - { name: major, type: boolean }
+  - name: DataProduct
+    layer: Data
+    extends: Element
+    description: "A domain-owned, consumer-facing data product. Composes other products through DERIVED_FROM. Consumers depend on its output ports."
+    attributes:
+      - { name: level, type: enum, enum: DataProductLevel }
+      - { name: purpose, type: text }
+  - name: OutputPort
+    layer: Data
+    extends: Element
+    description: "The unit consumers depend on: an output port or contract of a data product. Part of the product (PART_OF)."
+    attributes:
+      - { name: contractVersion, type: string }
+      - { name: sla, type: text }
+
+  # ---- Direction: firm-wide architecture and technology direction, set by the central teams ----
+  - name: Technology
+    layer: Direction
+    description: "A technology with three separate axes - the firm stance, the firm's own lifecycle dates, and the vendor's support dates. Risk uses the earliest binding date."
+    attributes:
+      - { name: stance, type: enum, enum: Stance }
+      - { name: phaseOutFrom, type: date }
+      - { name: retireBy, type: date }
+      - { name: vendorEndOfSale, type: date }
+      - { name: vendorEndOfSupport, type: date }
+  - name: ReferenceArchitecture
+    layer: Direction
+    attributes:
+      - { name: architectureVersion, type: string }
+      - { name: documentUrl, type: url }
+  - name: Principle
+    layer: Direction
+    attributes:
+      - { name: statement, type: text }
+      - { name: policyUrl, type: url }
+  - name: Blueprint
+    layer: Direction
+    description: "An architecture or set of patterns a category of use cases must follow. A versioned set of typed rules."
+    attributes:
+      - { name: blueprintVersion, type: string }
+  - name: BlueprintRule
+    layer: Direction
+    description: "One checkable rule of a blueprint. Conformance is assessed per rule; two rules that contradict are a conflict."
+    attributes:
+      - { name: ruleType, type: enum, enum: RuleType, required: true }
+      - { name: graceUntil, type: date, description: "Rollout grace period; the rule is not enforced before this date." }
+
+  # ---- Governance: debt and exceptions ----
+  - name: DebtItem
+    layer: Governance
+    description: "Recorded debt, adopted from a computed finding or found by judgement. An accepted item is an exception and carries an expiry."
+    attributes:
+      - { name: kind, type: enum, enum: DebtKind, required: true }
+      - { name: severity, type: enum, enum: Severity }
+      - { name: status, type: enum, enum: DebtStatus, required: true }
+      - { name: deadline, type: date, description: "The date by which it matters, for example an end-of-support date." }
+      - { name: expiry, type: date, description: "Expiry of an accepted exception." }
+      - { name: rationale, type: text }
+
+  # ---- Organisation: ownership ----
+  - name: OrgUnit
+    layer: Organisation
+    description: "A node of the organisation, Group to Crew. One parent at a time, dated through PART_OF."
+    attributes:
+      - { name: level, type: enum, enum: OrgLevel, required: true }
+  - name: Role
+    layer: Organisation
+    description: "A kind of user a process needs, such as a relationship manager or a credit analyst. Separate from the organisation unit that employs the people. It does not carry a line of defence; one can still be recorded as an undefined attribute."
+  - name: Domain
+    layer: Organisation
+    description: "A business area. Separate from the organisation; it sometimes coincides with a Tower or Stream."
+
+relationshipTypes:
+  # ---- Structure ----
+  - name: PART_OF
+    kind: containment
+    forward: in
+    description: "Child to parent - initiative trees, milestones of an initiative, epics of a milestone, element composition, output ports of a product, objectives, the organisation."
+    from: [Initiative, Epic, Milestone, Element, Objective, OrgUnit]
+    to: [Initiative, Milestone, Element, Objective, OrgUnit]
+  - name: USES
+    kind: dependency
+    description: "Runtime dependency of one element on another; a process uses the applications that support it. A dependency in time is derived from it (see DEPENDS_ON); dependencyType and lagDays tune it."
+    from: [Element]
+    to: [Element]
+    attributes:
+      - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_FINISH when derived." }
+      - { name: lagDays, type: integer }
+  - name: CONSUMES
+    kind: dependency
+    description: "A consumer depends on an output port, optionally at a contract version, not on the product as a whole."
+    from: [Element]
+    to: [OutputPort]
+    attributes:
+      - { name: strength, type: enum, enum: Strength }
+      - { name: contractVersion, type: string }
+  - name: PRODUCES
+    kind: flow
+    from: [Element]
+    to: [DataSet, DataProduct]
+  - name: READS
+    kind: flow
+    forward: in
+    description: "A process or step consumes data, through a data product's output port or a data set (one under a data product, or a current one). A step can read many; one link each. The process depends on the data being ready; a dependency in time is derived from it."
+    from: [Process]
+    to: [OutputPort, DataSet]
+    attributes:
+      - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_FINISH when derived." }
+      - { name: lagDays, type: integer }
+  - name: WRITES
+    kind: flow
+    description: "A process or step creates or updates data: one or many data products or data sets, one link each. The data product depends on the process being live as its source; a dependency in time is derived from it, in the opposite direction to READS."
+    from: [Process]
+    to: [DataProduct, DataSet]
+    attributes:
+      - { name: operation, type: enum, enum: WriteOperation, required: true }
+      - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_FINISH when derived." }
+      - { name: lagDays, type: integer }
+  - name: PARTICIPATES_IN
+    description: "A role performs, approves, reviews or oversees a process or step."
+    from: [Role]
+    to: [Process]
+    attributes:
+      - { name: participation, type: enum, enum: Participation, required: true }
+  - name: REALISES_CAPABILITY
+    description: "A process realises a capability."
+    from: [Process]
+    to: [Capability]
+  - name: CHANGES
+    description: "A use case acts on a process or capability: automate, digitise, augment with AI, replace with an agent."
+    from: [UseCase]
+    to: [Process, Capability]
+    attributes:
+      - { name: changeKind, type: enum, enum: ChangeKind }
+
+  # ---- Change ----
+  - name: DELIVERS
+    description: "The initiative, milestone or epic that delivers an element. A milestone's delivery sets the element's ready-by."
+    from: [Initiative, Epic, Milestone]
+    to: [Element]
+    attributes:
+      - { name: responsibility, type: enum, enum: DeliveryResponsibility, required: true, description: "PRIMARY: this delivery sets the element's ready-by and owns it. At most one per element. CONTRIBUTING: another platform or initiative contributes." }
+  - name: REPLACES
+    description: "One element takes the place of another. Always between distinct elements."
+    from: [Element]
+    to: [Element]
+  - name: WRAPS
+    description: "One element fronts or encapsulates another."
+    from: [Element]
+    to: [Element]
+  - name: RETIRES
+    description: "An element's arrival ends another."
+    from: [Element]
+    to: [Element]
+  - name: CONTRIBUTES_TO
+    kind: association
+    from: [Initiative]
+    to: [Objective]
+  - name: REALISES
+    description: "An initiative, milestone or epic delivers a use case (a business need), so a roadmap can be laid out by use case."
+    from: [Initiative, Milestone, Epic]
+    to: [UseCase]
+  - name: DEPENDS_ON
+    kind: dependency
+    description: "Planning dependency between line items (initiatives, milestones, epics), recorded at the finest level; coarser ones are rolled up. Float is computed from the bars: the dependent's start (or end) against the prerequisite's start (or end), plus the lag."
+    from: [Initiative, Milestone, Epic]
+    to: [Initiative, Milestone, Epic]
+    attributes:
+      - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_START." }
+      - { name: lagDays, type: integer }
+  - name: ADDRESSES
+    description: "An initiative or epic that remediates a debt item."
+    from: [Initiative, Epic]
+    to: [DebtItem]
+  - name: TIED_TO
+    description: "The milestone at which a transition state is reached."
+    from: [TransitionState]
+    to: [Milestone]
+
+  # ---- Conformance ----
+  - name: BUILT_ON
+    kind: dependency
+    description: "An element is built on a firm-direction artefact or a shared platform. Divergence is computed as a finding."
+    from: [Element]
+    to: [Technology, ReferenceArchitecture, Element]
+  - name: SERVES
+    description: "An element serves a use case, so it inherits the blueprints of the use case's categories."
+    from: [Element]
+    to: [UseCase]
+  - name: IN_CATEGORY
+    kind: classification
+    description: "A use case declares one or more categories."
+    from: [UseCase]
+    to: [UseCaseCategory]
+  - name: GOVERNED_BY
+    description: "A blueprint applies to a use-case category."
+    from: [UseCaseCategory]
+    to: [Blueprint]
+  - name: HAS_RULE
+    kind: containment
+    from: [Blueprint]
+    to: [BlueprintRule]
+  - name: RULE_TARGETS
+    description: "The technology, platform, reference architecture or principle a rule requires or forbids."
+    from: [BlueprintRule]
+    to: [Technology, Element, ReferenceArchitecture, Principle]
+
+  # ---- Lineage and external ----
+  - name: DERIVED_FROM
+    kind: flow
+    description: "Data flow only. It has no timing meaning; a product built from another also consumes its port."
+    from: [DataSet, DataProduct]
+    to: [DataSet, DataProduct]
+  - name: GATED_BY
+    kind: dependency
+    description: "A line item or element cannot be ready before an external constraint is met."
+    from: [Milestone, Epic, Element]
+    to: [ExternalConstraint]
+
+  # ---- Debt ----
+  - name: AFFECTS
+    description: "The element a debt item applies to."
+    from: [DebtItem]
+    to: [Element]
+  - name: FALLS_SHORT_OF
+    description: "The standard or target a debt item falls short of."
+    from: [DebtItem]
+    to: [Technology, ReferenceArchitecture, Principle, Blueprint, BlueprintRule]
+
+  # ---- Ownership ----
+  - name: OWNED_BY
+    kind: ownership
+    forward: in
+    description: "The accountable owner. Mandatory on every node; the validity period dates reorganisations."
+    from: ['*']
+    to: [OrgUnit]
+  - name: ROLE_OWNED_BY
+    kind: ownership
+    forward: in
+    description: "An optional role owner - technical owner, data owner or steward."
+    from: ['*']
+    to: [OrgUnit]
+    attributes:
+      - { name: role, type: enum, enum: OwnerRole, required: true }
+  - name: IN_DOMAIN
+    kind: classification
+    description: "The business domain of a node. Independent of its organisational owner."
+    from: ['*']
+    to: [Domain]
+  - name: ALIGNS_WITH
+    kind: association
+    description: "Optional mapping of a domain to the organisation unit it coincides with."
+    from: [Domain]
+    to: [OrgUnit]
+
+rules:
+  - { id: part-of-acyclic, kind: acyclic, relationship: PART_OF }
+  - { id: depends-on-acyclic, kind: acyclic, relationship: DEPENDS_ON }
+  - { id: derived-from-acyclic, kind: acyclic, relationship: DERIVED_FROM }
+  - { id: replaces-acyclic, kind: acyclic, relationship: REPLACES }
+  - id: single-primary-delivery-per-element
+    kind: uniqueValuePerTarget
+    relationship: DELIVERS
+    attribute: responsibility
+    values: [PRIMARY]
+    description: An element has at most one primary delivery in any validity period, so a shared component has one owner of its delivery.

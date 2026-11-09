@@ -26,6 +26,11 @@ export function loadStarterMetamodel(): Metamodel {
   return parseMetamodel(readFileSync(join(__dirname, '..', 'starter.yaml'), 'utf8'));
 }
 
+/** The roadmap and dependency-risk metamodel (D99-D104): standalone, not a pack on the starter. */
+export function loadRoadmapMetamodel(): Metamodel {
+  return parseMetamodel(readFileSync(join(__dirname, '..', 'roadmap.yaml'), 'utf8'));
+}
+
 /** Cross-reference checks that zod cannot express. */
 export function checkReferences(mm: Metamodel): string[] {
   const issues: string[] = [];
