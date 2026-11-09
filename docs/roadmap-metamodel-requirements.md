@@ -16,13 +16,21 @@ A meta model that lets us **define a roadmap and see what it depends on**. When 
 6. What does the firm direction say we should build on, and where do we diverge (debt)?
 7. If X slips by N weeks, or a plan changes, what is affected?
 
-## 3. Structure: one element registry, four concerns
+## 3. Structure: one element registry, five concerns
 
 **Initiatives and objectives (the "what and why")**
-- Objectives or outcomes that initiatives contribute to. Optionally business capabilities.
-- Big rocks, sub-initiatives and epics, nested so the roadmap reads at portfolio, initiative or epic level. Roadmap items are **milestones and high-level epics**, not task detail.
-- A **use case is a business need** delivered by initiatives, not a work item. It declares one or more categories (section 6).
+- Objectives or outcomes that initiatives contribute to.
+- Big rocks, sub-initiatives and epics, nested so the roadmap reads at portfolio, initiative or epic level. The roadmap is one **Gantt-style view**: lanes of line items on a time scale. A **milestone** is a line item with a start and an end; the **epics** inside it show how it is reached. Neither goes down to task detail.
+- A **use case** is a scoped change close to an initiative, triggered by pain points: it automates, digitises or augments a process or capability. An initiative can drive many use cases. A use case has **no timeline of its own**: it is linked explicitly to an initiative, a milestone or an epic, and takes its timing from them; milestones can be planned around it. It declares one or more categories (section 6).
 - Debt remediation and alignment work are initiatives too.
+
+**Business: capabilities, processes and roles (what the business does, and who does it)**
+- **Capability:** what the firm can do. Stable, separate from a process, and an **optional anchor** of a view.
+- **Process:** a business process, sub-process or step. A process realises a capability. Sub-processes are **shared**: one sub-process can be part of several processes. Levels are configurable and go down to step; the model does not hold flow or sequence (no BPMN detail).
+- **Role:** a kind of user a process needs. A role is separate from the organisation unit that employs the people, and **does not carry a line of defence** (one can still be recorded as an undefined attribute). A role performs, approves, reviews or oversees a process or step.
+- **Support:** a process uses the applications that support it, with dated links, so a planned change is a link that starts in the future.
+- **Data interaction:** a step **reads** data (through a data product's output port, a data set under a data product, or a current data set) or **creates or updates** it. A step can touch **many** data products and data sets, one link each. From the data product side this shows every process that touches a product and how, which is part of the product's lifecycle.
+- **Evolution:** a process has a lifecycle and dates like any element. As-is and to-be are the same process at two dates. A use case changes a process or capability with a kind of change (for example automate, digitise, add AI, replace with an agent; configurable values). The process change is delivered by a milestone or epic, which gives it a go-live.
 
 **Elements (what we build and what exists)**
 - **One registry.** Current and target are not separate sets. Each element has one identity, one accountable owner and a **lifecycle with dates**: planned, building, live, phasing out, retired. "Current landscape" and "target state" are views of the registry as of a date. The gap between them is **derived, not stored**.
@@ -65,10 +73,12 @@ Dependencies are first-class facts, split into families, each with its own trave
 Further rules:
 - Strength: hard blocker or soft.
 - A dependency on a data product targets an **output port or contract version**, not the product as a whole.
-- An element's **ready-by** comes from the milestone that delivers it. A milestone's **needed-by** comes from what depends on it.
+- An element's **ready-by** is the end of the milestone that primarily delivers it.
+- Dependencies are recorded between line items (initiatives, milestones, epics) **at the finest level**, with a type (finish-start, start-start, finish-finish, start-finish) and a lag in days. A coarser dependency is rolled up from those beneath it.
 - Only **committed milestones** are the dates that matter when judging lateness.
 - Dates carry a simple **confidence** (for example high, medium, low).
-- Float is computed per dependency (needed-by minus ready-by).
+- **Derived dependencies:** an element **uses** another, a process **reads** data (it depends on the data being ready), or a process **writes** data (the data depends on the process being live). The dependency in time is **derived** from these facts between the line items that deliver the two ends, finish-finish unless the link says otherwise, so nobody records it twice. A dependency someone records between line items inside the two ends replaces the derived one.
+- Float is computed per dependency from the bars: the dependent's start or end against the prerequisite's start or end, less the lag.
 - Granularity varies freely; rollups must not lose or double-count.
 
 ## 6. Blueprints and use-case categories
@@ -87,6 +97,13 @@ Further rules:
 - **Measure:** severity, deadline, and **exposure** (computed from the number of dependents and affected initiatives).
 - **Debt must be in the roadmap:** every recorded item is planned, accepted or flagged as unplanned. Roadmaps include the debt of what they build on or touch.
 - **Exceptions:** a formally accepted deviation from firm direction, with owner and expiry. "Accepted" debt is an exception.
+
+## 7a. The roadmap view
+
+- **One view**, not several shapes: lanes, line items as bars, epics inside their milestone, dependency arrows between line items at either level, with float derived from the bars. A collapsed milestone still draws the arrows of the epics inside it.
+- **Lanes are chosen when the view is opened:** by platform, by use case, or by another grouping such as domain or organisation unit. The model stores no fixed lane.
+- **The window is chosen too:** the user picks the period to focus on, and only line items overlapping it are drawn.
+- Overlays on the same view: baseline bars for slip, the as-of date, scenarios, confidence and committed marks, and debt and external constraints as flagged items.
 
 ## 8. Time, baselines and what-if
 
@@ -115,6 +132,10 @@ Stored notes are only for human judgement. Signals:
 - new capability planned on an element with unaddressed debt
 - a target element that diverges from firm direction with no accepted exception
 - a use case in several categories whose blueprints conflict, or that satisfies only some rules
+- a process that goes live before the data product it reads is ready (negative float), or a data product whose content waits for a process that is not yet live
+- a live process whose supporting application is being retired with no replacement
+- a process or step with no role, or a role with no process
+- a shared sub-process whose change reaches many processes
 - an external constraint date earlier than the milestone it gates
 - facts not verified within the freshness limit
 

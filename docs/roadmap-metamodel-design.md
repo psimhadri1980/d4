@@ -31,11 +31,19 @@ Every **node attribute that changes over time** (lifecycle, owner, parent) and e
 |---|---|
 | `Objective` | statement, period. Parent Objective optional. |
 | `Initiative` | `level` (portfolio, initiative, sub-initiative; configurable), status. Nests through `partOf`. |
-| `Epic` | High-level scope of an initiative. Part of an Initiative. |
-| `Milestone` | `date`, `confidence` (high, medium, low), `committed` (bool). Belongs to an Initiative or Epic. |
-| `UseCase` | A business need. `categories` (one or more UseCaseCategory). Delivered by Initiatives. |
+| `Epic` | The detail inside a milestone: `start`, `end`, status. Part of a Milestone. |
+| `Milestone` | A line item with `start` and `end` (required), `confidence` (high, medium, low), `committed` (bool). Part of an Initiative; contains Epics. |
+| `UseCase` | A scoped change, with `painPoints`. No dates of its own; realised by an Initiative, Milestone or Epic. One or more UseCaseCategory. Acts on a Process or Capability (`changes`). |
 | `UseCaseCategory` | Governed list owned by central teams. Links to Blueprints. |
 | `TransitionState` | Named intermediate state tied to a Milestone. Owner. The long-term target is a TransitionState flagged `target`. |
+
+### 3.1a Business (what the business does)
+
+| Type | Key attributes |
+|---|---|
+| `Capability` | An `Element` (lifecycle and dates). Stable; an optional anchor of a view. Nests through `partOf`. |
+| `Process` | An `Element`. `level` (L1, L2, L3, step; configurable). Shared: several parents through `partOf`. |
+| `Role` | No line of defence. Separate from OrgUnit. |
 
 ### 3.2 Elements (what we build and what exists)
 
@@ -82,13 +90,18 @@ Direction reads source → target. Every edge has `strength` (`hard`, `soft`) un
 |---|---|---|---|
 | Structure | `partOf` | any child → parent of its own kind | Initiative tree, element tree, org tree, product composition. |
 | Structure | `uses` | element → element | Runtime dependency of one element on another. |
+| Structure | `reads` | Process → OutputPort or DataSet | A step can read many; one link each. A data set under a data product takes its timing from the product. The process depends on the data. `dependencyType`, `lagDays`, `strength`. |
+| Structure | `writes` | Process → DataProduct or DataSet | One or many per step. `operation` (create, update). The data product depends on the process being live. |
+| Structure | `participatesIn` | Role → Process | `participation` (performs, approves, reviews, oversees). |
+| Structure | `realisesCapability` | Process → Capability | |
 | Structure | `consumes` | element or DataProduct → OutputPort | Dependency targets the port and optional `contractVersion`. |
 | Structure | `produces` | element → DataProduct or DataSet | |
-| Change | `delivers` | Epic or Milestone → element, DataProduct or OutputPort | Sets the element's ready-by. |
+| Change | `delivers` | Initiative, Epic or Milestone → element, DataProduct or OutputPort | Carries `responsibility`: `primary` (sets the element's ready-by and owns the delivery; at most one per element) or `contributing` (another platform or initiative helps). |
 | Change | `replaces`, `wraps`, `retires` | element → element | Between distinct elements only. |
 | Change | `contributesTo` | Initiative → Objective | |
-| Change | `realises` | Initiative → UseCase | A use case is delivered by initiatives. |
-| Change | `dependsOn` | Initiative or Milestone → Initiative or Milestone | Planning dependency. |
+| Change | `realises` | Initiative, Milestone or Epic → UseCase | Gives the use case its timing. An initiative can realise many use cases. |
+| Change | `changes` | UseCase → Process or Capability | `changeKind` (automate, digitise, augment with AI, replace with an agent; configurable). |
+| Change | `dependsOn` | Initiative, Milestone or Epic → Initiative, Milestone or Epic | Planning dependency, recorded at the finest level. Carries `dependencyType` (finish-start by default, start-start, finish-finish, start-finish), `lagDays` and `strength`. |
 | Conformance | `builtOn` | element → Technology, ReferenceArchitecture or SharedPlatform | |
 | Conformance | `follows` | UseCase → Blueprint (derived through its categories) | Derived, not edited. |
 | Conformance | `addresses` | Initiative → DebtItem | |
@@ -98,9 +111,11 @@ Direction reads source → target. Every edge has `strength` (`hard`, `soft`) un
 
 ## 5. Timing model
 
-- **ready-by** of an element or OutputPort = date of the earliest Milestone that `delivers` it (or the date `live` starts, if already live).
-- **needed-by** of an edge = date of the earliest **committed** Milestone of the Initiative whose work depends on it.
-- **float** = needed-by minus ready-by, per structure, change and external edge. Negative float is a late dependency.
+- **ready-by** of an element or OutputPort = end of the Milestone whose `delivers` is `primary` (or the date `live` starts, if already live). Contributing deliveries do not set it.
+- **float** of a `dependsOn` edge, from the bars: the dependent's start (finish-start, start-start) or end (finish-finish, start-finish) minus the prerequisite's end (finish-start, finish-finish) or start (start-start, start-finish), less `lagDays`. Negative float is a late dependency, and counts as a risk when the dependent line item belongs to a committed milestone.
+- **Rolling up.** A dependency between epics of different milestones shows at milestone level with the worst float beneath it, so a collapsed milestone still draws its arrows. A dependency recorded only at milestone level gives a coarser, often wrong float.
+- **Derived dependencies.** `uses`, `reads` and `writes` are structural facts; the dependency in time is derived, not stored. For a link, the dependent end and the prerequisite end are each taken to the line item that primarily delivers it (or the nearest part-of ancestor's), and float is computed with the link's `dependencyType` (finish-finish by default) and `lagDays`. For `reads` the process depends on the data; for `writes` it is reversed. A recorded `dependsOn` between line items inside the two ends replaces the derived one.
+- **Roadmap view.** Lanes (platform, use case, domain, organisation unit) and the focus window are chosen when the view is opened; none is stored.
 - **Propagation.** A slip travels along `uses`, `consumes`, `delivers`, `replaces`, `dependsOn` and `gatedBy` toward whatever needs the slipped thing. It does not travel along `builtOn`, `derivedFrom` or `follows`; those raise findings (section 6) but do not move dates.
 - **Confidence.** A milestone's confidence lowers the weight of its signals; it never changes dates.
 - **Critical** = on a path to a committed Milestone with float below a threshold, or having a number of dependents above a threshold. Both thresholds are configuration.

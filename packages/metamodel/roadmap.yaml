@@ -1,5 +1,5 @@
 # D4 roadmap and dependency-risk metamodel. Designed from docs/roadmap-metamodel-requirements.md and
-# docs/roadmap-metamodel-design.md (D99-D104). A standalone metamodel: it does not extend the starter.
+# docs/roadmap-metamodel-design.md (D99-D108). A standalone metamodel: it does not extend the starter.
 #
 # What the platform already provides and this model therefore does not define:
 #   - business time on nodes and relationships (validFrom / validTo), so ownership, parentage and every
@@ -11,15 +11,21 @@
 # Not expressible as rules here, checked by the risk signals instead: every node has an accountable owner
 # (OWNED_BY), a use case's categories are satisfied by what serves it.
 id: d4-roadmap
-version: 0.1.0
+version: 0.4.0
 description: "Roadmap, target and current landscape, data products, firm-wide direction, ownership and debt, for tracing roadmap risk through dependencies."
 
-layers: [Strategy, Planning, Application, Data, Direction, Governance, Organisation]
+layers: [Strategy, Planning, Business, Application, Data, Direction, Governance, Organisation]
 
 enums:
   ElementLifecycle: [PLANNED, BUILDING, LIVE, PHASING_OUT, RETIRED]
   Confidence: [HIGH, MEDIUM, LOW]
   Strength: [HARD, SOFT]
+  DeliveryResponsibility: [PRIMARY, CONTRIBUTING]
+  DependencyType: [FINISH_START, START_START, FINISH_FINISH, START_FINISH]
+  ProcessLevel: [L1, L2, L3, STEP]
+  ChangeKind: [AUTOMATE, DIGITISE, AUGMENT_WITH_AI, REPLACE_WITH_AGENT]
+  WriteOperation: [CREATE, UPDATE]
+  Participation: [PERFORMS, APPROVES, REVIEWS, OVERSEES]
   InitiativeLevel: [PORTFOLIO, INITIATIVE, SUB_INITIATIVE]
   InitiativeStatus: [PROPOSED, ACTIVE, ON_HOLD, DONE, CANCELLED]
   ApplicationKind: [APPLICATION, PLATFORM, COMPONENT, MODULE, AI_USE_CASE, AI_APP, AI_FEATURE]
@@ -59,21 +65,25 @@ nodeTypes:
       - { name: status, type: enum, enum: InitiativeStatus }
   - name: Epic
     layer: Planning
-    description: "High-level scope of an initiative. The roadmap carries epics and milestones, not tasks."
+    description: "The detail inside a milestone: a high-level piece of work with its own start and end. Part of a milestone (PART_OF). The roadmap carries milestones and epics, not tasks."
     attributes:
+      - { name: start, type: date }
+      - { name: end, type: date }
       - { name: status, type: enum, enum: InitiativeStatus }
   - name: Milestone
     layer: Planning
-    description: "A dated delivery point of an initiative or epic. Only committed milestones are the dates that matter for lateness."
+    description: "A line item of the roadmap with a start and an end, part of an initiative. It contains epics that show how it is reached. Only committed milestones are the dates that matter for lateness."
     attributes:
-      - { name: date, type: date, required: true }
+      - { name: start, type: date }
+      - { name: end, type: date, required: true, description: "The date the milestone is reached." }
       - { name: confidence, type: enum, enum: Confidence }
       - { name: committed, type: boolean }
   - name: UseCase
     layer: Planning
-    description: "A business need, delivered by initiatives (REALISES) and served by elements (SERVES). It declares one or more categories."
+    description: "A scoped change close to an initiative, triggered by pain points: it automates, digitises or augments a process or capability. It has no timeline of its own; it is timed through the initiative, milestone or epic that realises it (REALISES). An initiative can drive many use cases. It declares one or more categories."
     attributes:
       - { name: statement, type: text }
+      - { name: painPoints, type: text }
   - name: UseCaseCategory
     layer: Planning
     description: "A governed category of use cases (owned by the central teams). Blueprints apply to categories."
@@ -108,6 +118,16 @@ nodeTypes:
       - { name: phasingOutFrom, type: date }
       - { name: retiredFrom, type: date }
       - { name: central, type: boolean, description: "Owned by a central team and offered to others to build on (a shared platform)." }
+  - name: Capability
+    layer: Business
+    extends: Element
+    description: "What the firm can do. Stable, and an optional anchor of a view. Realised by processes (REALISES_CAPABILITY), nests through PART_OF."
+  - name: Process
+    layer: Business
+    extends: Element
+    description: "A business process, sub-process or step. Shared: a sub-process can be part of several processes (PART_OF). Roles take part in it, it uses applications (USES) and reads and writes data. It has a lifecycle and dates like any element, and is changed by use cases."
+    attributes:
+      - { name: level, type: enum, enum: ProcessLevel }
   - name: ApplicationElement
     layer: Application
     extends: Element
@@ -189,6 +209,9 @@ nodeTypes:
     description: "A node of the organisation, Group to Crew. One parent at a time, dated through PART_OF."
     attributes:
       - { name: level, type: enum, enum: OrgLevel, required: true }
+  - name: Role
+    layer: Organisation
+    description: "A kind of user a process needs, such as a relationship manager or a credit analyst. Separate from the organisation unit that employs the people. It does not carry a line of defence; one can still be recorded as an undefined attribute."
   - name: Domain
     layer: Organisation
     description: "A business area. Separate from the organisation; it sometimes coincides with a Tower or Stream."
@@ -198,16 +221,18 @@ relationshipTypes:
   - name: PART_OF
     kind: containment
     forward: in
-    description: "Child to parent - initiative trees, epics and milestones of an initiative, element composition, output ports of a product, objectives, the organisation."
+    description: "Child to parent - initiative trees, milestones of an initiative, epics of a milestone, element composition, output ports of a product, objectives, the organisation."
     from: [Initiative, Epic, Milestone, Element, Objective, OrgUnit]
-    to: [Initiative, Epic, Element, Objective, OrgUnit]
+    to: [Initiative, Milestone, Element, Objective, OrgUnit]
   - name: USES
     kind: dependency
-    description: "Runtime dependency of one element on another."
+    description: "Runtime dependency of one element on another; a process uses the applications that support it. A dependency in time is derived from it (see DEPENDS_ON); dependencyType and lagDays tune it."
     from: [Element]
     to: [Element]
     attributes:
       - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_FINISH when derived." }
+      - { name: lagDays, type: integer }
   - name: CONSUMES
     kind: dependency
     description: "A consumer depends on an output port, optionally at a contract version, not on the product as a whole."
@@ -220,12 +245,50 @@ relationshipTypes:
     kind: flow
     from: [Element]
     to: [DataSet, DataProduct]
+  - name: READS
+    kind: flow
+    forward: in
+    description: "A process or step consumes data, through a data product's output port or a data set (one under a data product, or a current one). A step can read many; one link each. The process depends on the data being ready; a dependency in time is derived from it."
+    from: [Process]
+    to: [OutputPort, DataSet]
+    attributes:
+      - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_FINISH when derived." }
+      - { name: lagDays, type: integer }
+  - name: WRITES
+    kind: flow
+    description: "A process or step creates or updates data: one or many data products or data sets, one link each. The data product depends on the process being live as its source; a dependency in time is derived from it, in the opposite direction to READS."
+    from: [Process]
+    to: [DataProduct, DataSet]
+    attributes:
+      - { name: operation, type: enum, enum: WriteOperation, required: true }
+      - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_FINISH when derived." }
+      - { name: lagDays, type: integer }
+  - name: PARTICIPATES_IN
+    description: "A role performs, approves, reviews or oversees a process or step."
+    from: [Role]
+    to: [Process]
+    attributes:
+      - { name: participation, type: enum, enum: Participation, required: true }
+  - name: REALISES_CAPABILITY
+    description: "A process realises a capability."
+    from: [Process]
+    to: [Capability]
+  - name: CHANGES
+    description: "A use case acts on a process or capability: automate, digitise, augment with AI, replace with an agent."
+    from: [UseCase]
+    to: [Process, Capability]
+    attributes:
+      - { name: changeKind, type: enum, enum: ChangeKind }
 
   # ---- Change ----
   - name: DELIVERS
-    description: "The epic or milestone that delivers an element. Sets the element's ready-by."
-    from: [Epic, Milestone]
+    description: "The initiative, milestone or epic that delivers an element. A milestone's delivery sets the element's ready-by."
+    from: [Initiative, Epic, Milestone]
     to: [Element]
+    attributes:
+      - { name: responsibility, type: enum, enum: DeliveryResponsibility, required: true, description: "PRIMARY: this delivery sets the element's ready-by and owns it. At most one per element. CONTRIBUTING: another platform or initiative contributes." }
   - name: REPLACES
     description: "One element takes the place of another. Always between distinct elements."
     from: [Element]
@@ -243,16 +306,18 @@ relationshipTypes:
     from: [Initiative]
     to: [Objective]
   - name: REALISES
-    description: "An initiative delivers a use case (a business need)."
-    from: [Initiative]
+    description: "An initiative, milestone or epic delivers a use case (a business need), so a roadmap can be laid out by use case."
+    from: [Initiative, Milestone, Epic]
     to: [UseCase]
   - name: DEPENDS_ON
     kind: dependency
-    description: "Planning dependency between initiatives or milestones."
-    from: [Initiative, Milestone]
-    to: [Initiative, Milestone]
+    description: "Planning dependency between line items (initiatives, milestones, epics), recorded at the finest level; coarser ones are rolled up. Float is computed from the bars: the dependent's start (or end) against the prerequisite's start (or end), plus the lag."
+    from: [Initiative, Milestone, Epic]
+    to: [Initiative, Milestone, Epic]
     attributes:
       - { name: strength, type: enum, enum: Strength }
+      - { name: dependencyType, type: enum, enum: DependencyType, description: "Default FINISH_START." }
+      - { name: lagDays, type: integer }
   - name: ADDRESSES
     description: "An initiative or epic that remediates a debt item."
     from: [Initiative, Epic]
@@ -298,8 +363,8 @@ relationshipTypes:
     to: [DataSet, DataProduct]
   - name: GATED_BY
     kind: dependency
-    description: "A milestone or element cannot be ready before an external constraint is met."
-    from: [Milestone, Element]
+    description: "A line item or element cannot be ready before an external constraint is met."
+    from: [Milestone, Epic, Element]
     to: [ExternalConstraint]
 
   # ---- Debt ----
@@ -343,3 +408,9 @@ rules:
   - { id: depends-on-acyclic, kind: acyclic, relationship: DEPENDS_ON }
   - { id: derived-from-acyclic, kind: acyclic, relationship: DERIVED_FROM }
   - { id: replaces-acyclic, kind: acyclic, relationship: REPLACES }
+  - id: single-primary-delivery-per-element
+    kind: uniqueValuePerTarget
+    relationship: DELIVERS
+    attribute: responsibility
+    values: [PRIMARY]
+    description: An element has at most one primary delivery in any validity period, so a shared component has one owner of its delivery.
